@@ -32,7 +32,7 @@
             padding: 30px;
             border-radius: 24px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            width: 500px; /* 適合 10x16 直式畫布 */
+            width: 500px;
             text-align: center;
             box-sizing: border-box;
             margin: 20px;
@@ -44,26 +44,29 @@
 
         .name-input-group { margin-bottom: 20px; }
         input {
-            padding: 12px;
-            font-size: 18px;
+            padding: 10px; /* 縮小內距 */
+            font-size: 16px; /* 縮小字體 */
             border: 2px solid #e1e8ed;
             border-radius: 12px;
-            width: 240px;
+            width: 200px; /* 縮小寬度以配合按鈕 */
             text-align: center;
             outline: none;
         }
 
+        /* --- CSS 按鈕修改重點 --- */
         .btn {
-            padding: 14px 0;
-            font-size: 18px;
-            margin: 8px 0;
+            padding: 10px 0; /* 縮小垂直內距 (原本 14px) */
+            font-size: 16px; /* 縮小字體 (原本 18px) */
+            margin: 6px 0;   /* 縮小間距 (原本 8px) */
             border: none;
             border-radius: 50px;
             cursor: pointer;
-            width: 240px;
+            width: 200px;    /* 縮小寬度 (原本 240px) */
             font-weight: bold;
             transition: transform 0.2s;
         }
+        /* ----------------------- */
+
         .btn-start { background: var(--secondary-color); color: white; }
         .btn-rank { background: var(--primary-color); color: white; }
         .btn-upload { background: #f39c12; color: white; }
@@ -81,7 +84,7 @@
         canvas { background: #fff; border-radius: 8px; cursor: default; display: block; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 10px; border-bottom: 1px solid #eee; font-size: 16px; }
+        th, td { padding: 8px; border-bottom: 1px solid #eee; font-size: 15px; } /* 表格也稍微縮小一點 */
         
         .result-score { font-size: 64px; font-weight: bold; color: var(--primary-color); margin: 10px 0; }
 
@@ -118,7 +121,7 @@
         <div id="game-canvas-container">
             <canvas id="gameCanvas" width="400" height="640"></canvas>
         </div>
-        <button class="btn btn-back" onclick="triggerCanvasConfirm()" style="width: 180px; font-size: 14px;">結束遊戲</button>
+        <button class="btn btn-back" onclick="triggerCanvasConfirm()" style="width: 160px; font-size: 14px;">結束遊戲</button>
     </div>
 
     <div id="screen-result" class="screen">
@@ -130,19 +133,25 @@
     </div>
 
 <script>
+    // 請確保這是你最新部署的 /exec 網址
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbywi6spIec2aA3gD9gQbDu1w-4XJZ0wy3ZDdTWGlMX33FYZtuk7kmQjN7OKxJlJHkGr/exec";
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const ROWS = 16, COLS = 10, GRID_SIZE = 40, MARGIN = 3;
 
-    let grid = [], score = 0, timeLeft = 60, gameActive = false, isConfirmingQuit = false; // 起始時間改為 60
+    let grid = [], score = 0, timeLeft = 60, gameActive = false, isConfirmingQuit = false;
     let isDragging = false, startPos = { x: 0, y: 0 }, currentPos = { x: 0, y: 0 };
     let currentPlayerName = "無名英雄";
     
     let particles = [];
     const pColors = ['#f1c40f', '#e67e22', '#e74c3c', '#3498db', '#2ecc71'];
 
-    const btnRestart = { x: 50, y: 345, w: 140, h: 48 };
-    const btnQuit = { x: 210, y: 345, w: 140, h: 48 };
+    // --- Canvas 按鈕修改重點 ---
+    // 縮小寬度(w)和高度(h)，並重新計算 x 座標以保持置中
+    const btnRestart = { x: 70, y: 350, w: 120, h: 40 }; // 原本 w:140, h:48
+    const btnQuit = { x: 210, y: 350, w: 120, h: 40 };    // 原本 w:140, h:48
+    // -------------------------
 
     let lastTime = 0, timerAccumulator = 0;
 
@@ -156,7 +165,7 @@
     function startGame() {
         currentPlayerName = document.getElementById('home-player-name').value.trim() || "無名英雄";
         showScreen('screen-game');
-        score = 0; timeLeft = 60; gameActive = true; isConfirmingQuit = false; particles = []; // 重置為 60 秒
+        score = 0; timeLeft = 60; gameActive = true; isConfirmingQuit = false; particles = [];
         document.getElementById('score').innerText = score;
         document.getElementById('timer').innerText = timeLeft;
         initGrid();
@@ -196,8 +205,6 @@
     }
 
     function spawnParticles(x, y) {
-        // 已移除飄浮文字邏輯
-        // 僅保留爆炸粒子
         for (let i = 0; i < 20; i++) {
             const ang = Math.random() * Math.PI * 2;
             const spd = Math.random() * 4 + 2;
@@ -252,7 +259,9 @@
 
     function drawCanvasButton(btn, color, text) {
         ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 24); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff'; 
+        ctx.font = 'bold 16px Arial'; // 縮小 Canvas 按鈕字體 (原本 18px)
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(text, btn.x + btn.w/2, btn.y + btn.h/2);
     }
 
@@ -282,7 +291,6 @@
         isDragging = false;
         let selected = grid.flat().filter(cell => !cell.removed && cell.active);
         if (selected.reduce((s, c) => s + c.val, 0) === 10 && selected.length > 0) {
-            // 時間增加獎勵：每成功框選一次增加 5 秒
             timeLeft += 5;
             document.getElementById('timer').innerText = timeLeft;
 
@@ -299,7 +307,7 @@
             const gained = selected.length * 100;
             score += gained;
             document.getElementById('score').innerText = score;
-            spawnParticles(cx, cy); // 觸發噴發粒子 (不包含文字)
+            spawnParticles(cx, cy);
             selected.forEach(c => c.removed = true);
         }
         grid.flat().forEach(c => c.active = false);
@@ -325,15 +333,10 @@
         showScreen('screen-result');
     }
 
-    // 請確保填入你最新部署的 /exec 網址
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbywi6spIec2aA3gD9gQbDu1w-4XJZ0wy3ZDdTWGlMX33FYZtuk7kmQjN7OKxJlJHkGr/exec";
-
-    // 1. 更新上傳成績函式
+    // --- fetch 通訊 (GitHub Pages 用) ---
     async function submitScore() {
         const b = document.getElementById('upload-btn');
-        b.disabled = true;
-        b.innerText = "上傳中...";
-
+        b.disabled = true; b.innerText = "上傳中...";
         try {
             const resp = await fetch(GAS_URL, {
                 method: "POST",
@@ -344,25 +347,22 @@
             alert("🎉 成績上傳成功！");
             showLeaderboard();
         } catch (e) {
-            console.error("上傳失敗:", e);
+            console.error(e);
             alert("上傳失敗，請稍後再試");
-            b.disabled = false;
-            b.innerText = "重試上傳";
+            b.disabled = false; b.innerText = "重試上傳";
         }
     }
 
-    // 2. 更新顯示排行榜函式
     async function showLeaderboard() {
         showScreen('screen-rank');
         const tbody = document.getElementById('rank-body'); 
         tbody.innerHTML = "<tr><td colspan='3'>同步雲端數據中...</td></tr>";
-
         try {
-            const resp = await fetch(GAS_URL);
+            const resp = await fetch(GAS_URL); // GET 請求取得排行
             const ranks = await resp.json();
             renderTable(ranks);
         } catch (e) {
-            console.error("讀取失敗:", e);
+            console.error(e);
             const localRanks = JSON.parse(localStorage.getItem('math_game_rank')) || [];
             renderTable(localRanks);
         }
