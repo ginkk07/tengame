@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>圈十遊戲</title>
+    <title>圈十遊戲 - Bug Fix 版</title>
     <style>
         :root {
             --primary-color: #4a90e2;
@@ -22,7 +22,6 @@
             align-items: center;
             min-height: 100vh;
             color: var(--text-color);
-            /* 防止手機版下拉更新 */
             overscroll-behavior-y: contain;
         }
 
@@ -34,7 +33,7 @@
             padding: 30px;
             border-radius: 24px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            width: 95%; /* 手機版寬度彈性化 */
+            width: 95%;
             max-width: 500px;
             text-align: center;
             box-sizing: border-box;
@@ -82,7 +81,6 @@
         }
         #game-canvas-container { background: #eee; padding: 5px; border-radius: 12px; }
         
-        /* 💡 關鍵修正：防止手機拖曳畫面 */
         canvas { 
             background: #fff; 
             border-radius: 8px; 
@@ -157,23 +155,60 @@
     const btnQuit = { x: 210, y: 350, w: 120, h: 40 };
 
     let lastTime = 0, timerAccumulator = 0;
+    // 💡 關鍵修復：新增一個變數來存放動畫幀 ID
+    let gameAnimationFrameId = null;
 
     function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
-    function showHome() { showScreen('screen-home'); gameActive = false; }
+    
+    // 💡 關鍵修復：回到主選單時，必須徹底停止遊戲運算
+    function showHome() { 
+        stopGameEngine();
+        showScreen('screen-home'); 
+    }
+
+    function stopGameEngine() {
+        gameActive = false;
+        if (gameAnimationFrameId) {
+            cancelAnimationFrame(gameAnimationFrameId);
+            gameAnimationFrameId = null;
+        }
+    }
 
     function startGame() {
+        // 如果舊的還在跑，先強制停止
+        stopGameEngine();
+
         currentPlayerName = document.getElementById('home-player-name').value.trim() || "無名英雄";
         localStorage.setItem('savedPlayerName', currentPlayerName);
+        
         showScreen('screen-game');
         score = 0; timeLeft = 60; gameActive = true; isConfirmingQuit = false; particles = [];
         document.getElementById('score').innerText = score;
         document.getElementById('timer').innerText = timeLeft;
         initGrid();
+        
         lastTime = performance.now();
-        requestAnimationFrame(gameLoop);
+        timerAccumulator = 0; // 重置時間累積器
+        gameAnimationFrameId = requestAnimationFrame(gameLoop);
     }
 
-    function gameLoop(t) { if (!gameActive) return; const dt = t - lastTime; lastTime = t; timerAccumulator += dt; if (timerAccumulator >= 1000) { timeLeft--; document.getElementById('timer').innerText = timeLeft; timerAccumulator -= 1000; if (timeLeft <= 0) { endGame(); return; } } render(); requestAnimationFrame(gameLoop); }
+    function gameLoop(t) { 
+        if (!gameActive) return; 
+        
+        const dt = t - lastTime; 
+        lastTime = t; 
+        timerAccumulator += dt; 
+
+        if (timerAccumulator >= 1000) { 
+            timeLeft--; 
+            document.getElementById('timer').innerText = timeLeft; 
+            timerAccumulator -= 1000; 
+            if (timeLeft <= 0) { endGame(); return; } 
+        } 
+        render(); 
+        // 💡 紀錄新的 Frame ID
+        gameAnimationFrameId = requestAnimationFrame(gameLoop); 
+    }
 
     function initGrid() {
         const total = ROWS * COLS, nums = [];
@@ -195,7 +230,6 @@
     }
     function drawCanvasButton(btn, color, text) { ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 24); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, btn.x + btn.w/2, btn.y + btn.h/2); }
 
-    // 💡 指標事件：自動處理滑鼠與手機觸控，防止畫面被拉走
     canvas.addEventListener('pointerdown', (e) => {
         if (!gameActive) return;
         const rect = canvas.getBoundingClientRect();
@@ -204,7 +238,11 @@
         
         if (isConfirmingQuit) {
             if (isInside(mx, my, btnRestart)) startGame();
-            else if (isInside(mx, my, btnQuit)) { gameActive = false; showHome(); }
+            else if (isInside(mx, my, btnQuit)) { 
+                // 💡 按下結束時，呼叫停止引擎函式
+                stopGameEngine();
+                showHome(); 
+            }
             else { isConfirmingQuit = false; }
             return;
         }
@@ -215,10 +253,7 @@
     window.addEventListener('pointermove', (e) => {
         if (!isDragging || !gameActive || isConfirmingQuit) return;
         const rect = canvas.getBoundingClientRect();
-        currentPos = { 
-            x: (e.clientX - rect.left) * (canvas.width / rect.width), 
-            y: (e.clientY - rect.top) * (canvas.height / rect.height) 
-        };
+        currentPos = { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) };
         updateActiveStates();
     });
 
@@ -247,7 +282,11 @@
         }
     }
     function isInside(mx, my, btn) { return mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h; }
-    function endGame() { gameActive = false; document.getElementById('final-result-score').innerText = score; document.getElementById('result-player-display').innerText = `Player: ${currentPlayerName}`; const b = document.getElementById('upload-btn'); b.disabled = false; b.innerText = "上傳成績"; showScreen('screen-result'); }
+    
+    function endGame() { 
+        stopGameEngine(); // 💡 結束時也停止引擎
+        document.getElementById('final-result-score').innerText = score; document.getElementById('result-player-display').innerText = `Player: ${currentPlayerName}`; const b = document.getElementById('upload-btn'); b.disabled = false; b.innerText = "上傳成績"; showScreen('screen-result'); 
+    }
 
     async function submitScore() { const b = document.getElementById('upload-btn'); b.disabled = true; b.innerText = "上傳中..."; try { const resp = await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ name: currentPlayerName, score: score }) }); const ranks = await resp.json(); localStorage.setItem('math_game_rank', JSON.stringify(ranks)); alert("🎉 成績上傳成功！"); showLeaderboard(); } catch (e) { alert("上傳失敗"); b.disabled = false; b.innerText = "重試上傳"; } }
     async function showLeaderboard() { showScreen('screen-rank'); const tbody = document.getElementById('rank-body'); tbody.innerHTML = "<tr><td colspan='3'>同步中...</td></tr>"; try { const resp = await fetch(GAS_URL); const ranks = await resp.json(); renderTable(ranks); } catch (e) { renderTable(JSON.parse(localStorage.getItem('math_game_rank')) || []); } }
