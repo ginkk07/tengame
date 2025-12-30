@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>圈十遊戲</title>
+    <title>圈十遊戲 - UX 優化版</title>
     <style>
         :root {
             --primary-color: #4a90e2;
@@ -44,29 +44,26 @@
 
         .name-input-group { margin-bottom: 20px; }
         input {
-            padding: 10px; /* 縮小內距 */
-            font-size: 18px; /* 縮小字體 */
+            padding: 10px;
+            font-size: 16px;
             border: 2px solid #e1e8ed;
             border-radius: 12px;
-            width: 200px; /* 縮小寬度以配合按鈕 */
+            width: 200px;
             text-align: center;
             outline: none;
         }
 
-        /* --- CSS 按鈕修改重點 --- */
         .btn {
-            padding: 10px 0; /* 縮小垂直內距 (原本 14px) */
-            font-size: 18px; /* 縮小字體 (原本 18px) */
-            margin: 6px 0;   /* 縮小間距 (原本 8px) */
+            padding: 10px 0;
+            font-size: 16px;
+            margin: 6px 0;
             border: none;
             border-radius: 50px;
             cursor: pointer;
-            width: 220px;    /* 縮小寬度 (原本 240px) */
+            width: 200px;
             font-weight: bold;
             transition: transform 0.2s;
         }
-        /* ----------------------- */
-
         .btn-start { background: var(--secondary-color); color: white; }
         .btn-rank { background: var(--primary-color); color: white; }
         .btn-upload { background: #f39c12; color: white; }
@@ -84,7 +81,7 @@
         canvas { background: #fff; border-radius: 8px; cursor: default; display: block; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 8px; border-bottom: 1px solid #eee; font-size: 15px; } /* 表格也稍微縮小一點 */
+        th, td { padding: 8px; border-bottom: 1px solid #eee; font-size: 15px; }
         
         .result-score { font-size: 64px; font-weight: bold; color: var(--primary-color); margin: 10px 0; }
 
@@ -98,14 +95,14 @@
     <div id="screen-home" class="screen active">
         <h1>圈十遊戲</h1>
         <div class="name-input-group">
-            <input type="text" id="home-player-name" value="無名英雄" maxlength="10">
+            <input type="text" id="home-player-name" placeholder="輸入玩家名稱" maxlength="10">
         </div>
         <button class="btn btn-start" onclick="startGame()">開始遊戲</button>
         <button class="btn btn-rank" onclick="showLeaderboard()">排行榜</button>
     </div>
 
     <div id="screen-rank" class="screen">
-        <h1>排行榜</h1>
+        <h1>全球排行榜</h1>
         <table id="rank-table">
             <thead><tr><th>排名</th><th>玩家</th><th>得分</th></tr></thead>
             <tbody id="rank-body"></tbody>
@@ -133,7 +130,6 @@
     </div>
 
 <script>
-    // 請確保這是你最新部署的 /exec 網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbywi6spIec2aA3gD9gQbDu1w-4XJZ0wy3ZDdTWGlMX33FYZtuk7kmQjN7OKxJlJHkGr/exec";
 
     const canvas = document.getElementById('gameCanvas');
@@ -147,11 +143,8 @@
     let particles = [];
     const pColors = ['#f1c40f', '#e67e22', '#e74c3c', '#3498db', '#2ecc71'];
 
-    // --- Canvas 按鈕修改重點 ---
-    // 縮小寬度(w)和高度(h)，並重新計算 x 座標以保持置中
-    const btnRestart = { x: 75, y: 345, w: 120, h: 40 }; // 原本 w:140, h:48
-    const btnQuit = { x: 205, y: 345, w: 120, h: 40 };    // 原本 w:140, h:48
-    // -------------------------
+    const btnRestart = { x: 70, y: 350, w: 120, h: 40 };
+    const btnQuit = { x: 210, y: 350, w: 120, h: 40 };
 
     let lastTime = 0, timerAccumulator = 0;
 
@@ -164,6 +157,10 @@
 
     function startGame() {
         currentPlayerName = document.getElementById('home-player-name').value.trim() || "無名英雄";
+        
+        // 💡 UX 更新：儲存名稱
+        localStorage.setItem('savedPlayerName', currentPlayerName);
+        
         showScreen('screen-game');
         score = 0; timeLeft = 60; gameActive = true; isConfirmingQuit = false; particles = [];
         document.getElementById('score').innerText = score;
@@ -259,10 +256,9 @@
 
     function drawCanvasButton(btn, color, text) {
         ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 24); ctx.fill();
-        ctx.fillStyle = '#fff'; 
-        ctx.font = 'bold 18px Arial'; // 縮小 Canvas 按鈕字體 (原本 18px)
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(text, btn.x + btn.w/2, btn.y + btn.h/2 + 2);
+        ctx.fillText(text, btn.x + btn.w/2, btn.y + btn.h/2);
     }
 
     canvas.addEventListener('mousedown', (e) => {
@@ -333,7 +329,6 @@
         showScreen('screen-result');
     }
 
-    // --- fetch 通訊 (GitHub Pages 用) ---
     async function submitScore() {
         const b = document.getElementById('upload-btn');
         b.disabled = true; b.innerText = "上傳中...";
@@ -348,8 +343,7 @@
             showLeaderboard();
         } catch (e) {
             console.error(e);
-            alert("上傳失敗，請稍後再試");
-            b.disabled = false; b.innerText = "重試上傳";
+            alert("上傳失敗"); b.disabled = false; b.innerText = "重試上傳";
         }
     }
 
@@ -358,7 +352,7 @@
         const tbody = document.getElementById('rank-body'); 
         tbody.innerHTML = "<tr><td colspan='3'>同步雲端數據中...</td></tr>";
         try {
-            const resp = await fetch(GAS_URL); // GET 請求取得排行
+            const resp = await fetch(GAS_URL);
             const ranks = await resp.json();
             renderTable(ranks);
         } catch (e) {
@@ -382,6 +376,14 @@
             return `<tr class="${rankClass}"><td>${medal}${i + 1}</td><td>${r.name || '-'}</td><td style="font-weight:bold">${r.score || 0}</td></tr>`;
         }).join('');
     }
+
+    // 💡 UX 更新：頁面載入時讀取名稱
+    window.addEventListener('load', () => {
+        const savedName = localStorage.getItem('savedPlayerName');
+        if (savedName) {
+            document.getElementById('home-player-name').value = savedName;
+        }
+    });
 </script>
 </body>
 </html>
