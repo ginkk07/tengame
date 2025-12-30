@@ -325,29 +325,47 @@
         showScreen('screen-result');
     }
 
-    function submitScore() {
+    // 請確保填入你最新部署的 /exec 網址
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbywi6spIec2aA3gD9gQbDu1w-4XJZ0wy3ZDdTWGlMX33FYZtuk7kmQjN7OKxJlJHkGr/exec";
+
+    // 1. 更新上傳成績函式
+    async function submitScore() {
         const b = document.getElementById('upload-btn');
-        b.disabled = true; b.innerText = "上傳中...";
-        google.script.run
-            .withSuccessHandler(function(ranks) {
-                localStorage.setItem('math_game_rank', JSON.stringify(ranks));
-                alert("🎉 成績上傳成功！");
-                showLeaderboard();
-            })
-            .withFailureHandler(function(e) {
-                alert("上傳失敗"); b.disabled = false; b.innerText = "重試上傳";
-            })
-            .saveScoreData({ name: currentPlayerName, score: score });
+        b.disabled = true;
+        b.innerText = "上傳中...";
+
+        try {
+            const resp = await fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify({ name: currentPlayerName, score: score })
+            });
+            const ranks = await resp.json();
+            localStorage.setItem('math_game_rank', JSON.stringify(ranks));
+            alert("🎉 成績上傳成功！");
+            showLeaderboard();
+        } catch (e) {
+            console.error("上傳失敗:", e);
+            alert("上傳失敗，請稍後再試");
+            b.disabled = false;
+            b.innerText = "重試上傳";
+        }
     }
 
-    function showLeaderboard() {
+    // 2. 更新顯示排行榜函式
+    async function showLeaderboard() {
         showScreen('screen-rank');
         const tbody = document.getElementById('rank-body'); 
         tbody.innerHTML = "<tr><td colspan='3'>同步雲端數據中...</td></tr>";
-        google.script.run
-            .withSuccessHandler(function(ranks) { renderTable(ranks); })
-            .withFailureHandler(function(e) { renderTable(JSON.parse(localStorage.getItem('math_game_rank')) || []); })
-            .getRankData();
+
+        try {
+            const resp = await fetch(GAS_URL);
+            const ranks = await resp.json();
+            renderTable(ranks);
+        } catch (e) {
+            console.error("讀取失敗:", e);
+            const localRanks = JSON.parse(localStorage.getItem('math_game_rank')) || [];
+            renderTable(localRanks);
+        }
     }
 
     function renderTable(ranks) {
