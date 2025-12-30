@@ -23,6 +23,14 @@
             min-height: 100vh;
             color: var(--text-color);
         }
+        canvas {
+            background: #fff;
+            border-radius: 8px;
+            cursor: default;
+            display: block;
+            /* 💡 防止手機上拖曳時觸發網頁捲動或縮放 */
+            touch-action: none; 
+        }
 
         .screen {
             display: none;
