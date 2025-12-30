@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>圈十遊戲 - Bug Fix 版</title>
+    <title>圈十遊戲</title>
     <style>
         :root {
             --primary-color: #4a90e2;
@@ -262,7 +262,7 @@
         isDragging = false;
         let selected = grid.flat().filter(cell => !cell.removed && cell.active);
         if (selected.reduce((s, c) => s + c.val, 0) === 10 && selected.length > 0) {
-            timeLeft += 5; document.getElementById('timer').innerText = timeLeft;
+            timeLeft += 3; document.getElementById('timer').innerText = timeLeft;
             let minC=COLS, maxC=0, minR=ROWS, maxR=0;
             grid.forEach((row, r) => row.forEach((cell, c) => { if(cell.active && !cell.removed) { minC=Math.min(minC, c); maxC=Math.max(maxC, c); minR=Math.min(minR, r); maxR=Math.max(maxR, r); } }));
             const cx = (minC + maxC + 1) * GRID_SIZE / 2, cy = (minR + maxR + 1) * GRID_SIZE / 2;
