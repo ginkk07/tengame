@@ -260,7 +260,7 @@
     function drawCanvasButton(btn, color, text) {
         ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 24); ctx.fill();
         ctx.fillStyle = '#fff'; 
-        ctx.font = 'bold 16px Arial'; // 縮小 Canvas 按鈕字體 (原本 18px)
+        ctx.font = 'bold 18px Arial'; // 縮小 Canvas 按鈕字體 (原本 18px)
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(text, btn.x + btn.w/2, btn.y + btn.h/2);
     }
