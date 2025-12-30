@@ -12,7 +12,7 @@
             --text-color: #2c3e50;
         }
 
-        /* 💡 修正 2: 禁止選取文字與系統手勢 */
+        /* 修正 2: 禁止選取文字與系統手勢 */
         * {
             -webkit-tap-highlight-color: transparent;
             user-select: none;
@@ -186,7 +186,7 @@
         const dt = t - lastTime; lastTime = t; timerAccumulator += dt;
         if (timerAccumulator >= 1000) { timeLeft--; document.getElementById('timer').innerText = timeLeft; timerAccumulator -= 1000; if (timeLeft <= 0) { endGame(); return; } }
         
-        // 💡 效能優化：在每幀繪製前更新狀態
+        // 效能優化：在每幀繪製前更新狀態
         if (isDragging) updateActiveStates();
         
         render();
@@ -213,7 +213,7 @@
     }
     function drawCanvasButton(btn, color, text) { ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 24); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, btn.x + btn.w/2, btn.y + btn.h/2); }
 
-    // 💡 修正 3: 座標捕捉優化
+    // 修正 3: 座標捕捉優化
     function getPointerPos(e) {
         const rect = canvas.getBoundingClientRect();
         return {
@@ -285,3 +285,4 @@
 </script>
 </body>
 </html>
+
