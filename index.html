@@ -2,15 +2,22 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>圈十遊戲</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>圈十遊戲 - 手機流暢版</title>
     <style>
         :root {
             --primary-color: #4a90e2;
             --secondary-color: #27ae60;
             --bg-color: #f0f4f8;
-            --tile-active: #ffbe76;
             --text-color: #2c3e50;
+        }
+
+        /* 💡 修正 2: 禁止選取文字與系統手勢 */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
         }
 
         body {
@@ -22,7 +29,8 @@
             align-items: center;
             min-height: 100vh;
             color: var(--text-color);
-            overscroll-behavior-y: contain;
+            overscroll-behavior-y: contain; /* 防止下拉重新整理 */
+            overflow: hidden; /* 防止頁面捲動 */
         }
 
         .screen {
@@ -30,21 +38,19 @@
             flex-direction: column;
             align-items: center;
             background: white;
-            padding: 30px;
+            padding: 25px;
             border-radius: 24px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            width: 95%;
-            max-width: 500px;
+            width: 92%;
+            max-width: 450px;
             text-align: center;
             box-sizing: border-box;
-            margin: 10px;
         }
 
         .screen.active { display: flex; }
 
-        h1 { font-size: 32px; margin: 0 0 20px 0; color: var(--primary-color); }
+        h1 { font-size: 32px; margin: 0 0 15px 0; color: var(--primary-color); }
 
-        .name-input-group { margin-bottom: 20px; }
         input {
             padding: 10px;
             font-size: 16px;
@@ -53,10 +59,12 @@
             width: 180px;
             text-align: center;
             outline: none;
+            user-select: auto; /* 允許輸入框選取 */
+            -webkit-user-select: auto;
         }
 
         .btn {
-            padding: 10px 0;
+            padding: 12px 0;
             font-size: 16px;
             margin: 6px 0;
             border: none;
@@ -64,8 +72,9 @@
             cursor: pointer;
             width: 180px;
             font-weight: bold;
-            transition: transform 0.2s;
+            transition: transform 0.1s;
         }
+        .btn:active { transform: scale(0.95); } /* 增加按壓回饋 */
         .btn-start { background: var(--secondary-color); color: white; }
         .btn-rank { background: var(--primary-color); color: white; }
         .btn-upload { background: #f39c12; color: white; }
@@ -79,23 +88,21 @@
             font-size: 20px;
             font-weight: bold;
         }
-        #game-canvas-container { background: #eee; padding: 5px; border-radius: 12px; }
+
+        #game-canvas-container { background: #eee; padding: 4px; border-radius: 12px; position: relative; }
         
         canvas { 
             background: #fff; 
             border-radius: 8px; 
             display: block; 
-            touch-action: none; 
-            max-width: 100%;
+            touch-action: none; /* 💡 修正 1: 徹底禁止畫布捲動行為 */
+            width: 100%;
             height: auto;
         }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; }
         th, td { padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; }
-        .result-score { font-size: 56px; font-weight: bold; color: var(--primary-color); margin: 10px 0; }
-        .rank-1 { background-color: rgba(255, 215, 0, 0.1); color: #b8860b; }
-        .rank-2 { background-color: rgba(192, 192, 192, 0.1); color: #708090; }
-        .rank-3 { background-color: rgba(205, 127, 50, 0.1); color: #8b4513; }
+        .result-score { font-size: 60px; font-weight: bold; color: var(--primary-color); margin: 5px 0; }
     </style>
 </head>
 <body>
@@ -111,7 +118,7 @@
 
     <div id="screen-rank" class="screen">
         <h1>全球排行榜</h1>
-        <div style="max-height: 400px; overflow-y: auto; width: 100%;">
+        <div style="max-height: 300px; overflow-y: auto; width: 100%;">
             <table id="rank-table">
                 <thead><tr><th>排名</th><th>玩家</th><th>得分</th></tr></thead>
                 <tbody id="rank-body"></tbody>
@@ -154,60 +161,36 @@
     const btnRestart = { x: 70, y: 350, w: 120, h: 40 };
     const btnQuit = { x: 210, y: 350, w: 120, h: 40 };
 
-    let lastTime = 0, timerAccumulator = 0;
-    // 💡 關鍵修復：新增一個變數來存放動畫幀 ID
-    let gameAnimationFrameId = null;
+    let lastTime = 0, timerAccumulator = 0, animationId = null;
 
     function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
-    
-    // 💡 關鍵修復：回到主選單時，必須徹底停止遊戲運算
-    function showHome() { 
-        stopGameEngine();
-        showScreen('screen-home'); 
-    }
-
-    function stopGameEngine() {
-        gameActive = false;
-        if (gameAnimationFrameId) {
-            cancelAnimationFrame(gameAnimationFrameId);
-            gameAnimationFrameId = null;
-        }
-    }
+    function showHome() { stopGame(); showScreen('screen-home'); }
+    function stopGame() { gameActive = false; if(animationId) cancelAnimationFrame(animationId); }
 
     function startGame() {
-        // 如果舊的還在跑，先強制停止
-        stopGameEngine();
-
+        stopGame();
         currentPlayerName = document.getElementById('home-player-name').value.trim() || "無名英雄";
         localStorage.setItem('savedPlayerName', currentPlayerName);
-        
         showScreen('screen-game');
         score = 0; timeLeft = 60; gameActive = true; isConfirmingQuit = false; particles = [];
         document.getElementById('score').innerText = score;
         document.getElementById('timer').innerText = timeLeft;
         initGrid();
-        
         lastTime = performance.now();
-        timerAccumulator = 0; // 重置時間累積器
-        gameAnimationFrameId = requestAnimationFrame(gameLoop);
+        timerAccumulator = 0;
+        animationId = requestAnimationFrame(gameLoop);
     }
 
     function gameLoop(t) { 
-        if (!gameActive) return; 
+        if (!gameActive) return;
+        const dt = t - lastTime; lastTime = t; timerAccumulator += dt;
+        if (timerAccumulator >= 1000) { timeLeft--; document.getElementById('timer').innerText = timeLeft; timerAccumulator -= 1000; if (timeLeft <= 0) { endGame(); return; } }
         
-        const dt = t - lastTime; 
-        lastTime = t; 
-        timerAccumulator += dt; 
-
-        if (timerAccumulator >= 1000) { 
-            timeLeft--; 
-            document.getElementById('timer').innerText = timeLeft; 
-            timerAccumulator -= 1000; 
-            if (timeLeft <= 0) { endGame(); return; } 
-        } 
-        render(); 
-        // 💡 紀錄新的 Frame ID
-        gameAnimationFrameId = requestAnimationFrame(gameLoop); 
+        // 💡 效能優化：在每幀繪製前更新狀態
+        if (isDragging) updateActiveStates();
+        
+        render();
+        animationId = requestAnimationFrame(gameLoop);
     }
 
     function initGrid() {
@@ -230,39 +213,40 @@
     }
     function drawCanvasButton(btn, color, text) { ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 24); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, btn.x + btn.w/2, btn.y + btn.h/2); }
 
+    // 💡 修正 3: 座標捕捉優化
+    function getPointerPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (e.clientX - rect.left) * (canvas.width / rect.width),
+            y: (e.clientY - rect.top) * (canvas.height / rect.height)
+        };
+    }
+
     canvas.addEventListener('pointerdown', (e) => {
         if (!gameActive) return;
-        const rect = canvas.getBoundingClientRect();
-        const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
-        const my = (e.clientY - rect.top) * (canvas.height / rect.height);
-        
+        canvas.setPointerCapture(e.pointerId); // 鎖定指標
+        const pos = getPointerPos(e);
         if (isConfirmingQuit) {
-            if (isInside(mx, my, btnRestart)) startGame();
-            else if (isInside(mx, my, btnQuit)) { 
-                // 💡 按下結束時，呼叫停止引擎函式
-                stopGameEngine();
-                showHome(); 
-            }
-            else { isConfirmingQuit = false; }
+            if (isInside(pos.x, pos.y, btnRestart)) startGame();
+            else if (isInside(pos.x, pos.y, btnQuit)) showHome();
+            else isConfirmingQuit = false;
             return;
         }
-        isDragging = true; startPos = { x: mx, y: my }; currentPos = { ...startPos };
-        updateActiveStates();
+        isDragging = true; startPos = pos; currentPos = { ...pos };
     });
 
     window.addEventListener('pointermove', (e) => {
         if (!isDragging || !gameActive || isConfirmingQuit) return;
-        const rect = canvas.getBoundingClientRect();
-        currentPos = { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) };
-        updateActiveStates();
+        currentPos = getPointerPos(e);
     });
 
-    window.addEventListener('pointerup', () => {
+    window.addEventListener('pointerup', (e) => {
         if (!isDragging) return;
+        canvas.releasePointerCapture(e.pointerId);
         isDragging = false;
         let selected = grid.flat().filter(cell => !cell.removed && cell.active);
         if (selected.reduce((s, c) => s + c.val, 0) === 10 && selected.length > 0) {
-            timeLeft += 3; document.getElementById('timer').innerText = timeLeft;
+            timeLeft += 5; document.getElementById('timer').innerText = timeLeft;
             let minC=COLS, maxC=0, minR=ROWS, maxR=0;
             grid.forEach((row, r) => row.forEach((cell, c) => { if(cell.active && !cell.removed) { minC=Math.min(minC, c); maxC=Math.max(maxC, c); minR=Math.min(minR, r); maxR=Math.max(maxR, r); } }));
             const cx = (minC + maxC + 1) * GRID_SIZE / 2, cy = (minR + maxR + 1) * GRID_SIZE / 2;
@@ -282,11 +266,7 @@
         }
     }
     function isInside(mx, my, btn) { return mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h; }
-    
-    function endGame() { 
-        stopGameEngine(); // 💡 結束時也停止引擎
-        document.getElementById('final-result-score').innerText = score; document.getElementById('result-player-display').innerText = `Player: ${currentPlayerName}`; const b = document.getElementById('upload-btn'); b.disabled = false; b.innerText = "上傳成績"; showScreen('screen-result'); 
-    }
+    function endGame() { stopGame(); document.getElementById('final-result-score').innerText = score; document.getElementById('result-player-display').innerText = `Player: ${currentPlayerName}`; const b = document.getElementById('upload-btn'); b.disabled = false; b.innerText = "上傳成績"; showScreen('screen-result'); }
 
     async function submitScore() { const b = document.getElementById('upload-btn'); b.disabled = true; b.innerText = "上傳中..."; try { const resp = await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ name: currentPlayerName, score: score }) }); const ranks = await resp.json(); localStorage.setItem('math_game_rank', JSON.stringify(ranks)); alert("🎉 成績上傳成功！"); showLeaderboard(); } catch (e) { alert("上傳失敗"); b.disabled = false; b.innerText = "重試上傳"; } }
     async function showLeaderboard() { showScreen('screen-rank'); const tbody = document.getElementById('rank-body'); tbody.innerHTML = "<tr><td colspan='3'>同步中...</td></tr>"; try { const resp = await fetch(GAS_URL); const ranks = await resp.json(); renderTable(ranks); } catch (e) { renderTable(JSON.parse(localStorage.getItem('math_game_rank')) || []); } }
@@ -296,8 +276,11 @@
         const nameInput = document.getElementById('home-player-name');
         const savedName = localStorage.getItem('savedPlayerName');
         if (savedName) nameInput.value = savedName;
-        else nameInput.value = "無名英雄";
         nameInput.addEventListener('input', (e) => { localStorage.setItem('savedPlayerName', e.target.value.trim()); });
+        
+        // 💡 修正 4: 禁止雙指縮放保護
+        document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+        document.addEventListener('gesturestart', (e) => e.preventDefault());
     });
 </script>
 </body>
