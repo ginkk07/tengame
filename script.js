@@ -83,18 +83,15 @@ const GameSystem = (function() {
     }
 
     return {
-        // 切換畫面：會自動關閉所有彈窗與模糊效果
         showScreen: (id) => {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(id).classList.add('active');
             
-            // 強制關閉彈窗、遮罩與移除模糊
             document.querySelectorAll('.overlay-screen').forEach(s => s.classList.remove('active'));
             document.getElementById('overlay-bg').classList.remove('active');
             document.getElementById('screen-game').classList.remove('blurred');
         },
 
-        // 💡 設定彈窗：連動模糊效果
         toggleSettings: (show) => {
             const settings = document.getElementById('screen-settings');
             const bg = document.getElementById('overlay-bg');
@@ -103,15 +100,14 @@ const GameSystem = (function() {
             if (show) { 
                 settings.classList.add('active'); 
                 bg.classList.add('active'); 
-                gameScreen.classList.add('blurred'); // 加模糊
+                gameScreen.classList.add('blurred');
             } else { 
                 settings.classList.remove('active'); 
                 bg.classList.remove('active'); 
-                gameScreen.classList.remove('blurred'); // 移除模糊
+                gameScreen.classList.remove('blurred');
             }
         },
 
-        // 💡 結算彈窗：連動模糊效果
         openResultOverlay: () => {
             const result = document.getElementById('screen-result');
             const bg = document.getElementById('overlay-bg');
@@ -119,7 +115,7 @@ const GameSystem = (function() {
             
             result.classList.add('active');
             bg.classList.add('active');
-            gameScreen.classList.add('blurred'); // 加模糊
+            gameScreen.classList.add('blurred');
         },
 
         showLeaderboard: async function() {
@@ -211,7 +207,7 @@ const GameEngine = (function() {
 
     function checkBoardStatus() {
         const remaining = state.grid.flat().filter(c => !c.removed);
-        if (remaining.length === 0) { alert("恭喜清空！"); initGrid(); return; }
+        if (remaining.length === 0) { alert("恭喜清空盤面！"); initGrid(); return; }
         if (!findOneMove()) {
             if (!state.skillsUsed.shuffle) { alert("無解！自動打亂..."); GameEngine.useSkillShuffle(true); }
             else { alert("無解且技能用完，結束！"); GameEngine.end(); }
@@ -249,15 +245,25 @@ const GameEngine = (function() {
     return {
         getPos: (e) => { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; },
         getInternalState: () => ({ name: state.name, score: state.score, skillsUsed: state.skillsUsed, isTestUsed: state.isTestUsed }),
+        
         start: function() {
             const inputName = document.getElementById('home-player-name').value.trim();
             if (!inputName) { alert("請輸入名稱！"); return; }
-            this.stop(true); // 停止上一局的音樂
+            this.stop(true); 
             
             const uploadBtn = document.getElementById('upload-btn');
             if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.innerText = "上傳成績"; }
 
-            state.name = inputName; state.score = 0; state.timeLeft = 60; state.gameActive = true; 
+            // 初始化狀態
+            state.name = inputName; 
+            state.score = 0; 
+            state.timeLeft = 60; 
+            state.gameActive = true; 
+            
+            // 💡 修正：立即將畫面上的分數與時間歸零，避免看到上一局的殘留
+            document.getElementById('score').innerText = "0";
+            document.getElementById('timer').innerText = "60";
+
             state.skillsUsed = { hint: false, shuffle: false, delete: false };
             document.querySelectorAll('.skill-btn').forEach(b => b.classList.remove('used', 'active'));
             localStorage.setItem('savedPlayerName', state.name); 
@@ -265,17 +271,21 @@ const GameEngine = (function() {
             GameSystem.showScreen('screen-game');
             initGrid(); lastTime = performance.now(); timerAcc = 0; SoundManager.playBGM(); this.loop(lastTime);
         },
+
         stop: function(stopMusic = true) { 
             state.gameActive = false; 
             if(animationId) { cancelAnimationFrame(animationId); animationId = null; }
             if (stopMusic) SoundManager.stopBGM(); 
         },
+
         openSettings: function() { GameSystem.toggleSettings(true); },
         resumeFromSettings: function() { GameSystem.toggleSettings(false); },
+        
         backToHome: function() { 
-            this.stop(true); // 回主選單 -> 停止音樂
+            this.stop(true); 
             GameSystem.showScreen('screen-home'); 
         },
+
         loop: function(t) {
             if (!state.gameActive) return;
             const dt = t - lastTime; lastTime = t; timerAcc += dt;
@@ -307,7 +317,12 @@ const GameEngine = (function() {
             if (!input.isDragging) return; input.isDragging = false;
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
             if (sel.reduce((s, c) => s + c.val, 0) === 10 && sel.length > 0) {
-                state.timeLeft += 3; state.score += sel.length * 100; document.getElementById('score').innerText = state.score;
+                state.timeLeft += 3; state.score += sel.length * 100; 
+                
+                // 立即更新畫面數據
+                document.getElementById('score').innerText = state.score;
+                document.getElementById('timer').innerText = state.timeLeft;
+
                 SoundManager.playEliminate(); this.spawnBoom(input.current);
                 sel.forEach(c => c.removed = true); checkBoardStatus();
             }
@@ -333,7 +348,7 @@ const GameEngine = (function() {
         },
         toggleDeleteMode: function() { if(!state.skillsUsed.delete) { state.isDeleteMode = !state.isDeleteMode; document.getElementById('skill-btn-delete').classList.toggle('active'); } },
         end: function() { 
-            this.stop(false); // 💡 結束遊戲時 -> 不停止音樂
+            this.stop(false); 
             GameSystem.toggleSettings(false); 
             document.getElementById('final-result-score').innerText = state.score; 
             document.getElementById('result-player-display').innerText = `Player: ${state.name}`; 
