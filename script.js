@@ -4,7 +4,7 @@
  * =============================================================================
  * 架構說明：
  * 本腳本採用 "Module Pattern" (模組模式) 將程式碼分為三個獨立部分，避免全域變數汙染。
- * * 1. SoundManager: 負責音效與背景音樂管理 (包含音效池優化)。
+ * 1. SoundManager: 負責音效與背景音樂管理 (包含音效池優化)。
  * 2. GameSystem: 負責系統功能 (後端 API 通訊、分數上傳、介面切換、安全驗證)。
  * 3. GameEngine: 負責遊戲核心 (渲染迴圈、演算法、狀態管理、技能邏輯)。
  * =============================================================================
@@ -14,7 +14,7 @@
  * -----------------------------------------------------------------------------
  * 第一部分：音頻管理器 (SOUND MANAGER)
  * -----------------------------------------------------------------------------
- * 負責處理所有聲音播放。使用 "音效池" 技術來解決連續點擊時音效被切斷的問題。
+ * 負責處理所有聲音播放。使用 "音效池 (Object Pool)" 技術來解決連續點擊時音效被切斷的問題。
  */
 const SoundManager = (function() {
     // 音樂與音效檔案路徑 (請確保 GitHub 上的 sound 資料夾結構正確)
@@ -27,12 +27,12 @@ const SoundManager = (function() {
 
     let currentBGM = null; // 當前正在播放的背景音樂物件
     const sfxPool = [];    // 音效池陣列，用來存放預載的音效物件
-    const POOL_SIZE = 5;   // 音效池大小 (同時最多可播放 5 個重疊音效)
+    const POOL_SIZE = 5;   // 音效池大小 (同時最多可播放 5 個重疊音效，避免聲音破裂)
 
     return {
         /**
          * 初始化音效系統
-         * 1. 預載音效物件放入池中。
+         * 1. 預載音效物件放入池中，避免遊戲中途載入造成延遲。
          * 2. 綁定設定畫面 (screen-settings) 中的音量滑桿事件。
          */
         init: function() {
@@ -143,7 +143,7 @@ const GameSystem = (function() {
             document.querySelectorAll('.overlay-screen').forEach(s => s.classList.remove('active'));
             document.getElementById('overlay-bg').classList.remove('active');
             
-            // 移除遊戲畫面的模糊效果
+            // 💡 [修正] 移除遊戲畫面的模糊效果
             const gameScreen = document.getElementById('screen-game');
             if (gameScreen) gameScreen.classList.remove('blurred');
         },
@@ -160,11 +160,13 @@ const GameSystem = (function() {
             if (show) { 
                 settings.classList.add('active'); 
                 bg.classList.add('active'); 
-                if (gameScreen) gameScreen.classList.add('blurred'); // 加模糊
+                // 💡 [修正] 加入模糊
+                if (gameScreen) gameScreen.classList.add('blurred');
             } else { 
                 settings.classList.remove('active'); 
                 bg.classList.remove('active'); 
-                if (gameScreen) gameScreen.classList.remove('blurred'); // 移除模糊
+                // 💡 [修正] 移除模糊
+                if (gameScreen) gameScreen.classList.remove('blurred');
             }
         },
 
@@ -179,6 +181,7 @@ const GameSystem = (function() {
             
             result.classList.add('active');
             bg.classList.add('active');
+            // 💡 [修正] 加入模糊
             if (gameScreen) gameScreen.classList.add('blurred');
         },
 
@@ -196,6 +199,7 @@ const GameSystem = (function() {
                 const ranks = await resp.json();
                 this.renderRankTable(ranks);
             } catch (e) {
+                // 網路錯誤時讀取本機快取
                 const cached = JSON.parse(localStorage.getItem('math_game_rank')) || [];
                 this.renderRankTable(cached);
             }
@@ -376,13 +380,13 @@ const GameEngine = (function() {
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // 繪製格子
+        // 1. 繪製格子
         state.grid.forEach((row, r) => row.forEach((cell, c) => {
             if (cell.removed) return;
             let x = c * GRID_SIZE + MARGIN, y = r * GRID_SIZE + MARGIN, s = GRID_SIZE - MARGIN * 2;
             ctx.beginPath(); ctx.roundRect(x, y, s, s, 6);
             
-            // 顏色狀態
+            // 根據狀態設定顏色
             if (state.isDeleteMode) ctx.fillStyle = cell.active ? '#ff7675' : '#fab1a0';
             else if (cell.active) ctx.fillStyle = '#ffbe76';
             else if (cell.hinted) ctx.fillStyle = '#b8e994';
@@ -395,17 +399,26 @@ const GameEngine = (function() {
             ctx.fillText(cell.val, x + s/2, y + s/2);
         }));
 
-        // 繪製粒子
-        particles.forEach((p, i) => { 
-            p.x += p.vx; p.y += p.vy; p.life--; 
-            ctx.globalAlpha = p.life / 60; ctx.fillStyle = p.color; 
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill(); 
-            p.vy += 0.1; 
+        // 2. 繪製粒子特效 (使用倒序迴圈避免刪除時的閃爍問題)
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.x += p.vx; 
+            p.y += p.vy; 
+            p.life--; 
+            
+            let alpha = p.life / 60;
+            if (alpha < 0) alpha = 0;
+
+            ctx.globalAlpha = alpha; 
+            ctx.fillStyle = p.color; 
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); 
+            p.vy += 0.1; // 重力效果
+            
             if (p.life <= 0) particles.splice(i, 1); 
-        });
+        }
         ctx.globalAlpha = 1;
 
-        // 繪製框選線
+        // 3. 繪製框選線
         if (input.isDragging && !state.isDeleteMode) {
             ctx.strokeStyle = '#3498db'; ctx.setLineDash([5, 3]); 
             ctx.strokeRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y); 
@@ -432,7 +445,7 @@ const GameEngine = (function() {
             if (!inputName) { alert("請輸入名稱！"); return; }
             this.stop(true); // 停止上一局並停止音樂
             
-            // 重置上傳按鈕
+            // 重置上傳按鈕狀態
             const uploadBtn = document.getElementById('upload-btn');
             if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.innerText = "上傳成績"; }
 
@@ -442,7 +455,7 @@ const GameEngine = (function() {
             state.timeLeft = 60; 
             state.gameActive = true; 
             
-            // 💡 立即重置畫面數字，避免看到上一局的殘留
+            // 立即重置畫面數字，避免看到上一局的殘留
             document.getElementById('score').innerText = "0";
             document.getElementById('timer').innerText = "60";
 
@@ -450,6 +463,7 @@ const GameEngine = (function() {
             document.querySelectorAll('.skill-btn').forEach(b => b.classList.remove('used', 'active'));
             localStorage.setItem('savedPlayerName', state.name); 
             
+            // 顯示遊戲畫面
             GameSystem.showScreen('screen-game');
             initGrid(); 
             lastTime = performance.now(); 
@@ -538,9 +552,9 @@ const GameEngine = (function() {
             if (!input.isDragging) return; input.isDragging = false;
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
             if (sel.reduce((s, c) => s + c.val, 0) === 10 && sel.length > 0) {
-                state.timeLeft += 4; state.score += sel.length * 100; 
+                state.timeLeft += 3; state.score += sel.length * 100; 
                 
-                // 💡 立即更新畫面數據
+                // 立即更新畫面數據，避免視覺延遲
                 document.getElementById('score').innerText = state.score;
                 document.getElementById('timer').innerText = state.timeLeft;
 
@@ -570,11 +584,12 @@ const GameEngine = (function() {
                 state.skillsUsed.hint = true; 
                 document.getElementById('skill-btn-hint').classList.add('used'); 
                 cells.forEach(c => c.hinted = true); 
+                // 10秒後自動取消提示
                 setTimeout(() => state.grid.flat().forEach(c => c.hinted = false), 10000); 
             }
         },
 
-        // 技能：打亂
+        // 技能：打亂 (包含防死局保護)
         useSkillShuffle: function(markUsed = true) {
             if (!state.gameActive || (markUsed && state.skillsUsed.shuffle)) return;
             if (markUsed) { state.skillsUsed.shuffle = true; document.getElementById('skill-btn-shuffle').classList.add('used'); }
@@ -583,7 +598,7 @@ const GameEngine = (function() {
             let vals = remains.map(c => c.val);
             let attempts = 0; const MAX_ATTEMPTS = 20;
             
-            // 嘗試打亂直到有解 (防止死局)
+            // 嘗試打亂直到找到至少有一組解，或超過嘗試次數
             do {
                 for (let i = vals.length - 1; i > 0; i--) { 
                     const j = Math.floor(Math.random() * (i + 1)); 
@@ -594,6 +609,7 @@ const GameEngine = (function() {
             } while (!findOneMove() && attempts < MAX_ATTEMPTS);
         },
 
+        // 技能：切換刪除模式
         toggleDeleteMode: function() { 
             if(!state.skillsUsed.delete) { 
                 state.isDeleteMode = !state.isDeleteMode; 
@@ -607,7 +623,8 @@ const GameEngine = (function() {
          */
         end: function() { 
             this.stop(false); // 💡 false = 不停止音樂
-            GameSystem.toggleSettings(false); 
+            GameSystem.toggleSettings(false); // 確保設定彈窗關閉
+            
             document.getElementById('final-result-score').innerText = state.score; 
             document.getElementById('result-player-display').innerText = `Player: ${state.name}`; 
             
@@ -630,6 +647,7 @@ window.addEventListener('load', () => {
     
     const canvas = document.getElementById('gameCanvas');
     if (canvas) {
+        // 指標事件 (Pointer Events) 統一處理滑鼠與觸控
         canvas.addEventListener('pointerdown', (e) => { 
             canvas.setPointerCapture(e.pointerId); 
             GameEngine.handleDown(GameEngine.getPos(e)); 
@@ -645,4 +663,3 @@ window.addEventListener('load', () => {
     document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
     document.addEventListener('gesturestart', (e) => e.preventDefault());
 });
-
