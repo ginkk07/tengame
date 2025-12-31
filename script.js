@@ -538,7 +538,7 @@ const GameEngine = (function() {
             if (!input.isDragging) return; input.isDragging = false;
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
             if (sel.reduce((s, c) => s + c.val, 0) === 10 && sel.length > 0) {
-                state.timeLeft += 3; state.score += sel.length * 100; 
+                state.timeLeft += 4; state.score += sel.length * 100; 
                 
                 // 💡 立即更新畫面數據
                 document.getElementById('score').innerText = state.score;
@@ -645,3 +645,4 @@ window.addEventListener('load', () => {
     document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
     document.addEventListener('gesturestart', (e) => e.preventDefault());
 });
+
