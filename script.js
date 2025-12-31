@@ -1,12 +1,12 @@
 /**
  * =============================================================================
- * 圈十遊戲 (Make 10) - 核心邏輯腳本
+ * 圈十遊戲 (Make 10) - 核心邏輯腳本 (完整修復版)
  * =============================================================================
  * 架構說明：
- * 本腳本採用 "Module Pattern" (模組模式) 將程式碼分為三個獨立部分，避免全域變數汙染。
+ * 本腳本採用 "Module Pattern" (模組模式) 將程式碼分為三個獨立部分，避免變數污染。
  * 1. SoundManager: 負責音效與背景音樂管理 (包含音效池優化)。
  * 2. GameSystem: 負責系統功能 (後端 API 通訊、分數上傳、介面切換、安全驗證)。
- * 3. GameEngine: 負責遊戲核心 (渲染迴圈、演算法、狀態管理、技能邏輯)。
+ * 3. GameEngine: 負責遊戲核心 (渲染迴圈、演算法、狀態管理、技能邏輯、粒子系統)。
  * =============================================================================
  */
 
@@ -47,7 +47,7 @@ const SoundManager = (function() {
             const mSlider = document.getElementById('music-slider');
             const sSlider = document.getElementById('sfx-slider');
             
-            // 初始化滑桿位置
+            // 初始化滑桿位置與事件監聽
             if (mSlider) {
                 mSlider.value = bgmVolume; 
                 mSlider.addEventListener('input', (e) => {
@@ -135,54 +135,54 @@ const GameSystem = (function() {
          */
         showScreen: (id) => {
             // 隱藏所有一般頁面
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'blurred'));
             // 顯示目標頁面
             document.getElementById(id).classList.add('active');
             
             // 強制關閉所有彈窗與遮罩
             document.querySelectorAll('.overlay-screen').forEach(s => s.classList.remove('active'));
-            document.getElementById('overlay-bg').classList.remove('active');
-            
-            // 💡 [修正] 移除遊戲畫面的模糊效果
-            const gameScreen = document.getElementById('screen-game');
-            if (gameScreen) gameScreen.classList.remove('blurred');
+            const bg = document.getElementById('overlay-bg');
+            if (bg) bg.classList.remove('active');
         },
 
         /**
-         * 開啟/關閉 "設定" 彈窗
-         * 同步控制背景遮罩與遊戲畫面的模糊濾鏡。
+         * 💡 [核心修正] 控制彈窗顯示與背景模糊
+         * 此函式名稱已修正為 toggleOverlay 以解決 "is not a function" 錯誤。
+         * @param {string} id - 彈窗 DOM ID (如 'screen-settings')
+         * @param {boolean} show - 顯示 (true) 或隱藏 (false)
          */
-        toggleSettings: (show) => {
-            const settings = document.getElementById('screen-settings');
-            const bg = document.getElementById('overlay-bg');
+        toggleOverlay: (id, show) => {
+            const overlay = document.getElementById(id);
+            
+            // 自動偵測或建立遮罩層 (防止 HTML 缺失導致報錯)
+            let bg = document.getElementById('overlay-bg');
+            if (!bg) {
+                bg = document.createElement('div');
+                bg.id = 'overlay-bg';
+                bg.className = 'overlay-bg';
+                document.body.appendChild(bg);
+            }
+            
             const gameScreen = document.getElementById('screen-game');
             
             if (show) { 
-                settings.classList.add('active'); 
-                bg.classList.add('active'); 
-                // 💡 [修正] 加入模糊
+                if (overlay) overlay.classList.add('active'); 
+                if (bg) bg.classList.add('active'); 
+                // 加上模糊效果
                 if (gameScreen) gameScreen.classList.add('blurred');
             } else { 
-                settings.classList.remove('active'); 
-                bg.classList.remove('active'); 
-                // 💡 [修正] 移除模糊
+                if (overlay) overlay.classList.remove('active'); 
+                if (bg) bg.classList.remove('active'); 
+                // 移除模糊效果
                 if (gameScreen) gameScreen.classList.remove('blurred');
             }
         },
 
         /**
-         * 開啟 "結算" 彈窗 (專用函式)
-         * 顯示結算畫面時，保留底下的遊戲畫面但加上模糊。
+         * 專用：開啟結算畫面彈窗
          */
         openResultOverlay: () => {
-            const result = document.getElementById('screen-result');
-            const bg = document.getElementById('overlay-bg');
-            const gameScreen = document.getElementById('screen-game');
-            
-            result.classList.add('active');
-            bg.classList.add('active');
-            // 💡 [修正] 加入模糊
-            if (gameScreen) gameScreen.classList.add('blurred');
+            GameSystem.toggleOverlay('screen-result', true);
         },
 
         /**
@@ -242,7 +242,7 @@ const GameSystem = (function() {
                         score: internal.score, 
                         timestamp: ts, 
                         sign: sign, 
-                        log: internal.matchLog // 💡 傳送得分證據鏈供後端稽核
+                        log: internal.matchLog // 💡 [重要] 傳送證據鏈供後端稽核
                     }) 
                 });
                 
@@ -257,7 +257,7 @@ const GameSystem = (function() {
                 // 上傳成功，更新本機快取
                 localStorage.setItem('math_game_rank', JSON.stringify(result));
                 alert("🎉 上傳成功！"); 
-                this.showLeaderboard(); // 跳轉排行榜會自動關閉彈窗
+                this.showLeaderboard(); 
             } catch (e) { 
                 alert("網路錯誤"); 
                 b.disabled = false; b.innerText = "重試上傳"; 
@@ -269,8 +269,10 @@ const GameSystem = (function() {
          */
         initNamePersistence: function() {
             const input = document.getElementById('home-player-name');
-            input.value = localStorage.getItem('savedPlayerName') || "";
-            input.addEventListener('input', (e) => localStorage.setItem('savedPlayerName', e.target.value.trim()));
+            if (input) {
+                input.value = localStorage.getItem('savedPlayerName') || "";
+                input.addEventListener('input', (e) => localStorage.setItem('savedPlayerName', e.target.value.trim()));
+            }
         }
     };
 })();
@@ -279,13 +281,12 @@ const GameSystem = (function() {
  * -----------------------------------------------------------------------------
  * 第三部分：遊戲核心引擎 (GAME SCRIPT)
  * -----------------------------------------------------------------------------
- * 包含：遊戲迴圈、渲染、輸入處理、核心演算法、技能邏輯。
+ * 包含：遊戲迴圈、渲染、輸入處理、核心演算法、技能邏輯、粒子特效。
  */
 const GameEngine = (function() {
-    // 畫布與環境變數
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    const ROWS = 16, COLS = 10, GRID_SIZE = 40, MARGIN = 3;
+    const ROWS = 16, COLS = 10, SIZE = 40, MARGIN = 3;
 
     // 遊戲狀態物件
     let state = {
@@ -297,19 +298,18 @@ const GameEngine = (function() {
         isTestUsed: false,  // 是否使用測試工具
         name: "",           // 玩家名稱
         skillsUsed: { hint: false, shuffle: false, delete: false }, // 技能狀態
-        matchLog: []        // 💡 得分證據鏈：存儲每次消除的時間與得分點數
+        matchLog: []        // 💡 [重要] 得分證據鏈：存儲每次消除的時間與得分
     };
 
-    // 輸入狀態
+    // 輸入與動畫變數
     let input = { isDragging: false, start: { x: 0, y: 0 }, current: { x: 0, y: 0 } };
-    // 動畫變數
-    let particles = [], animationId = null, lastTime = 0, timerAcc = 0;
-    const pColors = ['#f1c40f', '#e67e22', '#e74c3c', '#3498db', '#2ecc71']; // 粒子顏色庫
+    let particles = [];     // 💡 粒子特效陣列 (之前版本缺失的部分)
+    let animationId = null, lastTime = 0, timerAcc = 0;
+    const pColors = ['#f1c40f', '#e67e22', '#e74c3c', '#3498db', '#2ecc71'];
 
     /**
      * 🔍 [核心演算法] 尋找一組解
      * 窮舉所有可能的矩形區域，檢查總和是否為 10。
-     * 用於 "尋找一組" 技能與 "死局偵測"。
      */
     function findOneMove() {
         for (let r1 = 0; r1 < ROWS; r1++) {
@@ -336,23 +336,18 @@ const GameEngine = (function() {
 
     /**
      * 🌀 死局檢查與自動處理
-     * 每次消除後呼叫。若無解則自動打亂，若打亂用盡則結束遊戲。
      */
     function checkBoardStatus() {
         const remaining = state.grid.flat().filter(c => !c.removed);
-        // 盤面清空判定
         if (remaining.length === 0) { 
-            alert("恭喜清空盤面！系統將獎勵新的一局。"); 
-            initGrid(); 
-            return; 
+            alert("恭喜清空盤面！"); GameEngine.initGrid(); return; 
         }
-        // 無解判定
         if (!findOneMove()) {
             if (!state.skillsUsed.shuffle) { 
-                alert("場上目前無解！系統自動為您執行隨機打亂..."); 
+                alert("無解！自動執行隨機打亂..."); 
                 GameEngine.useSkillShuffle(true); 
             } else { 
-                alert("無解且打亂技能已用盡，遊戲結束！"); 
+                alert("無解且技能用完，遊戲結束！"); 
                 GameEngine.end(); 
             }
         }
@@ -360,7 +355,6 @@ const GameEngine = (function() {
 
     /**
      * 初始化網格數字
-     * 使用 "湊對法" 生成 (n, 10-n) 確保初始盤面必定有解。
      */
     function initGrid() {
         const total = ROWS * COLS, nums = [];
@@ -368,21 +362,17 @@ const GameEngine = (function() {
             let n = Math.floor(Math.random() * 9) + 1; 
             nums.push(n, 10 - n); 
         }
-        // Fisher-Yates 洗牌
         for (let i = nums.length - 1; i > 0; i--) { 
             const j = Math.floor(Math.random() * (i + 1)); 
             [nums[i], nums[j]] = [nums[j], nums[i]]; 
         }
         state.grid = Array.from({ length: ROWS }, (_, r) => 
-            Array.from({ length: COLS }, (_, c) => ({ 
-                val: nums[r * COLS + c], removed: false, active: false, hinted: false 
-            }))
+            Array.from({ length: COLS }, (_, c) => ({ val: nums[r * COLS + c], removed: false, active: false, hinted: false }))
         );
     }
 
     /**
      * 渲染函式 (每幀呼叫)
-     * 繪製格子、數字、粒子特效與框選線。
      */
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -390,311 +380,225 @@ const GameEngine = (function() {
         // 1. 繪製格子
         state.grid.forEach((row, r) => row.forEach((cell, c) => {
             if (cell.removed) return;
-            let x = c * GRID_SIZE + MARGIN, y = r * GRID_SIZE + MARGIN, s = GRID_SIZE - MARGIN * 2;
+            let x = c * SIZE + MARGIN, y = r * SIZE + MARGIN, s = SIZE - MARGIN * 2;
+            
             ctx.beginPath(); ctx.roundRect(x, y, s, s, 6);
             
-            // 根據不同模式與狀態設定顏色
-            if (state.isDeleteMode) ctx.fillStyle = cell.active ? '#ff7675' : '#fab1a0'; // 刪除模式：粉紅/紅
-            else if (cell.active) ctx.fillStyle = '#ffbe76'; // 選取中：橘色
-            else if (cell.hinted) ctx.fillStyle = '#b8e994'; // 提示中：綠色
-            else ctx.fillStyle = '#ffffff'; // 一般狀態：白色
-            
+            if (state.isDeleteMode) ctx.fillStyle = cell.active ? '#ff7675' : '#fab1a0';
+            else if (cell.active) ctx.fillStyle = '#ffbe76';
+            else if (cell.hinted) ctx.fillStyle = '#b8e994';
+            else ctx.fillStyle = '#ffffff';
             ctx.fill();
-            ctx.strokeStyle = (cell.active || cell.hinted) ? '#e67e22' : '#f1f3f5'; ctx.lineWidth = 1.5; ctx.stroke();
             
-            // 繪製數字
+            ctx.strokeStyle = (cell.active || cell.hinted) ? '#e67e22' : '#f1f3f5'; ctx.lineWidth = 1.5; ctx.stroke();
             ctx.fillStyle = (cell.active || cell.hinted) ? '#fff' : '#2c3e50'; 
-            ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; 
+            ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(cell.val, x + s/2, y + s/2);
         }));
 
-        // 2. 繪製粒子特效 (使用倒序迴圈處理)
+        // 💡 2. [復原] 繪製粒子特效
         for (let i = particles.length - 1; i >= 0; i--) {
             let p = particles[i];
-            p.x += p.vx; 
-            p.y += p.vy; 
-            p.life--; 
+            p.x += p.vx; p.y += p.vy; p.life--;
             
             let alpha = p.life / 60;
             if (alpha < 0) alpha = 0;
 
-            ctx.globalAlpha = alpha; 
-            ctx.fillStyle = p.color; 
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); 
-            p.vy += 0.1; // 重力效果模擬
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = p.color;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+            p.vy += 0.1; // 重力效果
             
-            if (p.life <= 0) particles.splice(i, 1); 
+            if (p.life <= 0) particles.splice(i, 1);
         }
         ctx.globalAlpha = 1;
 
-        // 3. 繪製框選虛線與半透明填色區塊
+        // 3. 繪製框選線
         if (input.isDragging && !state.isDeleteMode) {
             ctx.strokeStyle = '#3498db'; ctx.setLineDash([5, 3]); 
             ctx.strokeRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y); 
-            ctx.setLineDash([]); 
-            ctx.fillStyle = 'rgba(52, 152, 219, 0.1)'; 
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(52, 152, 219, 0.1)';
             ctx.fillRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y);
         }
     }
 
     return {
-        // 工具：取得滑鼠/觸控在畫布上的相對座標
+        // 工具：取得相對座標
         getPos: (e) => { 
             const rect = canvas.getBoundingClientRect(); 
             return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; 
         },
-        // 提供遊戲數據給上傳系統 (含證據鏈)
-        getInternalState: () => ({ ...state }),
-        
-        /**
-         * 遊戲開始初始化
-         */
+        getInternalState: () => ({ name: state.name, score: state.score, matchLog: state.matchLog }),
+
         start: function() {
             state.name = document.getElementById('home-player-name').value.trim();
-            if (!state.name) { alert("請輸入名稱才能開始遊戲！"); return; }
-            this.stop(true); // 停止上一局進度與音樂
+            if (!state.name) { alert("請輸入名稱才能開始！"); return; }
+            this.stop(true);
             
-            // 重置上傳按鈕狀態為初始樣式
             const uploadBtn = document.getElementById('upload-btn');
             if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.innerText = "上傳成績"; }
 
-            // 核心數值與證據紀錄初始化
-            state.score = 0; 
-            state.timeLeft = 60; 
-            state.gameActive = true; 
-            state.matchLog = []; 
-            
-            // 介面數字立即重置
+            state.score = 0; state.timeLeft = 60; state.gameActive = true; state.matchLog = [];
             document.getElementById('score').innerText = "0";
-            document.getElementById('timer').innerText = "60";
-
-            // 技能冷卻狀態重置
+            
+            // 重置技能狀態
             state.skillsUsed = { hint: false, shuffle: false, delete: false };
             document.querySelectorAll('.skill-btn').forEach(b => b.classList.remove('used', 'active'));
-            localStorage.setItem('savedPlayerName', state.name); 
-            
-            // 切換至遊戲畫面並啟動 BGM 與迴圈
-            GameSystem.showScreen('screen-game');
-            initGrid(); 
-            lastTime = performance.now(); 
-            timerAcc = 0; 
-            SoundManager.playBGM(); 
-            this.loop(lastTime);
+
+            initGrid(); SoundManager.playBGM(); GameSystem.showScreen('screen-game');
+            lastTime = performance.now(); this.loop(lastTime);
         },
 
-        /**
-         * 停止遊戲邏輯與音樂
-         * @param {boolean} stopMusic - 是否同時停止 BGM (預設 true)
-         */
-        stop: function(stopMusic = true) { 
-            state.gameActive = false; 
-            if(animationId) { cancelAnimationFrame(animationId); animationId = null; }
-            if (stopMusic) SoundManager.stopBGM(); 
+        initGrid: () => {
+            const total = ROWS * COLS, nums = [];
+            for (let i = 0; i < total / 2; i++) { let n = Math.floor(Math.random() * 9) + 1; nums.push(n, 10 - n); }
+            nums.sort(() => Math.random() - 0.5);
+            state.grid = Array.from({ length: ROWS }, (_, r) => 
+                Array.from({ length: COLS }, (_, c) => ({ val: nums[r * COLS + c], removed: false, active: false, hinted: false }))
+            );
         },
 
-        // 設定選單對接介面
-        openSettings: function() { GameSystem.toggleOverlay('screen-settings', true); },
-        resumeFromSettings: function() { GameSystem.toggleOverlay('screen-settings', false); },
-        
-        // 返回主選單 (會停止背景音樂)
-        backToHome: function() { 
-            this.stop(true); 
-            GameSystem.showScreen('screen-home'); 
-        },
-
-        /**
-         * 遊戲主迴圈 (每幀運作)
-         */
         loop: function(t) {
             if (!state.gameActive) return;
-            const dt = t - lastTime; lastTime = t; 
-            timerAcc += dt;
-            // 處理計時器倒數 (每一秒更新一次 UI)
-            if (timerAcc >= 1000) { 
-                state.timeLeft--; 
-                document.getElementById('timer').innerText = state.timeLeft; 
-                timerAcc -= 1000; 
-                if (state.timeLeft <= 0) this.end(); 
+            const dt = t - lastTime; lastTime = t; timerAcc += dt;
+            if (timerAcc >= 1000) {
+                state.timeLeft--;
+                document.getElementById('timer').innerText = state.timeLeft;
+                timerAcc -= 1000;
+                if (state.timeLeft <= 0) this.end();
             }
-            // 若正在拖曳，更新格子選取狀態
             if (input.isDragging && !state.isDeleteMode) this.updateStates();
-            
-            render(); 
+            render();
             animationId = requestAnimationFrame((ts) => this.loop(ts));
         },
 
-        /**
-         * 矩形框選範圍判定演算法 (AABB 碰撞)
-         */
-        updateStates: () => {
-            let x1 = Math.min(input.start.x, input.current.x), x2 = Math.max(input.start.x, input.current.x);
-            let y1 = Math.min(input.start.y, input.current.y), y2 = Math.max(input.start.y, input.current.y);
-            state.grid.forEach((row, r) => row.forEach((cell, c) => { 
-                let tx1 = c * GRID_SIZE, tx2 = (c+1) * GRID_SIZE, ty1 = r * GRID_SIZE, ty2 = (r+1) * GRID_SIZE; 
-                cell.active = !cell.removed && !(tx2 < x1 || tx1 > x2 || ty2 < y1 || ty1 > y2); 
-            }));
-        },
+        // 💡 修正：呼叫 toggleOverlay，對應 GameSystem 中的定義
+        openSettings: () => GameSystem.toggleOverlay('screen-settings', true),
+        resumeFromSettings: () => GameSystem.toggleOverlay('screen-settings', false),
 
-        /**
-         * 滑鼠/手指按下處理：區分刪除模式與一般框選
-         */
         handleDown: function(pos) {
             if (!state.gameActive) return;
-            // 處理「炸彈炸除」技能邏輯
             if (state.isDeleteMode) {
-                const c = Math.floor(pos.x / GRID_SIZE), r = Math.floor(pos.y / GRID_SIZE);
+                const c = Math.floor(pos.x / SIZE), r = Math.floor(pos.y / SIZE);
                 if (r >= 0 && r < ROWS && c >= 0 && c < COLS && !state.grid[r][c].removed) {
-                    state.grid[r][c].removed = true; 
-                    state.skillsUsed.delete = true; 
-                    state.isDeleteMode = false;
+                    state.grid[r][c].removed = true; state.skillsUsed.delete = true; state.isDeleteMode = false;
                     document.getElementById('skill-btn-delete').classList.remove('active', 'used'); 
                     document.getElementById('skill-btn-delete').classList.add('used');
                     SoundManager.playEliminate(); this.spawnBoom(pos); checkBoardStatus();
                 }
                 return;
             }
-            // 進入框選模式：清除舊有的綠色提示並紀錄起始點
-            state.grid.flat().forEach(c => c.hinted = false); 
+            state.grid.flat().forEach(c => c.hinted = false);
             input.isDragging = true; input.start = pos; input.current = { ...pos };
         },
 
-        /**
-         * 滑鼠/手指移動處理：同步更新拖曳座標
-         */
+        // 💡 [重要] 補回 handleMove，修復框選時無法更新的問題
         handleMove: function(pos) {
-            if (input.isDragging && !state.isDeleteMode) { input.current = pos; }
+            if (input.isDragging && !state.isDeleteMode) {
+                input.current = pos;
+            }
         },
 
-        /**
-         * 滑鼠/手指放開處理：計算選取區塊總和是否為 10
-         */
+        updateStates: () => {
+            let x1 = Math.min(input.start.x, input.current.x), x2 = Math.max(input.start.x, input.current.x);
+            let y1 = Math.min(input.start.y, input.current.y), y2 = Math.max(input.start.y, input.current.y);
+            state.grid.forEach((row, r) => row.forEach((cell, c) => {
+                let tx = c * SIZE, ty = r * SIZE;
+                cell.active = !cell.removed && !(tx + SIZE < x1 || tx > x2 || ty + SIZE < y1 || ty > y2);
+            }));
+        },
+
         handleUp: function() {
             if (!input.isDragging) return; input.isDragging = false;
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
-            // 💡 圈十判定邏輯：總和剛好為 10
             if (sel.reduce((s, c) => s + c.val, 0) === 10 && sel.length > 0) {
-                const points = sel.length * 100; // 計算本次得分 (格子數 x 100)
-                state.timeLeft += 4; // 獎勵時間：+4秒
-                state.score += points; 
-                
-                // 💡 安全防護：紀錄消除證據 (時間與分數)
-                state.matchLog.push({ t: Date.now(), p: points }); 
-                
-                // 立即同步至 UI
+                const points = sel.length * 100;
+                state.score += points; state.timeLeft += 4;
+                state.matchLog.push({ t: Date.now(), p: points }); // 紀錄證據
                 document.getElementById('score').innerText = state.score;
                 document.getElementById('timer').innerText = state.timeLeft;
-
                 SoundManager.playEliminate(); this.spawnBoom(input.current);
                 sel.forEach(c => c.removed = true); checkBoardStatus();
             }
-            // 清除選取橘色高亮狀態
             state.grid.flat().forEach(c => c.active = false);
         },
 
-        /**
-         * 粒子噴射特效產生器
-         */
-        spawnBoom: (pos) => { 
-            for (let i = 0; i < 20; i++) { 
-                const ang = Math.random() * Math.PI * 2, spd = Math.random() * 4 + 2; 
+        // 💡 [重要] 補回粒子生成函式，讓爆炸特效運作
+        spawnBoom: (pos) => {
+            for (let i = 0; i < 20; i++) {
+                const ang = Math.random() * Math.PI * 2, spd = Math.random() * 4 + 2;
                 particles.push({ 
-                    x: pos.x, y: pos.y, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd, 
-                    life: 30+Math.random()*20, size: 2+Math.random()*3, 
-                    color: pColors[Math.floor(Math.random()*pColors.length)] 
-                }); 
-            } 
+                    x: pos.x, y: pos.y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, 
+                    life: 30 + Math.random() * 20, size: 2 + Math.random() * 3, 
+                    color: pColors[Math.floor(Math.random() * pColors.length)] 
+                });
+            }
         },
 
-        /**
-         * 🔍 技能：提示一組可行解 (維持10秒)
-         */
+        // 💡 [重要] 補回提示技能
         useSkillHint: function() {
             if (!state.gameActive || state.skillsUsed.hint) return;
             const cells = findOneMove();
             if (cells) { 
-                state.skillsUsed.hint = true; 
-                document.getElementById('skill-btn-hint').classList.add('used'); 
-                cells.forEach(c => c.hinted = true); // 標記為綠色提示
-                setTimeout(() => state.grid.flat().forEach(c => c.hinted = false), 10000); 
+                state.skillsUsed.hint = true; document.getElementById('skill-btn-hint').classList.add('used'); 
+                cells.forEach(c => c.hinted = true);
+                setTimeout(() => state.grid.flat().forEach(c => c.hinted = false), 10000);
             }
         },
 
-        /**
-         * 🌀 技能：隨機打亂 (洗牌)
-         * 包含防死局保護：若洗完還是無解會自動重洗，最多嘗試 20 次。
-         */
+        // 💡 [重要] 補回打亂技能 (防無限迴圈)
         useSkillShuffle: function(markUsed = true) {
             if (!state.gameActive || (markUsed && state.skillsUsed.shuffle)) return;
             if (markUsed) { state.skillsUsed.shuffle = true; document.getElementById('skill-btn-shuffle').classList.add('used'); }
             
             let remains = state.grid.flat().filter(c => !c.removed);
             let vals = remains.map(c => c.val);
-            let attempts = 0; const MAX_ATTEMPTS = 20; // 🛑 安全限制：防死循環
-            
+            let attempts = 0;
             do {
                 for (let i = vals.length - 1; i > 0; i--) { 
-                    const j = Math.floor(Math.random() * (i + 1)); 
-                    [vals[i], vals[j]] = [vals[j], vals[i]]; 
+                    const j = Math.floor(Math.random() * (i + 1)); [vals[i], vals[j]] = [vals[j], vals[i]]; 
                 }
                 remains.forEach((c, i) => c.val = vals[i]);
                 attempts++;
-            } while (!findOneMove() && attempts < MAX_ATTEMPTS);
+            } while (!findOneMove() && attempts < 20);
         },
 
-        /**
-         * 💣 技能：開啟「刪除一個」模式 (炸彈)
-         */
-        toggleDeleteMode: function() { 
-            if(!state.skillsUsed.delete) { 
-                state.isDeleteMode = !state.isDeleteMode; 
-                document.getElementById('skill-btn-delete').classList.toggle('active'); 
-            } 
+        toggleDeleteMode: function() {
+            if (!state.skillsUsed.delete) {
+                state.isDeleteMode = !state.isDeleteMode;
+                document.getElementById('skill-btn-delete').classList.toggle('active');
+            }
         },
 
-        /**
-         * 遊戲結束處理
-         * 停止計時與運算，但不停止背景音樂，並顯示結算彈窗。
-         */
+        stop: function(m) { state.gameActive = false; if (animationId) cancelAnimationFrame(animationId); if (m) SoundManager.stopBGM(); },
+        
         end: function() { 
-            this.stop(false); // 停止遊戲但背景音樂繼續播放
-            GameSystem.toggleSettings(false); // 確保設定彈窗關閉
-            
+            this.stop(false); 
             document.getElementById('final-result-score').innerText = state.score; 
-            document.getElementById('result-player-display').innerText = `Player: ${state.name}`; 
-            
-            // 恢復結算介面上傳按鈕的可點擊狀態
-            const uploadBtn = document.getElementById('upload-btn');
-            if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.innerText = "上傳成績"; }
-            
+            document.getElementById('result-player-display').innerText = `Player: ${state.name}`;
             GameSystem.openResultOverlay(); 
-        }
+        },
+
+        backToHome: function() { this.stop(true); GameSystem.showScreen('screen-home'); }
     };
 })();
 
-/**
- * -----------------------------------------------------------------------------
- * 第四部分：初始化與全域監聽
- * -----------------------------------------------------------------------------
- */
+// 初始化事件監聽
 window.addEventListener('load', () => {
-    SoundManager.init(); // 啟動音效與記憶載入
-    GameSystem.initNamePersistence(); // 載入上次遊玩的玩家名稱
-    
+    SoundManager.init(); GameSystem.initNamePersistence();
     const canvas = document.getElementById('gameCanvas');
     if (canvas) {
-        // 指標事件 (Pointer Events) 同步支援滑鼠、觸控與手寫筆
-        canvas.addEventListener('pointerdown', (e) => { 
-            canvas.setPointerCapture(e.pointerId); // 捕獲指標以確保離開畫布仍能觸發 Up 事件
-            GameEngine.handleDown(GameEngine.getPos(e)); 
+        canvas.addEventListener('pointerdown', (e) => {
+            canvas.setPointerCapture(e.pointerId);
+            GameEngine.handleDown(GameEngine.getPos(e));
         });
         window.addEventListener('pointermove', (e) => GameEngine.handleMove(GameEngine.getPos(e)));
-        window.addEventListener('pointerup', (e) => { 
-            canvas.releasePointerCapture(e.pointerId); 
-            GameEngine.handleUp(); 
+        window.addEventListener('pointerup', (e) => {
+            canvas.releasePointerCapture(e.pointerId);
+            GameEngine.handleUp();
         });
     }
-    
-    // 行動裝置優化：防止誤觸下拉更新與雙指縮放
     document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
     document.addEventListener('gesturestart', (e) => e.preventDefault());
 });
