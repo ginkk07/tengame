@@ -253,6 +253,7 @@ const GameSystem = (function() {
             }).join('');
         },
         // 💡 上傳邏輯：在此處檢查是否使用了測試工具
+        // 💡 修改後的上傳邏輯：會顯示後端回傳的具體錯誤原因
         uploadScore: async function() {
             const b = document.getElementById('upload-btn');
             const internal = GameEngine.getInternalState(); 
@@ -265,19 +266,39 @@ const GameSystem = (function() {
             b.disabled = true; b.innerText = "驗證中...";
             const ts = Date.now();
             const sign = await getSignature(internal.name, internal.score, ts);
+            
             try {
                 const resp = await fetch(GAS_URL, {
                     method: "POST",
-                    body: JSON.stringify({ name: internal.name, score: internal.score, timestamp: ts, sign: sign, audit_skills: internal.skillsUsed })
+                    body: JSON.stringify({ 
+                        name: internal.name, 
+                        score: internal.score, 
+                        timestamp: ts, 
+                        sign: sign, 
+                        audit_skills: internal.skillsUsed 
+                    })
                 });
+                
                 const result = await resp.json();
-                if (result.status === "error") throw new Error("驗證失敗");
+
+                // 💡 關鍵修正：若後端驗證失敗，直接顯示後端傳回的 message (例如：驗證逾時)
+                if (result.status === "error") {
+                    alert("上傳失敗：" + result.message); 
+                    console.error("後端報錯詳情:", result.message);
+                    b.disabled = false; 
+                    b.innerText = "重試上傳";
+                    return;
+                }
+
                 localStorage.setItem('math_game_rank', JSON.stringify(result));
                 alert("🎉 成績上傳成功！");
                 this.showLeaderboard();
             } catch (e) {
-                alert("上傳失敗，請檢查密鑰或網路");
-                b.disabled = false; b.innerText = "重試上傳";
+                // 這是處理網路斷線或 URL 錯誤
+                alert("網路連線失敗，請檢查網路環境或 GAS 網址");
+                console.error("Fetch 拋出異常:", e);
+                b.disabled = false; 
+                b.innerText = "重試上傳";
             }
         },
         initNamePersistence: function() {
