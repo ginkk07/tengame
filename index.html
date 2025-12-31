@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>圈十遊戲</title>
+    <title>圈十遊戲 - 最終修正版</title>
     <style>
         :root { 
             --primary-color: #4a90e2; 
@@ -30,10 +30,11 @@
         }
         .screen.active { display: flex; }
 
-        /* 💡 新增：遊戲畫面的模糊濾鏡樣式 */
+        /* 💡 遊戲畫面的模糊濾鏡樣式 */
         #screen-game {
             transition: filter 0.1s ease; /* 讓模糊效果有漸變動畫 */
         }
+        /* JS 會切換這個 Class */
         #screen-game.blurred {
             filter: blur(6px); /* 模糊強度 */
         }
@@ -64,6 +65,7 @@
 
         h1 { font-size: 32px; margin: 0 0 15px 0; color: var(--primary-color); }
 
+        /* 您調整過的輸入框樣式 */
         input[type="text"] { padding: 10px; font-size: 16px; border: 2px solid #e1e8ed; border-radius: 12px; width: 260px; text-align: center; outline: none; box-sizing: border-box;}
 
         .setting-item { width: 100%; margin: 15px 0; display: flex; flex-direction: column; align-items: center; }
@@ -71,6 +73,7 @@
         .volume-slider { width: 80%; cursor: pointer; height: 10px; border-radius: 5px; background: #dfe6e9; outline: none; -webkit-appearance: none; }
         .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; background: var(--primary-color); border-radius: 50%; cursor: pointer; }
 
+        /* 您調整過的按鈕樣式 */
         .btn { padding: 12px 0; font-size: 16px; margin-top: 15px; border: none; border-radius: 50px; cursor: pointer; width: 260px; font-weight: bold; transition: transform 0.1s; }
         .btn:active { transform: scale(0.95); }
         .btn-start { background: var(--secondary-color); color: white; }
@@ -84,7 +87,8 @@
         .gear-btn { font-size: 24px; cursor: pointer; color: #7f8c8d; padding: 0 5px; }
 
         #game-canvas-container { background: #eee; padding: 4px; border-radius: 12px; }
-        canvas { background: #fff; border-radius: 8px; display: block; width: 100%; height: auto; }
+        /* 記得加上 touch-action: none 防止手機捲動 */
+        canvas { background: #fff; border-radius: 8px; display: block; width: 100%; height: auto; touch-action: none; }
 
         .skill-container { display: flex; justify-content: space-around; width: 100%; margin-top: 15px; }
         .skill-btn { width: 85px; height: 50px; background: #dfe6e9; border: 2px solid #b2bec3; border-radius: 12px; font-size: 13px; font-weight: bold; color: #2d3436; cursor: pointer; transition: all 0.2s; display: flex; justify-content: center; align-items: center; line-height: 1.2; text-align: center; }
