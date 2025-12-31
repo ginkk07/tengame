@@ -493,7 +493,7 @@ const GameEngine = (function() {
             if (!input.isDragging || state.isDeleteMode) return; input.isDragging = false;
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
             if (sel.reduce((s, c) => s + c.val, 0) === 10 && sel.length > 0) { 
-                state.timeLeft += 5; state.score += sel.length * 100; document.getElementById('score').innerText = state.score; document.getElementById('timer').innerText = state.timeLeft; 
+                state.timeLeft += 3; state.score += sel.length * 100; document.getElementById('score').innerText = state.score; document.getElementById('timer').innerText = state.timeLeft; 
                 this.spawnBoom(sel); sel.forEach(c => c.removed = true); 
                 checkBoardStatus(); // 💡 每次消除後檢查盤面狀態
             }
