@@ -30,7 +30,7 @@
             align-items: center; 
             min-height: 100vh; 
             color: var(--text-color); 
-            overscroll-behavior-y: contain; /* 防止下拉更新 */
+            overscroll-behavior-y: contain; /* 防止手機下拉更新 */
             overflow: hidden; 
         }
 
@@ -98,7 +98,9 @@
 
     <div id="screen-home" class="screen active">
         <h1>圈十遊戲</h1>
-        <div class="name-input-group"><input type="text" id="home-player-name" maxlength="10"></div>
+        <div class="name-input-group">
+            <input type="text" id="home-player-name" placeholder="請輸入名稱" maxlength="10">
+        </div>
         <button class="btn btn-start" onclick="GameEngine.start()">開始遊戲</button>
         <button class="btn btn-rank" onclick="GameSystem.showLeaderboard()">排行榜</button>
     </div>
@@ -133,14 +135,9 @@
  * ==========================================
  */
 const GameSystem = (function() {
-    // 💡 部署網址與 50 字元強效密鑰
     const GAS_URL = "https://script.google.com/macros/s/AKfycbywi6spIec2aA3gD9gQbDu1w-4XJZ0wy3ZDdTWGlMX33FYZtuk7kmQjN7OKxJlJHkGr/exec";
     const SECRET_SALT = "8fK#z2N@v9W$pL5&mR8*qT1!uX6^yB3(kC0)jA7[mS4]nD2{gH9}fJ";
 
-    /**
-     * 🔐 核心防作弊：計算 SHA-256 安全簽章
-     * 原理：將 (姓名+分數+時戳+私鑰) 混合加密，後端會重新比對
-     */
     async function getSignature(name, score, ts) {
         const msg = `${name}|${score}|${ts}|${SECRET_SALT}`;
         const encoder = new TextEncoder();
@@ -150,13 +147,10 @@ const GameSystem = (function() {
     }
 
     return {
-        // 畫面切換邏輯
         showScreen: (id) => {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(id).classList.add('active');
         },
-
-        // 排行榜讀取與渲染
         showLeaderboard: async function() {
             this.showScreen('screen-rank');
             const tbody = document.getElementById('rank-body');
@@ -166,12 +160,10 @@ const GameSystem = (function() {
                 const ranks = await resp.json();
                 this.renderRankTable(ranks);
             } catch (e) {
-                // 網路失敗時回退到本地儲存的快取
                 const cached = JSON.parse(localStorage.getItem('math_game_rank')) || [];
                 this.renderRankTable(cached);
             }
         },
-
         renderRankTable: (ranks) => {
             const tbody = document.getElementById('rank-body');
             if (!ranks || ranks.length === 0) { tbody.innerHTML = "<tr><td colspan='3'>暫無紀錄</td></tr>"; return; }
@@ -183,18 +175,12 @@ const GameSystem = (function() {
                 return `<tr class="${rankClass}"><td>${medal}${i + 1}</td><td>${r.name || '-'}</td><td style="font-weight:bold">${r.score || 0}</td></tr>`;
             }).join('');
         },
-
-        /**
-         * ☁️ 上傳成績：結合 SHA-256 簽章發送數據至 GAS
-         */
         uploadScore: async function() {
             const b = document.getElementById('upload-btn');
-            const state = GameEngine.getInternalState(); // 從引擎獲取當前數據
+            const state = GameEngine.getInternalState();
             b.disabled = true; b.innerText = "驗證中...";
-            
             const ts = Date.now();
             const sign = await getSignature(state.name, state.score, ts);
-
             try {
                 const resp = await fetch(GAS_URL, {
                     method: "POST",
@@ -202,7 +188,6 @@ const GameSystem = (function() {
                 });
                 const result = await resp.json();
                 if (result.status === "error") throw new Error("簽章驗證失敗");
-                
                 localStorage.setItem('math_game_rank', JSON.stringify(result));
                 alert("🎉 成績已安全上傳！");
                 this.showLeaderboard();
@@ -211,13 +196,10 @@ const GameSystem = (function() {
                 b.disabled = false; b.innerText = "重試上傳";
             }
         },
-
-        // 名稱持久化記憶
         initNamePersistence: function() {
             const input = document.getElementById('home-player-name');
-            const saved = localStorage.getItem('savedPlayerName') || "無名英雄";
+            const saved = localStorage.getItem('savedPlayerName') || "";
             input.value = saved;
-            // 監聽輸入即時存入 localStorage
             input.addEventListener('input', (e) => localStorage.setItem('savedPlayerName', e.target.value.trim()));
         }
     };
@@ -234,30 +216,23 @@ const GameEngine = (function() {
     const ctx = canvas.getContext('2d');
     const ROWS = 16, COLS = 10, GRID_SIZE = 40, MARGIN = 3;
 
-    // 遊戲運行中的狀態
     let state = {
         grid: [], score: 0, timeLeft: 60,
         gameActive: false, isConfirmingQuit: false,
-        name: "無名英雄"
+        name: ""
     };
 
-    // 操作控制與特效
     let input = { isDragging: false, start: { x: 0, y: 0 }, current: { x: 0, y: 0 } };
     let particles = [], animationId = null, lastTime = 0, timerAcc = 0;
 
-    // 對話框內的按鈕區域設定
     const btns = { restart: { x: 70, y: 350, w: 120, h: 40 }, quit: { x: 210, y: 350, w: 120, h: 40 } };
 
-    /**
-     * 🎲 初始化 10x16 網格
-     */
     function initGrid() {
         const total = ROWS * COLS, nums = [];
         for (let i = 0; i < total / 2; i++) { 
             let n = Math.floor(Math.random() * 9) + 1; 
-            nums.push(n, 10 - n); // 確保成對總和為 10
+            nums.push(n, 10 - n);
         }
-        // 洗牌算法
         for (let i = nums.length - 1; i > 0; i--) { 
             const j = Math.floor(Math.random() * (i + 1)); 
             [nums[i], nums[j]] = [nums[j], nums[i]]; 
@@ -267,13 +242,8 @@ const GameEngine = (function() {
         );
     }
 
-    /**
-     * 🎨 渲染核心：每秒 60 次更新畫面
-     */
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 繪製數字方格
         state.grid.forEach((row, r) => row.forEach((cell, c) => {
             if (cell.removed) return;
             let x = c * GRID_SIZE + MARGIN, y = r * GRID_SIZE + MARGIN, s = GRID_SIZE - MARGIN * 2;
@@ -284,24 +254,18 @@ const GameEngine = (function() {
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(cell.val, x + s/2, y + s/2);
         }));
-
-        // 繪製消除特效粒子
         particles.forEach((p, i) => {
             p.x += p.vx; p.y += p.vy; p.life--; ctx.globalAlpha = p.life / 60;
             ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
             p.vy += 0.1; if (p.life <= 0) particles.splice(i, 1);
         });
         ctx.globalAlpha = 1;
-
-        // 繪製選取虛線框
         if (input.isDragging && !state.isConfirmingQuit) {
             ctx.strokeStyle = '#3498db'; ctx.setLineDash([5, 3]);
             ctx.strokeRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y);
             ctx.setLineDash([]); ctx.fillStyle = 'rgba(52, 152, 219, 0.1)';
             ctx.fillRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y);
         }
-
-        // 繪製結束確認對話框
         if (state.isConfirmingQuit) {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.roundRect(40, 250, 320, 170, 20); ctx.fill();
@@ -319,9 +283,6 @@ const GameEngine = (function() {
         ctx.fillText(t, b.x + b.w/2, b.y + b.h/2);
     }
 
-    /**
-     * 📐 坐標轉換：將螢幕觸控點轉為畫布坐標
-     */
     function getPointerPos(e) {
         const rect = canvas.getBoundingClientRect();
         return { 
@@ -331,11 +292,30 @@ const GameEngine = (function() {
     }
 
     return {
-        getInternalState: () => ({ name: state.name, score: state.score }), // 提供給系統模組讀取
+        getInternalState: () => ({ name: state.name, score: state.score }),
 
+        // 💡 點擊開始遊戲：加入驗證邏輯
         start: function() {
+            const nameInput = document.getElementById('home-player-name');
+            const inputName = nameInput.value.trim();
+
+            // 1. 驗證是否輸入名稱
+            if (!inputName) {
+                alert("請輸入玩家名稱才能開始遊戲！");
+                nameInput.focus();
+                return;
+            }
+
+            // 2. 驗證名稱長度 (雙重保險)
+            if (inputName.length > 10) {
+                alert("玩家名稱不能超過 10 個字喔！");
+                return;
+            }
+
             this.stop();
-            state.name = document.getElementById('home-player-name').value.trim() || "無名英雄";
+            state.name = inputName;
+            localStorage.setItem('savedPlayerName', state.name); // 儲存至本地
+            
             GameSystem.showScreen('screen-game');
             state.score = 0; state.timeLeft = 60; state.gameActive = true;
             state.isConfirmingQuit = false; particles = [];
@@ -363,12 +343,9 @@ const GameEngine = (function() {
             animationId = requestAnimationFrame((ts) => this.loop(ts));
         },
 
-        // 處理觸控按下的邏輯
         handleDown: function(e) {
             if (!state.gameActive) return;
             const pos = getPointerPos(e);
-            
-            // 檢查對話框點擊
             if (state.isConfirmingQuit) {
                 const isInside = (p, b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
                 if (isInside(pos, btns.restart)) this.start();
@@ -384,8 +361,6 @@ const GameEngine = (function() {
         handleUp: function() {
             if (!input.isDragging) return; input.isDragging = false;
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
-            
-            // 判定圈選規則
             if (sel.reduce((s, c) => s + c.val, 0) === 10 && sel.length > 0) {
                 state.timeLeft += 5; // 獎勵時間
                 state.score += sel.length * 100;
@@ -408,7 +383,6 @@ const GameEngine = (function() {
         },
 
         spawnBoom: (sel) => {
-            // 計算中心點觸發粒子
             let minC=10, maxC=0, minR=16, maxR=0;
             state.grid.forEach((row, r) => row.forEach((cell, col) => {
                 if(cell.active && !cell.removed) {
@@ -443,7 +417,6 @@ window.addEventListener('load', () => {
     GameSystem.initNamePersistence();
     const canvas = document.getElementById('gameCanvas');
 
-    // 💡 完整對接指標事件 (支援滑鼠與觸控)
     canvas.addEventListener('pointerdown', (e) => {
         canvas.setPointerCapture(e.pointerId);
         GameEngine.handleDown(e);
@@ -458,7 +431,6 @@ window.addEventListener('load', () => {
         GameEngine.handleUp();
     });
 
-    // 防止 iOS/Android 雙指縮放衝突
     document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
     document.addEventListener('gesturestart', (e) => e.preventDefault());
 });
