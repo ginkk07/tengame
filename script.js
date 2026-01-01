@@ -118,10 +118,14 @@ const GameSystem = (function() {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'blurred'));
             document.getElementById(id).classList.add('active');
             
-            // 關閉所有彈窗與遮罩
+            // 關閉所有彈窗
             document.querySelectorAll('.overlay-screen').forEach(s => s.classList.remove('active'));
+            
             const bg = document.getElementById('overlay-bg');
-            if (bg) bg.classList.remove('active');
+            if (bg) {
+                bg.classList.remove('active');
+                bg.style.display = 'none'; // 強制隱藏，確保不會擋住按鈕
+            }
         },
 
         /**
