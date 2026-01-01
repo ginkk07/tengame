@@ -2,11 +2,10 @@
  * =============================================================================
  * 圈十遊戲 (Make 10) - 核心邏輯腳本 (完整修復版)
  * =============================================================================
- * 架構說明：
- * 本腳本採用 "Module Pattern" (模組模式) 將程式碼分為三個獨立部分，避免變數污染。
- * 1. SoundManager: 負責音效與背景音樂管理 (包含音效池優化)。
- * 2. GameSystem: 負責系統功能 (後端 API 通訊、分數上傳、介面切換、安全驗證)。
- * 3. GameEngine: 負責遊戲核心 (渲染迴圈、演算法、狀態管理、技能邏輯、粒子系統)。
+ * 包含完整功能：
+ * 1. 音效管理 (SoundManager)
+ * 2. 系統與安全 (GameSystem): SHA-256 簽章、證據鏈上傳、介面彈窗控制
+ * 3. 遊戲引擎 (GameEngine): 核心演算法、粒子特效、技能系統
  * =============================================================================
  */
 
@@ -14,45 +13,40 @@
  * -----------------------------------------------------------------------------
  * 第一部分：音頻管理器 (SOUND MANAGER)
  * -----------------------------------------------------------------------------
- * 負責處理所有聲音播放。使用 "音效池 (Object Pool)" 技術來解決連續點擊時音效被切斷的問題。
  */
 const SoundManager = (function() {
-    // 音樂與音效檔案路徑 (請確保 GitHub 上的 sound 資料夾結構正確)
+    // 定義音效路徑 (請確保檔案存在)
     const BGM_FILES = ['./sound/bgmusic01.ogg', './sound/bgmusic02.ogg', './sound/bgmusic03.ogg'];
     const SFX_EXP = './sound/effect-expball.wav';
     
-    // 從 localStorage 讀取音量設定，若無紀錄則預設為 0.5 (50%)
+    // 讀取音量設定
     let bgmVolume = parseFloat(localStorage.getItem('bgm_vol')) || 0.5;
     let sfxVolume = parseFloat(localStorage.getItem('sfx_vol')) || 0.5;
 
-    let currentBGM = null; // 當前正在播放的背景音樂物件
-    const sfxPool = [];    // 音效池陣列，用來存放預載的音效物件
-    const POOL_SIZE = 5;   // 音效池大小 (同時最多可播放 5 個重疊音效，避免聲音破裂)
+    let currentBGM = null;
+    const sfxPool = [];
+    const POOL_SIZE = 5; // 音效池大小
 
     return {
         /**
          * 初始化音效系統
-         * 1. 預載音效物件放入池中，避免遊戲中途載入造成延遲。
-         * 2. 綁定設定畫面 (screen-settings) 中的音量滑桿事件。
          */
         init: function() {
-            // 建立並預載音效物件
+            // 預載音效池
             for (let i = 0; i < POOL_SIZE; i++) {
                 const audio = new Audio(SFX_EXP);
                 audio.volume = sfxVolume;
                 sfxPool.push(audio);
             }
 
-            // 取得 HTML 中的滑桿元素
+            // 綁定音量滑桿
             const mSlider = document.getElementById('music-slider');
             const sSlider = document.getElementById('sfx-slider');
             
-            // 初始化滑桿位置與事件監聽
             if (mSlider) {
                 mSlider.value = bgmVolume; 
                 mSlider.addEventListener('input', (e) => {
                     bgmVolume = parseFloat(e.target.value);
-                    // 如果正在播放音樂，即時調整音量
                     if (currentBGM) currentBGM.volume = bgmVolume;
                     localStorage.setItem('bgm_vol', bgmVolume);
                 });
@@ -61,7 +55,6 @@ const SoundManager = (function() {
                 sSlider.value = sfxVolume;
                 sSlider.addEventListener('input', (e) => {
                     sfxVolume = parseFloat(e.target.value);
-                    // 批量更新音效池中所有物件的音量，確保下次播放時生效
                     sfxPool.forEach(a => a.volume = sfxVolume);
                     localStorage.setItem('sfx_vol', sfxVolume);
                 });
@@ -69,35 +62,27 @@ const SoundManager = (function() {
         },
 
         /**
-         * 隨機播放背景音樂 (BGM)
-         * 每次呼叫都會先停止前一首，再隨機挑選一首新歌播放。
+         * 播放背景音樂
          */
         playBGM: function() {
             if (currentBGM) { currentBGM.pause(); currentBGM = null; }
-            
             const randomFile = BGM_FILES[Math.floor(Math.random() * BGM_FILES.length)];
             currentBGM = new Audio(randomFile);
             currentBGM.volume = bgmVolume;
-            currentBGM.loop = true; // 設定為循環播放
-            
-            // 處理瀏覽器自動播放限制 (需使用者互動後才能播放，否則會報錯)
-            currentBGM.play().catch(() => console.log("等待使用者互動後播放BGM"));
+            currentBGM.loop = true;
+            currentBGM.play().catch(() => console.log("等待互動後播放BGM"));
         },
 
-        /**
-         * 停止播放背景音樂
-         */
         stopBGM: function() {
             if (currentBGM) { currentBGM.pause(); currentBGM = null; }
         },
 
         /**
          * 播放消除音效
-         * 從音效池中尋找 "閒置" (暫停或結束) 的物件來播放，避免聲音被切斷。
          */
         playEliminate: function() {
             const audio = sfxPool.find(s => s.paused || s.ended) || sfxPool[0];
-            audio.currentTime = 0; // 重置播放進度到開頭
+            audio.currentTime = 0;
             audio.play().catch(() => {});
         }
     };
@@ -107,59 +92,55 @@ const SoundManager = (function() {
  * -----------------------------------------------------------------------------
  * 第二部分：系統基礎設施 (SYSTEM SCRIPT)
  * -----------------------------------------------------------------------------
- * 負責處理與後端 Google Apps Script (GAS) 的溝通、分數上傳、排行榜顯示以及畫面切換。
  */
 const GameSystem = (function() {
-    // Google Apps Script (GAS) 後端部署網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbywi6spIec2aA3gD9gQbDu1w-4XJZ0wy3ZDdTWGlMX33FYZtuk7kmQjN7OKxJlJHkGr/exec";
-    // 🔐 安全密鑰 (Salt)，必須與後端 Code.gs 中的設定完全一致，否則驗證會失敗
+    // 🔐 安全密鑰：需與後端 Code.gs 完全一致
     const SECRET_SALT = "8fK#z2N@v9W$pL5&mR8*qT1!uX6^yB3(kC0)jA7[mS4]nD2{gH9}fJ"; 
 
     /**
      * 產生 SHA-256 安全簽章
-     * 將 (名字 + 分數 + 時間戳 + 密鑰) 組合後進行雜湊，防止玩家透過 API 直接竄改分數。
      */
     async function getSignature(name, score, ts) {
+        // 確保加上分隔符號，與後端邏輯一致
         const msg = name + "|" + score + "|" + ts + "|" + SECRET_SALT;
         const encoder = new TextEncoder();
         const data = encoder.encode(msg);
         const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-        // 將 ArrayBuffer 轉換為 16 進位字串
         return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
     return {
         /**
-         * 切換顯示一般頁面 (如首頁、排行榜、遊戲畫面)
-         * 切換時會自動關閉所有彈窗 (Settings/Result) 與模糊效果。
+         * 切換主畫面
          */
         showScreen: (id) => {
-            // 隱藏所有一般頁面
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'blurred'));
-            // 顯示目標頁面
             document.getElementById(id).classList.add('active');
             
-            // 強制關閉所有彈窗與遮罩
+            // 關閉所有彈窗與遮罩
             document.querySelectorAll('.overlay-screen').forEach(s => s.classList.remove('active'));
             const bg = document.getElementById('overlay-bg');
             if (bg) bg.classList.remove('active');
         },
 
         /**
-         * 💡 [核心修正] 控制彈窗顯示與背景模糊
-         * 此函式名稱已修正為 toggleOverlay 以解決 "is not a function" 錯誤。
-         * @param {string} id - 彈窗 DOM ID (如 'screen-settings')
-         * @param {boolean} show - 顯示 (true) 或隱藏 (false)
+         * 💡 [修復] 彈窗控制函式 (Toggle Overlay)
+         * 包含 HTML 防呆機制：若找不到 overlay-bg 會自動建立
          */
         toggleOverlay: (id, show) => {
             const overlay = document.getElementById(id);
-            
-            // 自動偵測或建立遮罩層 (防止 HTML 缺失導致報錯)
             let bg = document.getElementById('overlay-bg');
+            
+            // 防呆：自動建立遮罩層
             if (!bg) {
                 bg = document.createElement('div');
                 bg.id = 'overlay-bg';
-                bg.className = 'overlay-bg';
+                // 這裡簡單賦予樣式確保功能正常，建議 CSS 也要補上
+                bg.style.position = 'fixed'; bg.style.top = 0; bg.style.left = 0;
+                bg.style.width = '100%'; bg.style.height = '100%';
+                bg.style.background = 'rgba(0,0,0,0.6)'; bg.style.zIndex = '999';
+                bg.style.display = 'none';
                 document.body.appendChild(bg);
             }
             
@@ -167,69 +148,34 @@ const GameSystem = (function() {
             
             if (show) { 
                 if (overlay) overlay.classList.add('active'); 
-                if (bg) bg.classList.add('active'); 
-                // 加上模糊效果
+                bg.style.display = 'block'; // 強制顯示
+                bg.classList.add('active'); 
                 if (gameScreen) gameScreen.classList.add('blurred');
             } else { 
                 if (overlay) overlay.classList.remove('active'); 
-                if (bg) bg.classList.remove('active'); 
-                // 移除模糊效果
+                bg.style.display = 'none'; // 強制隱藏
+                bg.classList.remove('active'); 
                 if (gameScreen) gameScreen.classList.remove('blurred');
             }
         },
 
         /**
-         * 專用：開啟結算畫面彈窗
+         * 開啟結算畫面
          */
         openResultOverlay: () => {
             GameSystem.toggleOverlay('screen-result', true);
         },
 
         /**
-         * 顯示排行榜
-         * 優先從 GAS 獲取最新資料，若網路失敗則讀取 localStorage 的快取資料。
-         */
-        showLeaderboard: async function() {
-            this.showScreen('screen-rank');
-            const tbody = document.getElementById('rank-body');
-            tbody.innerHTML = "<tr><td colspan='3'>同步數據中...</td></tr>";
-            
-            try {
-                const resp = await fetch(GAS_URL);
-                const ranks = await resp.json();
-                this.renderRankTable(ranks);
-            } catch (e) {
-                // 網路錯誤時讀取本機快取
-                const cached = JSON.parse(localStorage.getItem('math_game_rank')) || [];
-                this.renderRankTable(cached);
-            }
-        },
-
-        /**
-         * 渲染排行榜表格 HTML
-         */
-        renderRankTable: (ranks) => {
-            const tbody = document.getElementById('rank-body');
-            if (!ranks || ranks.length === 0) { tbody.innerHTML = "<tr><td colspan='3'>暫無紀錄</td></tr>"; return; }
-            tbody.innerHTML = ranks.slice(0, 10).map((r, i) => {
-                let medal = i === 0 ? "🥇 " : i === 1 ? "🥈 " : i === 2 ? "🥉 " : "";
-                return `<tr><td>${medal}${i + 1}</td><td>${r.name || '-'}</td><td style="font-weight:bold">${r.score || 0}</td></tr>`;
-            }).join('');
-        },
-
-        /**
-         * 上傳分數至後端
-         * 包含防止重複點擊、錯誤處理與本機快取更新。
+         * 上傳分數 (含證據鏈稽核)
          */
         uploadScore: async function() {
             const b = document.getElementById('upload-btn');
             const internal = GameEngine.getInternalState(); 
             
-            // 測試模式禁止上傳
-            if (internal.isTestUsed) return;
+            if (internal.isTestUsed) return; // 測試模式不上傳
 
-            b.disabled = true; 
-            b.innerText = "驗證中...";
+            b.disabled = true; b.innerText = "驗證中...";
             
             const ts = Date.now();
             const sign = await getSignature(internal.name, internal.score, ts);
@@ -242,31 +188,43 @@ const GameSystem = (function() {
                         score: internal.score, 
                         timestamp: ts, 
                         sign: sign, 
-                        log: internal.matchLog // 💡 [重要] 傳送證據鏈供後端稽核
+                        // 🛡️ 傳送證據鏈供後端檢查
+                        log: internal.matchLog 
                     }) 
                 });
-                
                 const result = await resp.json();
-                
                 if (result.status === "error") { 
-                    alert("上傳失敗：" + result.message); 
-                    b.disabled = false; b.innerText = "重試上傳"; 
-                    return; 
+                    alert("上傳失敗：" + result.message); b.disabled = false; return; 
                 }
-                
-                // 上傳成功，更新本機快取
                 localStorage.setItem('math_game_rank', JSON.stringify(result));
                 alert("🎉 上傳成功！"); 
-                this.showLeaderboard(); 
-            } catch (e) { 
-                alert("網路錯誤"); 
-                b.disabled = false; b.innerText = "重試上傳"; 
+                this.showLeaderboard();
+            } catch (e) { alert("連線失敗"); b.disabled = false; }
+        },
+
+        showLeaderboard: async function() {
+            this.showScreen('screen-rank');
+            const tbody = document.getElementById('rank-body');
+            tbody.innerHTML = "<tr><td colspan='3'>同步數據中...</td></tr>";
+            try {
+                const resp = await fetch(GAS_URL);
+                const ranks = await resp.json();
+                this.renderRankTable(ranks);
+            } catch (e) {
+                const cached = JSON.parse(localStorage.getItem('math_game_rank')) || [];
+                this.renderRankTable(cached);
             }
         },
 
-        /**
-         * 初始化玩家名稱記憶功能
-         */
+        renderRankTable: (ranks) => {
+            const tbody = document.getElementById('rank-body');
+            if (!ranks || ranks.length === 0) { tbody.innerHTML = "<tr><td colspan='3'>暫無紀錄</td></tr>"; return; }
+            tbody.innerHTML = ranks.slice(0, 10).map((r, i) => {
+                let medal = i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1;
+                return `<tr><td>${medal}</td><td>${r.name || '-'}</td><td style="font-weight:bold">${r.score || 0}</td></tr>`;
+            }).join('');
+        },
+
         initNamePersistence: function() {
             const input = document.getElementById('home-player-name');
             if (input) {
@@ -281,36 +239,26 @@ const GameSystem = (function() {
  * -----------------------------------------------------------------------------
  * 第三部分：遊戲核心引擎 (GAME SCRIPT)
  * -----------------------------------------------------------------------------
- * 包含：遊戲迴圈、渲染、輸入處理、核心演算法、技能邏輯、粒子特效。
  */
 const GameEngine = (function() {
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const ROWS = 16, COLS = 10, SIZE = 40, MARGIN = 3;
 
-    // 遊戲狀態物件
     let state = {
-        grid: [],           // 16x10 的二維陣列
-        score: 0,           // 分數
-        timeLeft: 60,       // 剩餘時間
-        gameActive: false,  // 遊戲進行狀態
-        isDeleteMode: false,// 是否處於刪除模式
-        isTestUsed: false,  // 是否使用測試工具
-        name: "",           // 玩家名稱
-        skillsUsed: { hint: false, shuffle: false, delete: false }, // 技能狀態
-        matchLog: []        // 💡 [重要] 得分證據鏈：存儲每次消除的時間與得分
+        grid: [], score: 0, timeLeft: 60, gameActive: false, isDeleteMode: false, name: "",
+        skillsUsed: { hint: false, shuffle: false, delete: false },
+        matchLog: [] // 🛡️ 證據鏈
     };
 
-    // 輸入與動畫變數
     let input = { isDragging: false, start: { x: 0, y: 0 }, current: { x: 0, y: 0 } };
-    let particles = [];     // 💡 粒子特效陣列 (之前版本缺失的部分)
+    
+    // 💥 粒子特效變數 (補回)
+    let particles = [];
     let animationId = null, lastTime = 0, timerAcc = 0;
     const pColors = ['#f1c40f', '#e67e22', '#e74c3c', '#3498db', '#2ecc71'];
 
-    /**
-     * 🔍 [核心演算法] 尋找一組解
-     * 窮舉所有可能的矩形區域，檢查總和是否為 10。
-     */
+    // 🔍 尋找可行解演算法
     function findOneMove() {
         for (let r1 = 0; r1 < ROWS; r1++) {
             for (let c1 = 0; c1 < COLS; c1++) {
@@ -321,8 +269,7 @@ const GameEngine = (function() {
                         for (let r = r1; r <= r2; r++) {
                             for (let c = c1; c <= c2; c++) {
                                 if (!state.grid[r][c].removed) { 
-                                    sum += state.grid[r][c].val; 
-                                    cells.push(state.grid[r][c]); 
+                                    sum += state.grid[r][c].val; cells.push(state.grid[r][c]); 
                                 }
                             }
                         }
@@ -334,9 +281,7 @@ const GameEngine = (function() {
         return null;
     }
 
-    /**
-     * 🌀 死局檢查與自動處理
-     */
+    // 🌀 狀態檢查 (死局/過關)
     function checkBoardStatus() {
         const remaining = state.grid.flat().filter(c => !c.removed);
         if (remaining.length === 0) { 
@@ -344,36 +289,28 @@ const GameEngine = (function() {
         }
         if (!findOneMove()) {
             if (!state.skillsUsed.shuffle) { 
-                alert("無解！自動執行隨機打亂..."); 
-                GameEngine.useSkillShuffle(true); 
+                alert("無解！自動執行隨機打亂..."); GameEngine.useSkillShuffle(true); 
             } else { 
-                alert("無解且技能用完，遊戲結束！"); 
-                GameEngine.end(); 
+                alert("無解且技能用完，遊戲結束！"); GameEngine.end(); 
             }
         }
     }
 
-    /**
-     * 初始化網格數字
-     */
+    // 初始化盤面
     function initGrid() {
         const total = ROWS * COLS, nums = [];
         for (let i = 0; i < total / 2; i++) { 
-            let n = Math.floor(Math.random() * 9) + 1; 
-            nums.push(n, 10 - n); 
+            let n = Math.floor(Math.random() * 9) + 1; nums.push(n, 10 - n); 
         }
         for (let i = nums.length - 1; i > 0; i--) { 
-            const j = Math.floor(Math.random() * (i + 1)); 
-            [nums[i], nums[j]] = [nums[j], nums[i]]; 
+            const j = Math.floor(Math.random() * (i + 1)); [nums[i], nums[j]] = [nums[j], nums[i]]; 
         }
         state.grid = Array.from({ length: ROWS }, (_, r) => 
             Array.from({ length: COLS }, (_, c) => ({ val: nums[r * COLS + c], removed: false, active: false, hinted: false }))
         );
     }
 
-    /**
-     * 渲染函式 (每幀呼叫)
-     */
+    // 渲染循環 (每幀呼叫)
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
@@ -383,7 +320,6 @@ const GameEngine = (function() {
             let x = c * SIZE + MARGIN, y = r * SIZE + MARGIN, s = SIZE - MARGIN * 2;
             
             ctx.beginPath(); ctx.roundRect(x, y, s, s, 6);
-            
             if (state.isDeleteMode) ctx.fillStyle = cell.active ? '#ff7675' : '#fab1a0';
             else if (cell.active) ctx.fillStyle = '#ffbe76';
             else if (cell.hinted) ctx.fillStyle = '#b8e994';
@@ -396,7 +332,7 @@ const GameEngine = (function() {
             ctx.fillText(cell.val, x + s/2, y + s/2);
         }));
 
-        // 💡 2. [復原] 繪製粒子特效
+        // 💥 2. 粒子特效 (補回)
         for (let i = particles.length - 1; i >= 0; i--) {
             let p = particles[i];
             p.x += p.vx; p.y += p.vy; p.life--;
@@ -407,13 +343,13 @@ const GameEngine = (function() {
             ctx.globalAlpha = alpha;
             ctx.fillStyle = p.color;
             ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
-            p.vy += 0.1; // 重力效果
+            p.vy += 0.1; // 重力
             
             if (p.life <= 0) particles.splice(i, 1);
         }
         ctx.globalAlpha = 1;
 
-        // 3. 繪製框選線
+        // 3. 繪製框選
         if (input.isDragging && !state.isDeleteMode) {
             ctx.strokeStyle = '#3498db'; ctx.setLineDash([5, 3]); 
             ctx.strokeRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y); 
@@ -424,7 +360,6 @@ const GameEngine = (function() {
     }
 
     return {
-        // 工具：取得相對座標
         getPos: (e) => { 
             const rect = canvas.getBoundingClientRect(); 
             return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; 
@@ -433,7 +368,7 @@ const GameEngine = (function() {
 
         start: function() {
             state.name = document.getElementById('home-player-name').value.trim();
-            if (!state.name) { alert("請輸入名稱才能開始！"); return; }
+            if (!state.name) { alert("請輸入名稱！"); return; }
             this.stop(true);
             
             const uploadBtn = document.getElementById('upload-btn');
@@ -441,8 +376,8 @@ const GameEngine = (function() {
 
             state.score = 0; state.timeLeft = 60; state.gameActive = true; state.matchLog = [];
             document.getElementById('score').innerText = "0";
+            document.getElementById('timer').innerText = "60";
             
-            // 重置技能狀態
             state.skillsUsed = { hint: false, shuffle: false, delete: false };
             document.querySelectorAll('.skill-btn').forEach(b => b.classList.remove('used', 'active'));
 
@@ -452,7 +387,9 @@ const GameEngine = (function() {
 
         initGrid: () => {
             const total = ROWS * COLS, nums = [];
-            for (let i = 0; i < total / 2; i++) { let n = Math.floor(Math.random() * 9) + 1; nums.push(n, 10 - n); }
+            for (let i = 0; i < total / 2; i++) { 
+                let n = Math.floor(Math.random() * 9) + 1; nums.push(n, 10 - n); 
+            }
             nums.sort(() => Math.random() - 0.5);
             state.grid = Array.from({ length: ROWS }, (_, r) => 
                 Array.from({ length: COLS }, (_, c) => ({ val: nums[r * COLS + c], removed: false, active: false, hinted: false }))
@@ -473,7 +410,7 @@ const GameEngine = (function() {
             animationId = requestAnimationFrame((ts) => this.loop(ts));
         },
 
-        // 💡 修正：呼叫 toggleOverlay，對應 GameSystem 中的定義
+        // ⚙️ 呼叫修復後的 toggleOverlay
         openSettings: () => GameSystem.toggleOverlay('screen-settings', true),
         resumeFromSettings: () => GameSystem.toggleOverlay('screen-settings', false),
 
@@ -493,11 +430,9 @@ const GameEngine = (function() {
             input.isDragging = true; input.start = pos; input.current = { ...pos };
         },
 
-        // 💡 [重要] 補回 handleMove，修復框選時無法更新的問題
+        // 💡 補回位移處理 (解決框選無效)
         handleMove: function(pos) {
-            if (input.isDragging && !state.isDeleteMode) {
-                input.current = pos;
-            }
+            if (input.isDragging && !state.isDeleteMode) { input.current = pos; }
         },
 
         updateStates: () => {
@@ -515,7 +450,10 @@ const GameEngine = (function() {
             if (sel.reduce((s, c) => s + c.val, 0) === 10 && sel.length > 0) {
                 const points = sel.length * 100;
                 state.score += points; state.timeLeft += 4;
-                state.matchLog.push({ t: Date.now(), p: points }); // 紀錄證據
+                
+                // 🛡️ 紀錄證據
+                state.matchLog.push({ t: Date.now(), p: points }); 
+                
                 document.getElementById('score').innerText = state.score;
                 document.getElementById('timer').innerText = state.timeLeft;
                 SoundManager.playEliminate(); this.spawnBoom(input.current);
@@ -524,7 +462,7 @@ const GameEngine = (function() {
             state.grid.flat().forEach(c => c.active = false);
         },
 
-        // 💡 [重要] 補回粒子生成函式，讓爆炸特效運作
+        // 💥 補回粒子生成函式
         spawnBoom: (pos) => {
             for (let i = 0; i < 20; i++) {
                 const ang = Math.random() * Math.PI * 2, spd = Math.random() * 4 + 2;
@@ -536,7 +474,7 @@ const GameEngine = (function() {
             }
         },
 
-        // 💡 [重要] 補回提示技能
+        // 💡 補回技能：提示
         useSkillHint: function() {
             if (!state.gameActive || state.skillsUsed.hint) return;
             const cells = findOneMove();
@@ -547,7 +485,7 @@ const GameEngine = (function() {
             }
         },
 
-        // 💡 [重要] 補回打亂技能 (防無限迴圈)
+        // 💡 補回技能：打亂
         useSkillShuffle: function(markUsed = true) {
             if (!state.gameActive || (markUsed && state.skillsUsed.shuffle)) return;
             if (markUsed) { state.skillsUsed.shuffle = true; document.getElementById('skill-btn-shuffle').classList.add('used'); }
@@ -584,7 +522,7 @@ const GameEngine = (function() {
     };
 })();
 
-// 初始化事件監聽
+// 初始化與監聽
 window.addEventListener('load', () => {
     SoundManager.init(); GameSystem.initNamePersistence();
     const canvas = document.getElementById('gameCanvas');
