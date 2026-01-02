@@ -252,7 +252,7 @@ const GameSystem = (function() {
 
 /**
  * -----------------------------------------------------------------------------
- * 第三部分：遊戲核心引擎 (GAME SCRIPT)
+ * 第三部分：遊戲核心引擎 (GAME SCRIPT) - 倒數掉落動畫版
  * -----------------------------------------------------------------------------
  */
 const GameEngine = (function() {
@@ -263,17 +263,33 @@ const GameEngine = (function() {
     let state = {
         grid: [], score: 0, timeLeft: 60, gameActive: false, isDeleteMode: false, name: "",
         skillsUsed: { hint: false, shuffle: false, delete: false },
-        matchLog: [] // 🛡️ 證據鏈
+        matchLog: [],
+        combo: 0, comboTimer: 0, maxComboTime: 180,
+        numberBag: [] 
     };
 
     let input = { isDragging: false, start: { x: 0, y: 0 }, current: { x: 0, y: 0 } };
-    
-    // 💥 粒子特效變數 (補回)
     let particles = [];
+    let floatingTexts = [];
     let animationId = null, lastTime = 0, timerAcc = 0;
     const pColors = ['#f1c40f', '#e67e22', '#e74c3c', '#3498db', '#2ecc71'];
 
-    // 🔍 尋找可行解演算法
+    // 🎒 俄羅斯方塊式抽牌
+    function getNextNumber() {
+        if (state.numberBag.length === 0) {
+            let newSet = [];
+            for (let k = 0; k < 2; k++) { 
+                for (let i = 1; i <= 9; i++) newSet.push(i);
+            }
+            for (let i = newSet.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newSet[i], newSet[j]] = [newSet[j], newSet[i]];
+            }
+            state.numberBag = newSet;
+        }
+        return state.numberBag.pop();
+    }
+
     function findOneMove() {
         for (let r1 = 0; r1 < ROWS; r1++) {
             for (let c1 = 0; c1 < COLS; c1++) {
@@ -296,43 +312,123 @@ const GameEngine = (function() {
         return null;
     }
 
-    // 🌀 狀態檢查 (死局/過關)
-    function checkBoardStatus() {
-        const remaining = state.grid.flat().filter(c => !c.removed);
-        if (remaining.length === 0) { 
-            alert("恭喜清空盤面！"); GameEngine.initGrid(); return; 
-        }
-        if (!findOneMove()) {
-            if (!state.skillsUsed.shuffle) { 
-                alert("無解！自動執行隨機打亂..."); GameEngine.useSkillShuffle(true); 
-            } else { 
-                alert("無解且技能用完，遊戲結束！"); GameEngine.end(); 
+    function applyGravity() {
+        for (let c = 0; c < COLS; c++) {
+            let newCol = [];
+            for (let r = 0; r < ROWS; r++) {
+                if (!state.grid[r][c].removed) {
+                    let cell = state.grid[r][c];
+                    let visualY = r * SIZE + (cell.offsetY || 0);
+                    cell.tempVisualY = visualY; 
+                    newCol.push(cell);
+                }
+            }
+            
+            let missingCount = ROWS - newCol.length;
+            
+            for (let i = 0; i < missingCount; i++) {
+                let startVisualY = - (missingCount - i) * SIZE; 
+                newCol.unshift({ 
+                    val: getNextNumber(), 
+                    removed: false, active: false, hinted: false,
+                    tempVisualY: startVisualY 
+                });
+            }
+            
+            for (let r = 0; r < ROWS; r++) {
+                let cell = newCol[r];
+                let targetY = r * SIZE;
+                cell.offsetY = cell.tempVisualY - targetY;
+                delete cell.tempVisualY; 
+                state.grid[r][c] = cell;
             }
         }
     }
 
-    // 初始化盤面
+    function checkBoardStatus() {
+        if (!findOneMove()) {
+            if (!state.skillsUsed.shuffle) GameEngine.useSkillShuffle(true); 
+            else GameEngine.useSkillShuffle(false); 
+        }
+    }
+
     function initGrid() {
-        const total = ROWS * COLS, nums = [];
-        for (let i = 0; i < total / 2; i++) { 
-            let n = Math.floor(Math.random() * 9) + 1; nums.push(n, 10 - n); 
-        }
-        for (let i = nums.length - 1; i > 0; i--) { 
-            const j = Math.floor(Math.random() * (i + 1)); [nums[i], nums[j]] = [nums[j], nums[i]]; 
-        }
+        state.numberBag = []; 
         state.grid = Array.from({ length: ROWS }, (_, r) => 
-            Array.from({ length: COLS }, (_, c) => ({ val: nums[r * COLS + c], removed: false, active: false, hinted: false }))
+            Array.from({ length: COLS }, (_, c) => {
+                let startY = - (ROWS - r) * SIZE; 
+                let targetY = r * SIZE;
+                return { 
+                    val: getNextNumber(), 
+                    removed: false, active: false, hinted: false,
+                    offsetY: startY - targetY
+                };
+            })
         );
     }
 
-    // 渲染循環 (每幀呼叫)
+    // 🔥 修改：只更新進度條，移除文字操作
+    function updateComboUI() {
+        const barContainer = document.getElementById('combo-bar-container');
+        const barFill = document.getElementById('combo-bar-fill');
+        
+        if (!barContainer || !barFill) return;
+
+        if (state.combo > 0) {
+            barContainer.style.display = 'block';
+            let percent = (state.comboTimer / state.maxComboTime) * 100;
+            barFill.style.width = `${percent}%`;
+            
+            if (state.combo < 3) barFill.style.background = '#f1c40f';
+            else if (state.combo < 6) barFill.style.background = '#e67e22';
+            else barFill.style.background = '#e74c3c';
+            
+        } else {
+            barContainer.style.display = 'none';
+        }
+    }
+
+    function runCountdown(callback) {
+        const cdEl = document.getElementById('start-countdown');
+        const maskEl = document.getElementById('start-mask');
+        if (!cdEl) { callback(); return; }
+
+        let count = 3;
+        cdEl.style.display = 'block';
+        if (maskEl) maskEl.style.display = 'block';
+        cdEl.innerText = count;
+
+        cdEl.style.animation = 'none';
+        cdEl.offsetHeight; 
+        cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+
+        let timer = setInterval(() => {
+            count--;
+            if (count > 0) {
+                cdEl.innerText = count;
+                cdEl.style.animation = 'none';
+                cdEl.offsetHeight; 
+                cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            } else if (count === 0) {
+                cdEl.innerText = "GO!";
+                cdEl.style.animation = 'none';
+                cdEl.offsetHeight; 
+                cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            } else {
+                clearInterval(timer);
+                cdEl.style.display = 'none';
+                if (maskEl) maskEl.style.display = 'none';
+                callback(); 
+            }
+        }, 1000);
+    }
+
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // 1. 繪製格子
         state.grid.forEach((row, r) => row.forEach((cell, c) => {
-            if (cell.removed) return;
-            let x = c * SIZE + MARGIN, y = r * SIZE + MARGIN, s = SIZE - MARGIN * 2;
+            let drawY = (r * SIZE) + (cell.offsetY || 0);
+            let x = c * SIZE + MARGIN, y = drawY + MARGIN, s = SIZE - MARGIN * 2;
             
             ctx.beginPath(); ctx.roundRect(x, y, s, s, 6);
             if (state.isDeleteMode) ctx.fillStyle = cell.active ? '#ff7675' : '#fab1a0';
@@ -347,29 +443,32 @@ const GameEngine = (function() {
             ctx.fillText(cell.val, x + s/2, y + s/2);
         }));
 
-        // 💥 2. 粒子特效 (補回)
         for (let i = particles.length - 1; i >= 0; i--) {
             let p = particles[i];
             p.x += p.vx; p.y += p.vy; p.life--;
-            
-            let alpha = p.life / 60;
-            if (alpha < 0) alpha = 0;
-
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = p.color;
+            let alpha = p.life / 60; if (alpha < 0) alpha = 0;
+            ctx.globalAlpha = alpha; ctx.fillStyle = p.color;
             ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
-            p.vy += 0.1; // 重力
-            
+            p.vy += 0.1;
             if (p.life <= 0) particles.splice(i, 1);
         }
         ctx.globalAlpha = 1;
 
-        // 3. 繪製框選
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+            let ft = floatingTexts[i];
+            ft.y -= 1; ft.life--;
+            ctx.globalAlpha = Math.max(0, ft.life / 30);
+            ctx.fillStyle = ft.color;
+            ctx.font = "bold 24px Arial"; ctx.textAlign = "center";
+            ctx.fillText(ft.text, ft.x, ft.y);
+            if (ft.life <= 0) floatingTexts.splice(i, 1);
+        }
+        ctx.globalAlpha = 1;
+
         if (input.isDragging && !state.isDeleteMode) {
             ctx.strokeStyle = '#3498db'; ctx.setLineDash([5, 3]); 
             ctx.strokeRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y); 
-            ctx.setLineDash([]);
-            ctx.fillStyle = 'rgba(52, 152, 219, 0.1)';
+            ctx.setLineDash([]); ctx.fillStyle = 'rgba(52, 152, 219, 0.1)';
             ctx.fillRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y);
         }
     }
@@ -384,67 +483,95 @@ const GameEngine = (function() {
         start: function() {
             state.name = document.getElementById('home-player-name').value.trim();
             if (!state.name) { alert("請輸入名稱！"); return; }
-
-            // 🛡️ 新增：前端提示 10 字限制
-            if (state.name.length > 10) { 
-                alert("名稱請限制在 10 個字以內！"); 
-                return; 
-            }
+            if (state.name.length > 10) { alert("名稱請限制在 10 個字以內！"); return; }
 
             this.stop(true);
-            
             const uploadBtn = document.getElementById('upload-btn');
             if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.innerText = "上傳成績"; }
-
-            state.score = 0; state.timeLeft = 60; state.gameActive = true; state.matchLog = [];
-            document.getElementById('score').innerText = "0";
+            
+            // 初始化狀態
+            state.score = 0; 
+            state.timeLeft = 60; 
+            state.gameActive = false; // 先倒數
+            state.matchLog = [];
+            state.combo = 0; state.comboTimer = 0;
+            
+            document.getElementById('score').innerText = "0"; 
             document.getElementById('timer').innerText = "60";
             
             state.skillsUsed = { hint: false, shuffle: false, delete: false };
             document.querySelectorAll('.skill-btn').forEach(b => b.classList.remove('used', 'active'));
+            
+            initGrid(); 
+            GameSystem.showScreen('screen-game');
+            updateComboUI(); 
 
-            initGrid(); SoundManager.playBGM(); GameSystem.showScreen('screen-game');
-            lastTime = performance.now(); this.loop(lastTime);
+            // 啟動渲染 Loop (讓背景方塊開始下落)
+            lastTime = performance.now(); 
+            this.loop(lastTime);
+
+            // 🔥 倒數結束後才正式開始計時
+            runCountdown(() => {
+                state.gameActive = true;
+                SoundManager.playBGM(); 
+                
+                // ⚠️ 關鍵修正：倒數結束時，重置 "時間累加器" 與 "上一幀時間"
+                // 這樣倒數期間累積的 dt 才不會算進去
+                timerAcc = 0; 
+                lastTime = performance.now(); 
+            });
         },
 
-        initGrid: () => {
-            const total = ROWS * COLS, nums = [];
-            for (let i = 0; i < total / 2; i++) { 
-                let n = Math.floor(Math.random() * 9) + 1; nums.push(n, 10 - n); 
-            }
-            nums.sort(() => Math.random() - 0.5);
-            state.grid = Array.from({ length: ROWS }, (_, r) => 
-                Array.from({ length: COLS }, (_, c) => ({ val: nums[r * COLS + c], removed: false, active: false, hinted: false }))
-            );
-        },
+        initGrid: () => initGrid(),
 
         loop: function(t) {
-            if (!state.gameActive) return;
             const dt = t - lastTime; lastTime = t; timerAcc += dt;
-            if (timerAcc >= 1000) {
-                state.timeLeft--;
-                document.getElementById('timer').innerText = state.timeLeft;
-                timerAcc -= 1000;
-                if (state.timeLeft <= 0) this.end();
+            
+            // 只有當遊戲正式開始才扣時間
+            if (state.gameActive) {
+                if (timerAcc >= 1000) {
+                    state.timeLeft--; document.getElementById('timer').innerText = state.timeLeft;
+                    timerAcc -= 1000; if (state.timeLeft <= 0) this.end();
+                }
+
+                if (state.combo > 0) {
+                    state.comboTimer--;
+                    if (state.comboTimer <= 0) state.combo = 0;
+                }
             }
+
+            updateComboUI();
+
+            // 下落速度調整為 8
+            let fallingSpeed = 8; 
+            state.grid.forEach(row => row.forEach(cell => {
+                if (cell.offsetY < 0) {
+                    cell.offsetY += fallingSpeed;
+                    if (cell.offsetY > 0) cell.offsetY = 0;
+                }
+            }));
+
             if (input.isDragging && !state.isDeleteMode) this.updateStates();
-            render();
-            animationId = requestAnimationFrame((ts) => this.loop(ts));
+            render(); animationId = requestAnimationFrame((ts) => this.loop(ts));
         },
 
-        // ⚙️ 呼叫修復後的 toggleOverlay
         openSettings: () => GameSystem.toggleOverlay('screen-settings', true),
         resumeFromSettings: () => GameSystem.toggleOverlay('screen-settings', false),
 
         handleDown: function(pos) {
-            if (!state.gameActive) return;
+            if (!state.gameActive) return; // 倒數時禁止操作
             if (state.isDeleteMode) {
                 const c = Math.floor(pos.x / SIZE), r = Math.floor(pos.y / SIZE);
-                if (r >= 0 && r < ROWS && c >= 0 && c < COLS && !state.grid[r][c].removed) {
-                    state.grid[r][c].removed = true; state.skillsUsed.delete = true; state.isDeleteMode = false;
+                if (r >= 0 && r < ROWS && c >= 0 && c < COLS && !state.grid[r][c].removed && state.grid[r][c].offsetY === 0) {
+                    state.grid[r][c].removed = true; 
+                    state.skillsUsed.delete = true; 
+                    state.isDeleteMode = false;
                     document.getElementById('skill-btn-delete').classList.remove('active', 'used'); 
                     document.getElementById('skill-btn-delete').classList.add('used');
-                    SoundManager.playEliminate(); this.spawnBoom(pos); checkBoardStatus();
+                    SoundManager.playEliminate(); 
+                    this.spawnBoom(pos); 
+                    applyGravity(); 
+                    checkBoardStatus();
                 }
                 return;
             }
@@ -452,15 +579,13 @@ const GameEngine = (function() {
             input.isDragging = true; input.start = pos; input.current = { ...pos };
         },
 
-        // 💡 補回位移處理 (解決框選無效)
-        handleMove: function(pos) {
-            if (input.isDragging && !state.isDeleteMode) { input.current = pos; }
-        },
+        handleMove: function(pos) { if (input.isDragging && !state.isDeleteMode) { input.current = pos; } },
 
         updateStates: () => {
             let x1 = Math.min(input.start.x, input.current.x), x2 = Math.max(input.start.x, input.current.x);
             let y1 = Math.min(input.start.y, input.current.y), y2 = Math.max(input.start.y, input.current.y);
             state.grid.forEach((row, r) => row.forEach((cell, c) => {
+                if (cell.offsetY !== 0) { cell.active = false; return; }
                 let tx = c * SIZE, ty = r * SIZE;
                 cell.active = !cell.removed && !(tx + SIZE < x1 || tx > x2 || ty + SIZE < y1 || ty > y2);
             }));
@@ -470,33 +595,55 @@ const GameEngine = (function() {
             if (!input.isDragging) return; input.isDragging = false;
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
             if (sel.reduce((s, c) => s + c.val, 0) === 10 && sel.length > 0) {
-                const points = sel.length * 100;
-                state.score += points; state.timeLeft += 4;
+                let basePoints = sel.length * 100;
                 
-                // 🛡️ 紀錄證據
-                state.matchLog.push({ t: Date.now(), p: points }); 
+                // 🔥 [修改] Combo 加分邏輯
+                let comboBonus = state.combo * 100;
+                
+                // 如果 Combo 超過 3，每多 1 Combo 額外加 50 分
+                if (state.combo > 3) {
+                    comboBonus += (state.combo - 3) * 50;
+                }
+
+                let totalPoints = basePoints + comboBonus;
+                
+                // 放寬單次得分上限，避免高 Combo 被誤判
+                if (totalPoints > 2500) totalPoints = 2500; 
+
+                state.score += totalPoints; 
+                state.timeLeft += 4;
+                state.combo++;
+                state.comboTimer = state.maxComboTime;
+
+                state.matchLog.push({ t: Date.now(), p: totalPoints }); 
                 
                 document.getElementById('score').innerText = state.score;
                 document.getElementById('timer').innerText = state.timeLeft;
-                SoundManager.playEliminate(); this.spawnBoom(input.current);
-                sel.forEach(c => c.removed = true); checkBoardStatus();
+                SoundManager.playEliminate(); 
+                this.spawnBoom(input.current);
+
+                let text = `+${totalPoints}`;
+                if (state.combo > 1) text += ` (Combo x${state.combo})`;
+                this.spawnFloatingText(input.current.x, input.current.y - 20, text, '#f1c40f');
+
+                sel.forEach(c => c.removed = true);
+                applyGravity();
+                checkBoardStatus();
             }
             state.grid.flat().forEach(c => c.active = false);
         },
 
-        // 💥 補回粒子生成函式
         spawnBoom: (pos) => {
             for (let i = 0; i < 20; i++) {
                 const ang = Math.random() * Math.PI * 2, spd = Math.random() * 4 + 2;
-                particles.push({ 
-                    x: pos.x, y: pos.y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, 
-                    life: 30 + Math.random() * 20, size: 2 + Math.random() * 3, 
-                    color: pColors[Math.floor(Math.random() * pColors.length)] 
-                });
+                particles.push({ x: pos.x, y: pos.y, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd, life: 30+Math.random()*20, size: 2+Math.random()*3, color: pColors[Math.floor(Math.random()*pColors.length)] });
             }
         },
 
-        // 💡 補回技能：提示
+        spawnFloatingText: (x, y, text, color) => {
+            floatingTexts.push({ x: x, y: y, text: text, color: color, life: 60 });
+        },
+
         useSkillHint: function() {
             if (!state.gameActive || state.skillsUsed.hint) return;
             const cells = findOneMove();
@@ -507,7 +654,6 @@ const GameEngine = (function() {
             }
         },
 
-        // 💡 補回技能：打亂
         useSkillShuffle: function(markUsed = true) {
             if (!state.gameActive || (markUsed && state.skillsUsed.shuffle)) return;
             if (markUsed) { state.skillsUsed.shuffle = true; document.getElementById('skill-btn-shuffle').classList.add('used'); }
@@ -516,11 +662,8 @@ const GameEngine = (function() {
             let vals = remains.map(c => c.val);
             let attempts = 0;
             do {
-                for (let i = vals.length - 1; i > 0; i--) { 
-                    const j = Math.floor(Math.random() * (i + 1)); [vals[i], vals[j]] = [vals[j], vals[i]]; 
-                }
-                remains.forEach((c, i) => c.val = vals[i]);
-                attempts++;
+                for (let i = vals.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [vals[i], vals[j]] = [vals[j], vals[i]]; }
+                remains.forEach((c, i) => c.val = vals[i]); attempts++;
             } while (!findOneMove() && attempts < 20);
         },
 
