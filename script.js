@@ -179,6 +179,17 @@ const GameSystem = (function() {
             
             if (internal.isTestUsed) return; // 測試模式不上傳
 
+            // 🛡️ [新增] 上傳前的最後 ID 檢查 (防呆)
+            const safeName = (internal.name || "").trim();
+            if (safeName.length === 0) {
+                alert("❌ 錯誤：名稱不能為空！");
+                return;
+            }
+            if (safeName.length > 10) {
+                alert("❌ 錯誤：名稱長度異常 (超過10字)，請重新整理頁面。");
+                return;
+            }
+
             b.disabled = true; b.innerText = "驗證中...";
             
             const ts = Date.now();
@@ -373,6 +384,13 @@ const GameEngine = (function() {
         start: function() {
             state.name = document.getElementById('home-player-name').value.trim();
             if (!state.name) { alert("請輸入名稱！"); return; }
+
+            // 🛡️ 新增：前端提示 10 字限制
+            if (state.name.length > 10) { 
+                alert("名稱請限制在 10 個字以內！"); 
+                return; 
+            }
+
             this.stop(true);
             
             const uploadBtn = document.getElementById('upload-btn');
