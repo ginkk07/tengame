@@ -260,8 +260,12 @@ const GameSystem = (function() {
 
 /**
  * -----------------------------------------------------------------------------
- * 第三部分：遊戲核心引擎 (GAME SCRIPT) - 倒數掉落動畫版
+ * 第三部分：遊戲核心引擎 (GAME SCRIPT)
  * -----------------------------------------------------------------------------
+ * 主要更新 (V5.1)：
+ * 1. ⏱️ 時間機制：取消消除補時，改為「每 10,000 分自動補充 20 秒」。
+ * 2. 🎁 獎勵機制：滿萬分同時獲得「Hint +1」與「Time +20s」。
+ * 3. 📐 版面設定：維持 8x14 (格子大小 45)，並置中顯示。
  */
 const GameEngine = (function() {
     // 取得 Canvas 繪圖環境
@@ -271,18 +275,18 @@ const GameEngine = (function() {
     // =========================================
     // 📐 遊戲常數設定 (8x14 版面配置)
     // =========================================
-    // 說明：畫布大小為 400x640。
-    // 我們將格子設為 8x14，格子大小 (SIZE) 設為 45。
-    // 寬度：8 * 45 = 360 (左右各留 20px 空隙)
-    // 高度：14 * 45 = 630 (上下各留 5px 空隙)
+    // 畫布總大小預設為 400x640
+    // 格子大小設為 45，總寬度 360，總高度 630
     const ROWS = 14; 
     const COLS = 8; 
     const SIZE = 45; 
-    const MARGIN = 3; // 格子間距
+    const MARGIN = 3; // 格子間距 (像數)
 
-    // 計算置中偏移量 (讓網格在畫布正中間)
-    const OFFSET_X = (400 - COLS * SIZE) / 2; // (400 - 360) / 2 = 20px
-    const OFFSET_Y = (640 - ROWS * SIZE) / 2; // (640 - 630) / 2 = 5px
+    // 計算置中偏移量 (讓網格在畫布正中間顯示)
+    // X軸剩餘空間：(400 - 360) / 2 = 20px
+    // Y軸剩餘空間：(640 - 630) / 2 = 5px
+    const OFFSET_X = (400 - COLS * SIZE) / 2; 
+    const OFFSET_Y = (640 - ROWS * SIZE) / 2; 
 
     // =========================================
     // 🎮 遊戲狀態 (State)
@@ -290,49 +294,49 @@ const GameEngine = (function() {
     let state = {
         grid: [],           // 存放方塊物件的二維陣列
         score: 0,           // 當前分數
-        timeLeft: 60,       // 剩餘時間
+        timeLeft: 60,       // 剩餘時間 (秒)
         gameActive: false,  // 遊戲是否進行中
-        isDeleteMode: false,// 是否開啟炸彈模式
+        isDeleteMode: false,// 是否開啟炸彈模式 (刪除單一格)
         name: "",           // 玩家名稱
         
-        // 🛠️ 技能相關狀態
-        skillsUsed: { shuffle: false, delete: false }, // 洗牌與炸彈 (維持一次性或限制)
-        hintCharges: 1,       // 🔥 新增：提示技能目前擁有的次數 (預設給 1 次)
-        nextHintScore: 10000, // 🔥 新增：下一次獲得獎勵的目標分數
+        // 🛠️ 技能與獎勵狀態
+        skillsUsed: { shuffle: false, delete: false }, // 紀錄一次性技能狀態
+        hintCharges: 1,         // 提示技能的剩餘次數 (預設 1 次)
+        nextRewardScore: 10000, // 🔥 下一次獲得獎勵 (Hint+Time) 的目標分數
         
-        matchLog: [],       // 證據鏈 (紀錄每次消除)
+        matchLog: [],       // 證據鏈：紀錄每次消除的時間與分數 (供後端驗證)
         
-        // 🔥 Combo 相關
+        // 🔥 Combo 連擊系統
         combo: 0,           // 當前連擊數
-        comboTimer: 0,      // 連擊倒數計時
-        maxComboTime: 180,  // 連擊判定時間 (約 3 秒)
+        comboTimer: 0,      // 連擊判定倒數計時器
+        maxComboTime: 180,  // 連擊判定時間 (幀數，約 3 秒)
         
-        numberBag: []       // 🎒 數字袋 (俄羅斯方塊式隨機)
+        numberBag: []       // 🎒 數字袋：用於公平隨機抽牌
     };
 
-    // 輸入控制變數
+    // 輸入控制變數 (滑鼠/觸控)
     let input = { isDragging: false, start: { x: 0, y: 0 }, current: { x: 0, y: 0 } };
     
-    // 特效物件
-    let particles = [];     // 爆炸粒子
-    let floatingTexts = []; // 漂浮文字
+    // 特效物件陣列
+    let particles = [];     // 爆炸粒子效果
+    let floatingTexts = []; // 漂浮文字 (+分數, +Time 等)
     
-    // 動畫迴圈控制
+    // 動畫迴圈控制變數
     let animationId = null, lastTime = 0, timerAcc = 0;
     const pColors = ['#f1c40f', '#e67e22', '#e74c3c', '#3498db', '#2ecc71'];
 
     /**
      * 🎒 機制：從數字袋中抽取下一個數字
-     * 確保 1-9 數字分佈均勻。
+     * 目的：確保 1-9 出現機率平均，避免長時間缺牌。
      */
     function getNextNumber() {
         if (state.numberBag.length === 0) {
             let newSet = [];
-            // 放入兩組 1~9 (共18個)
+            // 放入兩組 1~9 (共 18 個數字)
             for (let k = 0; k < 2; k++) { 
                 for (let i = 1; i <= 9; i++) newSet.push(i);
             }
-            // 洗牌
+            // Fisher-Yates 洗牌演算法
             for (let i = newSet.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [newSet[i], newSet[j]] = [newSet[j], newSet[i]];
@@ -343,7 +347,8 @@ const GameEngine = (function() {
     }
 
     /**
-     * 🔍 機制：檢查盤面是否有解 (尋找總和為 10 的組合)
+     * 🔍 機制：檢查盤面是否有解
+     * 用途：遍歷所有矩形組合，判斷是否還有總和為 10 的 move。
      */
     function findOneMove() {
         for (let r1 = 0; r1 < ROWS; r1++) {
@@ -369,26 +374,27 @@ const GameEngine = (function() {
 
     /**
      * 🍬 機制：重力下落與補牌
+     * 說明：消除後，上方方塊下落，並從頂部生成新方塊。
      */
     function applyGravity() {
         for (let c = 0; c < COLS; c++) {
             let newCol = [];
-            // 1. 收集該列未消除的方塊
+            // 1. 保留未消除的方塊
             for (let r = 0; r < ROWS; r++) {
                 if (!state.grid[r][c].removed) {
                     let cell = state.grid[r][c];
-                    // 計算視覺位置以便進行平滑動畫
+                    // 記錄當前視覺位置，確保動畫連貫
                     let visualY = r * SIZE + (cell.offsetY || 0);
                     cell.tempVisualY = visualY; 
                     newCol.push(cell);
                 }
             }
             
-            // 2. 計算需要補充多少方塊
+            // 2. 計算缺少的數量並補充
             let missingCount = ROWS - newCol.length;
             
-            // 3. 從頂部生成新方塊
             for (let i = 0; i < missingCount; i++) {
+                // 設定初始位置在畫面外上方
                 let startVisualY = - (missingCount - i) * SIZE; 
                 newCol.unshift({ 
                     val: getNextNumber(), 
@@ -397,10 +403,11 @@ const GameEngine = (function() {
                 });
             }
             
-            // 4. 更新 Grid 並設定動畫偏移量 (offsetY)
+            // 3. 更新 Grid 資料結構並設定動畫位移 (offsetY)
             for (let r = 0; r < ROWS; r++) {
                 let cell = newCol[r];
                 let targetY = r * SIZE;
+                // 位移量 = 舊視覺位置 - 新目標位置
                 cell.offsetY = cell.tempVisualY - targetY;
                 delete cell.tempVisualY; 
                 state.grid[r][c] = cell;
@@ -409,7 +416,8 @@ const GameEngine = (function() {
     }
 
     /**
-     * 機制：檢查死局，若無解則自動洗牌
+     * 機制：檢查死局
+     * 若盤面無解，自動觸發洗牌技能。
      */
     function checkBoardStatus() {
         if (!findOneMove()) {
@@ -430,14 +438,14 @@ const GameEngine = (function() {
                 return { 
                     val: getNextNumber(), 
                     removed: false, active: false, hinted: false,
-                    offsetY: startY - targetY
+                    offsetY: startY - targetY // 初始從天而降動畫
                 };
             })
         );
     }
 
     /**
-     * UI：更新 HTML Combo 條
+     * UI：更新 Combo 進度條 (無文字版)
      */
     function updateComboUI() {
         const barContainer = document.getElementById('combo-bar-container');
@@ -448,7 +456,7 @@ const GameEngine = (function() {
             barContainer.style.display = 'block';
             let percent = (state.comboTimer / state.maxComboTime) * 100;
             barFill.style.width = `${percent}%`;
-            // 顏色變化
+            // 隨 Combo 數變色 (黃 -> 橘 -> 紅)
             if (state.combo < 3) barFill.style.background = '#f1c40f';
             else if (state.combo < 6) barFill.style.background = '#e67e22';
             else barFill.style.background = '#e74c3c';
@@ -458,7 +466,7 @@ const GameEngine = (function() {
     }
 
     /**
-     * UI：開場倒數 (3, 2, 1, GO)
+     * UI：開場倒數動畫 (3 -> 2 -> 1 -> GO)
      */
     function runCountdown(callback) {
         const cdEl = document.getElementById('start-countdown');
@@ -467,9 +475,10 @@ const GameEngine = (function() {
 
         let count = 3;
         cdEl.style.display = 'block';
-        if (maskEl) maskEl.style.display = 'block';
+        if (maskEl) maskEl.style.display = 'block'; // 顯示遮罩
         cdEl.innerText = count;
-        // 重置動畫
+        
+        // 重置動畫 Class 以觸發效果
         cdEl.style.animation = 'none';
         cdEl.offsetHeight; 
         cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
@@ -489,22 +498,23 @@ const GameEngine = (function() {
             } else {
                 clearInterval(timer);
                 cdEl.style.display = 'none';
-                if (maskEl) maskEl.style.display = 'none';
-                callback(); 
+                if (maskEl) maskEl.style.display = 'none'; // 隱藏遮罩
+                callback(); // 倒數結束，執行回調
             }
         }, 1000);
     }
 
     /**
-     * 🎨 渲染函式 (Draw Loop)
+     * 🎨 渲染函式 (負責繪製 Canvas)
      */
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
+        // 1. 繪製方塊
         state.grid.forEach((row, r) => row.forEach((cell, c) => {
             let drawY = (r * SIZE) + (cell.offsetY || 0);
             
-            // 🔥 修正：繪製座標加上 OFFSET，讓 8x14 網格置中
+            // 🔥 座標修正：加上 OFFSET_X/Y 實現置中
             let x = c * SIZE + MARGIN + OFFSET_X;
             let y = drawY + MARGIN + OFFSET_Y;
             let s = SIZE - MARGIN * 2;
@@ -522,7 +532,7 @@ const GameEngine = (function() {
             ctx.fillText(cell.val, x + s/2, y + s/2);
         }));
 
-        // 繪製粒子
+        // 2. 繪製爆炸粒子
         for (let i = particles.length - 1; i >= 0; i--) {
             let p = particles[i];
             p.x += p.vx; p.y += p.vy; p.life--;
@@ -534,7 +544,7 @@ const GameEngine = (function() {
         }
         ctx.globalAlpha = 1;
 
-        // 繪製漂浮文字
+        // 3. 繪製漂浮文字 (Bonus Text)
         for (let i = floatingTexts.length - 1; i >= 0; i--) {
             let ft = floatingTexts[i];
             ft.y -= 1; ft.life--;
@@ -546,7 +556,7 @@ const GameEngine = (function() {
         }
         ctx.globalAlpha = 1;
 
-        // 繪製拖曳框 (需修正座標)
+        // 4. 繪製拖曳選取框
         if (input.isDragging && !state.isDeleteMode) {
             ctx.strokeStyle = '#3498db'; ctx.setLineDash([5, 3]); 
             ctx.strokeRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y); 
@@ -555,12 +565,14 @@ const GameEngine = (function() {
         }
     }
 
+    // 公開 API 介面
     return {
-        // 工具：取得滑鼠/觸控座標
+        // 工具：取得滑鼠/觸控的 Canvas 座標
         getPos: (e) => { 
             const rect = canvas.getBoundingClientRect(); 
             return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; 
         },
+        // 工具：取得內部狀態 (供上傳分數用)
         getInternalState: () => ({ name: state.name, score: state.score, matchLog: state.matchLog }),
 
         // 🚀 遊戲啟動入口
@@ -573,20 +585,19 @@ const GameEngine = (function() {
             const uploadBtn = document.getElementById('upload-btn');
             if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.innerText = "上傳成績"; }
             
+            // 重置遊戲數值
             state.score = 0; 
             state.timeLeft = 60; 
-            state.gameActive = false; 
+            state.gameActive = false; // 倒數結束前為 false
             state.matchLog = [];
             state.combo = 0; state.comboTimer = 0;
             
-            // 🔥 初始化技能與獎勵狀態
+            // 🔥 重置技能與獎勵狀態
             state.skillsUsed = { shuffle: false, delete: false };
-            state.hintCharges = 1;      // 初始給 1 次提示
-            state.nextHintScore = 10000;// 設定第一個獎勵目標為 10000 分
+            state.hintCharges = 1;          // 初始 1 個提示
+            state.nextRewardScore = 10000;  // 第一個獎勵目標：10000 分
             
-            // 重置按鈕樣式
             document.querySelectorAll('.skill-btn').forEach(b => b.classList.remove('used', 'active'));
-            
             document.getElementById('score').innerText = "0"; 
             document.getElementById('timer').innerText = "60";
             
@@ -594,9 +605,11 @@ const GameEngine = (function() {
             GameSystem.showScreen('screen-game');
             updateComboUI(); 
 
+            // 啟動渲染迴圈
             lastTime = performance.now(); 
             this.loop(lastTime);
 
+            // 執行 3-2-1 倒數
             runCountdown(() => {
                 state.gameActive = true;
                 SoundManager.playBGM(); 
@@ -607,16 +620,18 @@ const GameEngine = (function() {
 
         initGrid: () => initGrid(),
 
-        // 🔄 主迴圈
+        // 🔄 遊戲主迴圈 (Loop)
         loop: function(t) {
             const dt = t - lastTime; lastTime = t; timerAcc += dt;
             
+            // 遊戲計時邏輯
             if (state.gameActive) {
                 if (timerAcc >= 1000) {
                     state.timeLeft--; document.getElementById('timer').innerText = state.timeLeft;
                     timerAcc -= 1000; if (state.timeLeft <= 0) this.end();
                 }
 
+                // Combo 倒數條
                 if (state.combo > 0) {
                     state.comboTimer--;
                     if (state.comboTimer <= 0) state.combo = 0;
@@ -625,6 +640,7 @@ const GameEngine = (function() {
 
             updateComboUI();
 
+            // 物理下落更新
             let fallingSpeed = 8; 
             state.grid.forEach(row => row.forEach(cell => {
                 if (cell.offsetY < 0) {
@@ -640,15 +656,17 @@ const GameEngine = (function() {
         openSettings: () => GameSystem.toggleOverlay('screen-settings', true),
         resumeFromSettings: () => GameSystem.toggleOverlay('screen-settings', false),
 
-        // 輸入處理：按下
+        // 👆 輸入處理：按下 (Pointer Down)
         handleDown: function(pos) {
             if (!state.gameActive) return; 
             
+            // 炸彈模式 (刪除單一格)
             if (state.isDeleteMode) {
-                // 🔥 修正點擊座標判定：必須扣除 OFFSET
+                // 🔥 座標轉換：扣除 OFFSET_X/Y 以取得正確的 Grid 索引
                 const c = Math.floor((pos.x - OFFSET_X) / SIZE);
                 const r = Math.floor((pos.y - OFFSET_Y) / SIZE);
                 
+                // 檢查是否點擊在有效格子內
                 if (r >= 0 && r < ROWS && c >= 0 && c < COLS && !state.grid[r][c].removed && state.grid[r][c].offsetY === 0) {
                     state.grid[r][c].removed = true; 
                     state.skillsUsed.delete = true; 
@@ -668,7 +686,7 @@ const GameEngine = (function() {
 
         handleMove: function(pos) { if (input.isDragging && !state.isDeleteMode) { input.current = pos; } },
 
-        // 判定選取狀態
+        // 更新選取狀態 (Highlight)
         updateStates: () => {
             let x1 = Math.min(input.start.x, input.current.x), x2 = Math.max(input.start.x, input.current.x);
             let y1 = Math.min(input.start.y, input.current.y), y2 = Math.max(input.start.y, input.current.y);
@@ -676,7 +694,7 @@ const GameEngine = (function() {
             state.grid.forEach((row, r) => row.forEach((cell, c) => {
                 if (cell.offsetY !== 0) { cell.active = false; return; }
                 
-                // 🔥 修正選取範圍判定：加上 OFFSET
+                // 🔥 判定範圍修正：加上 OFFSET
                 let tx = c * SIZE + OFFSET_X;
                 let ty = r * SIZE + OFFSET_Y;
                 
@@ -684,38 +702,46 @@ const GameEngine = (function() {
             }));
         },
 
-        // 輸入處理：放開 (結算)
+        // 👆 輸入處理：放開 (結算消除)
         handleUp: function() {
             if (!input.isDragging) return; input.isDragging = false;
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
+            
+            // 判定是否總和為 10
             if (sel.reduce((s, c) => s + c.val, 0) === 10 && sel.length > 0) {
                 let basePoints = sel.length * 100;
                 
+                // 🔥 Combo 加分邏輯 (線性)
+                // Combo 1-2: +0
+                // Combo 3+: 每階 +50 (3->+50, 4->+100...)
                 let comboBonus = 0;
                 if (state.combo >= 2) {
                     comboBonus = (state.combo - 1) * 50;
                 }
 
                 let totalPoints = basePoints + comboBonus;
+                // 上限保護
                 if (totalPoints > 2500) totalPoints = 2500; 
 
                 state.score += totalPoints; 
-                state.timeLeft += 4;
                 state.combo++; 
                 state.comboTimer = state.maxComboTime;
-
-                // 🎁 獎勵機制：每 10,000 分獲得 1 次提示技能
-                if (state.score >= state.nextHintScore) {
+                
+                // ❌ 移除：原本每次消除 +4 秒的設定
+                // 🔥 新增：萬分獎勵 (Hint +1 & Time +20s)
+                if (state.score >= state.nextRewardScore) {
                     state.hintCharges++;
-                    state.nextHintScore += 10000; // 更新下一個目標
+                    state.timeLeft += 20; // 🔥 補時 20 秒
+                    state.nextRewardScore += 10000; // 更新下一個目標
                     
-                    // 恢復按鈕可點擊狀態 (移除灰階樣式)
+                    // 恢復 Hint 按鈕可用狀態
                     document.getElementById('skill-btn-hint').classList.remove('used');
                     
-                    // 視覺回饋
-                    this.spawnFloatingText(200, 300, "Hint +1 !", '#2ecc71');
+                    // 顯示獎勵漂浮文字
+                    this.spawnFloatingText(200, 300, "Bonus! Time +20s", '#2ecc71');
                 }
 
+                // Combo >= 3 播放特殊音效
                 if (state.combo >= 3) {
                     SoundManager.playWaha();
                 }
@@ -749,14 +775,13 @@ const GameEngine = (function() {
             floatingTexts.push({ x: x, y: y, text: text, color: color, life: 60 });
         },
 
-        // 🔍 修改：提示技能 (消耗次數制)
+        // 🔍 技能：提示 (消耗次數制)
         useSkillHint: function() {
-            // 檢查是否有剩餘次數
             if (!state.gameActive || state.hintCharges <= 0) return;
             
             const cells = findOneMove();
             if (cells) { 
-                state.hintCharges--; // 扣除 1 次
+                state.hintCharges--; // 扣次數
                 
                 // 若次數用完，按鈕變灰
                 if (state.hintCharges === 0) {
