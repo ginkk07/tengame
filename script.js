@@ -294,7 +294,7 @@ const GameEngine = (function() {
     let state = {
         grid: [],           // 存放方塊物件的二維陣列
         score: 0,           // 當前分數
-        timeLeft: 60,       // 剩餘時間 (秒)
+        timeLeft: 100,       // 剩餘時間 (秒)
         gameActive: false,  // 遊戲是否進行中
         isDeleteMode: false,// 是否開啟炸彈模式 (刪除單一格)
         name: "",           // 玩家名稱
@@ -587,7 +587,7 @@ const GameEngine = (function() {
             
             // 重置遊戲數值
             state.score = 0; 
-            state.timeLeft = 60; 
+            state.timeLeft = 100; 
             state.gameActive = false; // 倒數結束前為 false
             state.matchLog = [];
             state.combo = 0; state.comboTimer = 0;
@@ -599,7 +599,7 @@ const GameEngine = (function() {
             
             document.querySelectorAll('.skill-btn').forEach(b => b.classList.remove('used', 'active'));
             document.getElementById('score').innerText = "0"; 
-            document.getElementById('timer').innerText = "60";
+            document.getElementById('timer').innerText = "100";
             
             initGrid(); 
             GameSystem.showScreen('screen-game');
@@ -731,7 +731,7 @@ const GameEngine = (function() {
                 // 🔥 新增：萬分獎勵 (Hint +1 & Time +20s)
                 if (state.score >= state.nextRewardScore) {
                     state.hintCharges++;
-                    state.timeLeft += 20; // 🔥 補時 20 秒
+                    state.timeLeft += 50; // 🔥 補時 50 秒
                     state.nextRewardScore += 10000; // 更新下一個目標
                     
                     // 恢復 Hint 按鈕可用狀態
