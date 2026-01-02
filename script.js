@@ -281,13 +281,17 @@ const GameEngine = (function() {
      * 🎒 機制：從數字袋中抽取下一個數字
      * 目的：確保 1-9 出現機率平均，避免長時間缺牌。
      */
+    // 🎒 俄羅斯方塊式抽牌 (Bag System)
     function getNextNumber() {
         if (state.numberBag.length === 0) {
             let newSet = [];
-            // 放入兩組 1~9 (共 18 個數字)
+            
+            // 🔥 修改規則：一次放入 2 組 1~9 (共 18 個數字)
+            // 原本是 k < 1 (1組)，現在改為 k < 2 (2組)
             for (let k = 0; k < 2; k++) { 
                 for (let i = 1; i <= 9; i++) newSet.push(i);
             }
+            
             // Fisher-Yates 洗牌演算法
             for (let i = newSet.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
