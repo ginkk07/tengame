@@ -568,7 +568,7 @@ const GameEngine = (function() {
                 
                 // 🎁 獎勵機制 (累進難度：Gap += 3000)
                 if (state.score >= state.nextRewardScore) {
-                    state.timeLeft += 20; 
+                    state.timeLeft += 50; 
                     state.hintCharges++;
                     state.shuffleCharges++; 
                     
