@@ -186,7 +186,7 @@
         <div class="help-content">
             <p><b>目標：</b>框選數字總和為 <b>10</b> 的方塊進行消除。</p>
             <p><b>連擊 (Combo)：</b>連續消除可累積，Combo 3 以上獲得額外加分！</p>
-            <p><b>獎勵：</b>每 <b>10,000</b> 分獲得「剩餘時間 +50s」與「補充尋找技能」。</p>
+            <p><b>獎勵：</b>分獲<b>5,000</b> 時有「剩餘時間 +50s」與「補充尋找技能」的獎勵，但每次獎勵需求都會提高。</p>
         </div>
         <button class="btn btn-back" onclick="GameSystem.closeHelp()">關閉</button>
     </div>
@@ -239,7 +239,7 @@
         <div class="skill-container">
             <button id="skill-btn-hint" class="skill-btn" onclick="GameEngine.useSkillHint()">[Q]<br>尋找一組</button>
             <button id="skill-btn-shuffle" class="skill-btn" onclick="GameEngine.useSkillShuffle(true)">[W]<br>隨機打亂</button>
-            <button id="skill-btn-delete" class="skill-btn" onclick="GameEngine.toggleDeleteMode()">[E]<br>刪除一個</button>
+            <button id="skill-btn-delete" class="skill-btn" onclick="GameEngine.toggleDeleteMode()">[E]<br>消除數字</button>
         </div>
     </div>
 
