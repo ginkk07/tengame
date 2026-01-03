@@ -657,15 +657,11 @@ const GameEngine = (function() {
                     
                     // 2. 視覺特效：時間變大變綠 (持續 2 秒)
                     const timerEl = document.getElementById('timer');
-                    timerEl.style.display = "inline-block";
-                    timerEl.style.transition = "transform 0.2s ease, color 0.2s ease";
+                    timerEl.style.transition = "color 0.2s ease";
                     timerEl.style.color = "#2ecc71"; 
-                    timerEl.style.textShadow = "0 0 10px #2ecc71"; 
-                    timerEl.style.transform = "scale(1.5)"; 
                     setTimeout(() => {
                         timerEl.style.color = "#e74c3c"; 
                         timerEl.style.textShadow = "none";
-                        timerEl.style.transform = "scale(1)"; 
                     }, 2000); // 🔥 改成 2 秒
 
                     // 3. 紀錄獎勵
