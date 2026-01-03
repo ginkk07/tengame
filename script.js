@@ -216,17 +216,21 @@ const GameSystem = (function() {
 
 /**
  * -----------------------------------------------------------------------------
- * 第三部分：遊戲核心引擎 (GAME SCRIPT)(6.0)
+ * 第三部分：遊戲核心引擎 (GAME SCRIPT)
  * -----------------------------------------------------------------------------
+ */
+/**
+ * =============================================================================
+ * 圈十遊戲 (Make 10) - 核心邏輯腳本 (V6.1 特效延長版)
+ * =============================================================================
  * 📝 更新日誌：
- * 1. 🎁 獎勵機制修正 (累進難度)：
- * - 規則：下一階的門檻間距 = 當前間距 + 3000。
- * - 數列：
- * 第 1 次：目標 5,000 (間距 5,000)
- * 第 2 次：目標 13,000 (間距 8,000)
- * 第 3 次：目標 24,000 (間距 11,000) ... 越來越難！
- * 2. ⏱️ 初始時間：維持 100 秒。
- * 3. 🛡️ 包含全場消除技能、防作弊紀錄、死局判定與完整註解。
+ * 1. ⏱️ 特效時間調整：
+ * - 獲得獎勵時的時間綠色放大特效，持續時間改為 2 秒 (2000ms)。
+ * - 漂浮文字 (Floating Text) 的停留時間改為 2 秒 (120 frames)。
+ * 2. 🎁 維持 V6.0 設定：
+ * - 獎勵補時 50 秒。
+ * - 只有 Q (提示) 會補次數。
+ * - W (洗牌) 不補次數。
  * =============================================================================
  */
 
@@ -259,8 +263,8 @@ const GameEngine = (function() {
         name: "",           // 玩家名稱
         
         // 🛠️ 技能與次數
-        shuffleCharges: 1,      // 洗牌次數 (初始 1，獎勵不回補)
-        hintCharges: 1,         // 提示次數 (初始 1，獎勵回補)
+        shuffleCharges: 1,      // 洗牌次數 (初始 1)
+        hintCharges: 1,         // 提示次數 (初始 1)
         skillsUsed: { delete: false }, // 炸彈 (單場限制一次)
         
         // 🎁 獎勵門檻系統 (累進制)
@@ -373,11 +377,9 @@ const GameEngine = (function() {
     function checkBoardStatus() {
         if (!findOneMove()) { 
             if (state.shuffleCharges > 0) {
-                // 自動使用洗牌 (扣次數)
                 GameEngine.useSkillShuffle(true); 
                 GameEngine.spawnFloatingText(200, 300, "Auto Shuffle (-1)", '#3498db');
             } else {
-                // 死局，結束遊戲
                 state.gameActive = false; 
                 GameEngine.spawnFloatingText(200, 300, "No Moves!", '#e74c3c');
                 state.skillLog.push({ t: Date.now(), act: 'game_over_deadlock' });
@@ -393,11 +395,7 @@ const GameEngine = (function() {
             Array.from({ length: COLS }, (_, c) => {
                 let startY = - (ROWS - r) * SIZE; 
                 let targetY = r * SIZE;
-                return { 
-                    val: getNextNumber(), 
-                    removed: false, active: false, hinted: false, 
-                    offsetY: startY - targetY 
-                };
+                return { val: getNextNumber(), removed: false, active: false, hinted: false, offsetY: startY - targetY };
             })
         );
     }
@@ -474,18 +472,31 @@ const GameEngine = (function() {
             ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(cell.val, x + s/2, y + s/2);
         }));
+        
+        // 粒子
         for (let i = particles.length - 1; i >= 0; i--) {
-            let p = particles[i]; p.x += p.vx; p.y += p.vy; p.life--; let alpha = p.life / 60; if (alpha < 0) alpha = 0;
-            ctx.globalAlpha = alpha; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
-            p.vy += 0.1; if (p.life <= 0) particles.splice(i, 1);
+            let p = particles[i];
+            p.x += p.vx; p.y += p.vy; p.life--;
+            let alpha = p.life / 60; if (alpha < 0) alpha = 0;
+            ctx.globalAlpha = alpha; ctx.fillStyle = p.color;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+            p.vy += 0.1;
+            if (p.life <= 0) particles.splice(i, 1);
         }
         ctx.globalAlpha = 1;
+
+        // 漂浮文字 (🔥 Render 邏輯不變，Duration 在 spawn 設定)
         for (let i = floatingTexts.length - 1; i >= 0; i--) {
-            let ft = floatingTexts[i]; ft.y -= 1; ft.life--; ctx.globalAlpha = Math.max(0, ft.life / 30);
-            ctx.fillStyle = ft.color; ctx.font = "bold 24px Arial"; ctx.textAlign = "center"; ctx.fillText(ft.text, ft.x, ft.y);
+            let ft = floatingTexts[i];
+            ft.y -= 1; ft.life--;
+            ctx.globalAlpha = Math.max(0, ft.life / 30); // 最後 30 幀 (0.5秒) 淡出
+            ctx.fillStyle = ft.color;
+            ctx.font = "bold 24px Arial"; ctx.textAlign = "center";
+            ctx.fillText(ft.text, ft.x, ft.y);
             if (ft.life <= 0) floatingTexts.splice(i, 1);
         }
         ctx.globalAlpha = 1;
+        
         if (input.isDragging && !state.isDeleteMode) {
             ctx.strokeStyle = '#3498db'; ctx.setLineDash([5, 3]); 
             ctx.strokeRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y); 
@@ -524,11 +535,10 @@ const GameEngine = (function() {
             state.skillsUsed = { delete: false };
             state.hintCharges = 1;      
             state.shuffleCharges = 1;   
-            state.nextRewardScore = 5000;   // 初始目標 5000
-            state.currentRewardGap = 5000;  // 初始間距 5000
+            state.nextRewardScore = 5000;   
+            state.currentRewardGap = 5000;  
             state.isDeleteMode = false;
             
-            // UI 更新
             document.querySelectorAll('.skill-btn').forEach(b => b.classList.remove('used', 'active'));
             document.getElementById('score').innerText = "0"; 
             document.getElementById('timer').innerText = "100";
@@ -643,19 +653,20 @@ const GameEngine = (function() {
                     // 1. 執行獎勵：補時 50 秒
                     state.timeLeft += 50; 
                     state.hintCharges++;
-                    // 🔥 W (洗牌) 技能不補充，只補充 Q
+                    // 🔥 W (洗牌) 技能不補充，只補充 Q (提示)
                     
-                    // 2. 視覺特效：時間變大變綠
+                    // 2. 視覺特效：時間變大變綠 (持續 2 秒)
                     const timerEl = document.getElementById('timer');
-                    timerEl.style.transition = "all 0.2s ease";
+                    timerEl.style.display = "inline-block";
+                    timerEl.style.transition = "transform 0.2s ease, color 0.2s ease";
                     timerEl.style.color = "#2ecc71"; 
-                    timerEl.style.fontSize = "30px"; 
                     timerEl.style.textShadow = "0 0 10px #2ecc71"; 
+                    timerEl.style.transform = "scale(1.5)"; 
                     setTimeout(() => {
                         timerEl.style.color = "#e74c3c"; 
-                        timerEl.style.fontSize = ""; 
                         timerEl.style.textShadow = "none";
-                    }, 500);
+                        timerEl.style.transform = "scale(1)"; 
+                    }, 2000); // 🔥 改成 2 秒
 
                     // 3. 紀錄獎勵
                     state.skillLog.push({ t: Date.now(), act: 'bonus_reward', score: state.score });
@@ -690,7 +701,10 @@ const GameEngine = (function() {
                 particles.push({ x: pos.x, y: pos.y, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd, life: 30+Math.random()*20, size: 2+Math.random()*3, color: pColors[Math.floor(Math.random()*pColors.length)] });
             }
         },
-        spawnFloatingText: (x, y, text, color) => { floatingTexts.push({ x: x, y: y, text: text, color: color, life: 60 }); },
+        // 🔥 漂浮文字：存活時間 120 幀 (約 2 秒)
+        spawnFloatingText: (x, y, text, color) => { 
+            floatingTexts.push({ x: x, y: y, text: text, color: color, life: 120 }); // 🔥 改成 120
+        },
 
         // 🔍 技能 Q：提示
         useSkillHint: function() {
