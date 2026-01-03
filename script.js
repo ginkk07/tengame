@@ -216,7 +216,7 @@ const GameSystem = (function() {
 
 /**
  * -----------------------------------------------------------------------------
- * 第三部分：遊戲核心引擎 (GAME SCRIPT)
+ * 第三部分：遊戲核心引擎 (GAME SCRIPT)(6.0)
  * -----------------------------------------------------------------------------
  * 📝 更新日誌：
  * 1. 🎁 獎勵機制修正 (累進難度)：
@@ -252,38 +252,52 @@ const GameEngine = (function() {
     // =========================================
     let state = {
         grid: [],           // 網格資料
-        score: 0,           // 分數
-        timeLeft: 100,      // 初始時間 100 秒
+        score: 0,           // 當前分數
+        timeLeft: 100,      // 初始時間 (100 秒)
         gameActive: false,  // 遊戲進行狀態
-        isDeleteMode: false,// 炸彈模式
+        isDeleteMode: false,// 炸彈模式開關
         name: "",           // 玩家名稱
         
         // 🛠️ 技能與次數
-        shuffleCharges: 1,      // 洗牌次數
-        hintCharges: 1,         // 提示次數
-        skillsUsed: { delete: false }, // 炸彈 (單場一次)
+        shuffleCharges: 1,      // 洗牌次數 (初始 1，獎勵不回補)
+        hintCharges: 1,         // 提示次數 (初始 1，獎勵回補)
+        skillsUsed: { delete: false }, // 炸彈 (單場限制一次)
         
         // 🎁 獎勵門檻系統 (累進制)
-        nextRewardScore: 5000,  // 下一個獎勵目標分數 (初始 5000)
-        currentRewardGap: 5000, // 🔥 新增：當前的獎勵間距 (初始 5000)
+        nextRewardScore: 5000,  // 下一個獎勵目標 (初始 5000)
+        currentRewardGap: 5000, // 當前的獎勵間距 (初始 5000)
         
-        // 📝 紀錄系統
+        // 📝 紀錄系統 (防作弊)
         matchLog: [],       // 分數紀錄
-        skillLog: [],       // 技能紀錄
+        skillLog: [],       // 技能使用紀錄
         
-        combo: 0, comboTimer: 0, maxComboTime: 180, numberBag: []
+        combo: 0,           // 連擊數
+        comboTimer: 0,      // 連擊計時器
+        maxComboTime: 180,  // 連擊判定時間
+        numberBag: []       // 隨機抽牌袋
     };
 
+    // 輸入控制變數
     let input = { isDragging: false, start: { x: 0, y: 0 }, current: { x: 0, y: 0 } };
-    let particles = []; let floatingTexts = []; 
+    
+    // 特效物件
+    let particles = [];     // 爆炸粒子
+    let floatingTexts = []; // 漂浮文字
+    
+    // 動畫迴圈控制
     let animationId = null, lastTime = 0, timerAcc = 0;
     const pColors = ['#f1c40f', '#e67e22', '#e74c3c', '#3498db', '#2ecc71'];
 
-    // 🎒 抽牌：2 組 1-9
+    /**
+     * 🎒 抽牌系統
+     * 邏輯：袋子空了就補充 2 組 1-9 並洗牌。
+     */
     function getNextNumber() {
         if (state.numberBag.length === 0) {
             let newSet = [];
-            for (let k = 0; k < 2; k++) { for (let i = 1; i <= 9; i++) newSet.push(i); }
+            for (let k = 0; k < 2; k++) { 
+                for (let i = 1; i <= 9; i++) newSet.push(i); 
+            }
             for (let i = newSet.length - 1; i > 0; i--) { 
                 const j = Math.floor(Math.random() * (i + 1)); 
                 [newSet[i], newSet[j]] = [newSet[j], newSet[i]]; 
@@ -293,7 +307,10 @@ const GameEngine = (function() {
         return state.numberBag.pop();
     }
 
-    // 🔍 死局檢查
+    /**
+     * 🔍 死局檢查
+     * 邏輯：遍歷盤面尋找總和為 10 的組合。
+     */
     function findOneMove() {
         for (let r1 = 0; r1 < ROWS; r1++) {
             for (let c1 = 0; c1 < COLS; c1++) {
@@ -303,7 +320,9 @@ const GameEngine = (function() {
                         let sum = 0, cells = [];
                         for (let r = r1; r <= r2; r++) {
                             for (let c = c1; c <= c2; c++) {
-                                if (!state.grid[r][c].removed) { sum += state.grid[r][c].val; cells.push(state.grid[r][c]); }
+                                if (!state.grid[r][c].removed) { 
+                                    sum += state.grid[r][c].val; cells.push(state.grid[r][c]); 
+                                }
                             }
                         }
                         if (sum === 10 && cells.length > 0) return cells;
@@ -314,7 +333,10 @@ const GameEngine = (function() {
         return null;
     }
 
-    // 🍬 重力下落
+    /**
+     * 🍬 重力下落
+     * 邏輯：方塊消除後下落，並從上方生成新方塊。
+     */
     function applyGravity() {
         for (let c = 0; c < COLS; c++) {
             let newCol = [];
@@ -322,30 +344,40 @@ const GameEngine = (function() {
                 if (!state.grid[r][c].removed) {
                     let cell = state.grid[r][c];
                     let visualY = r * SIZE + (cell.offsetY || 0);
-                    cell.tempVisualY = visualY; newCol.push(cell);
+                    cell.tempVisualY = visualY; 
+                    newCol.push(cell);
                 }
             }
             let missingCount = ROWS - newCol.length;
             for (let i = 0; i < missingCount; i++) {
                 let startVisualY = - (missingCount - i) * SIZE; 
-                newCol.unshift({ val: getNextNumber(), removed: false, active: false, hinted: false, tempVisualY: startVisualY });
+                newCol.unshift({ 
+                    val: getNextNumber(), 
+                    removed: false, active: false, hinted: false, 
+                    tempVisualY: startVisualY 
+                });
             }
             for (let r = 0; r < ROWS; r++) {
                 let cell = newCol[r];
                 let targetY = r * SIZE;
                 cell.offsetY = cell.tempVisualY - targetY;
-                delete cell.tempVisualY; state.grid[r][c] = cell;
+                delete cell.tempVisualY; 
+                state.grid[r][c] = cell;
             }
         }
     }
 
-    // 🛡️ 死局判定與自動救援
+    /**
+     * 🛡️ 死局判定與自動救援
+     */
     function checkBoardStatus() {
         if (!findOneMove()) { 
             if (state.shuffleCharges > 0) {
+                // 自動使用洗牌 (扣次數)
                 GameEngine.useSkillShuffle(true); 
                 GameEngine.spawnFloatingText(200, 300, "Auto Shuffle (-1)", '#3498db');
             } else {
+                // 死局，結束遊戲
                 state.gameActive = false; 
                 GameEngine.spawnFloatingText(200, 300, "No Moves!", '#e74c3c');
                 state.skillLog.push({ t: Date.now(), act: 'game_over_deadlock' });
@@ -361,50 +393,67 @@ const GameEngine = (function() {
             Array.from({ length: COLS }, (_, c) => {
                 let startY = - (ROWS - r) * SIZE; 
                 let targetY = r * SIZE;
-                return { val: getNextNumber(), removed: false, active: false, hinted: false, offsetY: startY - targetY };
+                return { 
+                    val: getNextNumber(), 
+                    removed: false, active: false, hinted: false, 
+                    offsetY: startY - targetY 
+                };
             })
         );
     }
 
-    // 更新 UI
+    // 更新 UI (Combo 條)
     function updateComboUI() {
         const barContainer = document.getElementById('combo-bar-container');
         const barFill = document.getElementById('combo-bar-fill');
         if (!barContainer || !barFill) return;
+
         if (state.combo > 0) {
             barContainer.style.display = 'block';
             let percent = (state.comboTimer / state.maxComboTime) * 100;
             barFill.style.width = `${percent}%`;
+            // 顏色變化
             if (state.combo < 3) barFill.style.background = '#f1c40f';
             else if (state.combo < 6) barFill.style.background = '#e67e22';
             else barFill.style.background = '#e74c3c';
-        } else { barContainer.style.display = 'none'; }
+        } else { 
+            barContainer.style.display = 'none'; 
+        }
     }
 
-    // 倒數計時
+    // 開場倒數
     function runCountdown(callback) {
         const cdEl = document.getElementById('start-countdown');
         const maskEl = document.getElementById('start-mask');
         if (!cdEl) { callback(); return; }
+
         let count = 3;
         cdEl.style.display = 'block';
         if (maskEl) maskEl.style.display = 'block';
         cdEl.innerText = count;
-        cdEl.style.animation = 'none'; cdEl.offsetHeight; cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        cdEl.style.animation = 'none'; cdEl.offsetHeight; 
+        cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+
         let timer = setInterval(() => {
             count--;
             if (count > 0) {
-                cdEl.innerText = count; cdEl.style.animation = 'none'; cdEl.offsetHeight; cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                cdEl.innerText = count; 
+                cdEl.style.animation = 'none'; cdEl.offsetHeight; 
+                cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
             } else if (count === 0) {
-                cdEl.innerText = "GO!"; cdEl.style.animation = 'none'; cdEl.offsetHeight; cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                cdEl.innerText = "GO!"; 
+                cdEl.style.animation = 'none'; cdEl.offsetHeight; 
+                cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
             } else {
-                clearInterval(timer); cdEl.style.display = 'none'; 
-                if (maskEl) maskEl.style.display = 'none'; callback(); 
+                clearInterval(timer); 
+                cdEl.style.display = 'none'; 
+                if (maskEl) maskEl.style.display = 'none'; 
+                callback(); 
             }
         }, 1000);
     }
 
-    // 🎨 渲染
+    // 🎨 渲染迴圈
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         state.grid.forEach((row, r) => row.forEach((cell, c) => {
@@ -450,6 +499,8 @@ const GameEngine = (function() {
             const rect = canvas.getBoundingClientRect(); 
             return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; 
         },
+        
+        // 🔒 取得內部狀態
         getInternalState: () => ({ name: state.name, score: state.score, matchLog: state.matchLog, skillLog: state.skillLog, gameActive: state.gameActive }),
 
         // 🚀 啟動
@@ -462,19 +513,22 @@ const GameEngine = (function() {
             const uploadBtn = document.getElementById('upload-btn');
             if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.innerText = "上傳成績"; }
             
-            state.score = 0; state.timeLeft = 100; state.gameActive = false; 
-            state.matchLog = []; state.skillLog = []; state.combo = 0; state.comboTimer = 0;
+            // 重置基本數值
+            state.score = 0; 
+            state.timeLeft = 100; // 初始時間 100 秒
+            state.gameActive = false; 
+            state.matchLog = []; state.skillLog = []; 
+            state.combo = 0; state.comboTimer = 0;
             
+            // 🔥 重置技能與獎勵
             state.skillsUsed = { delete: false };
             state.hintCharges = 1;      
             state.shuffleCharges = 1;   
-            
-            // 🔥 初始化獎勵系統
-            state.nextRewardScore = 5000; // 初始目標 5000
-            state.currentRewardGap = 5000; // 初始間距 5000
-            
+            state.nextRewardScore = 5000;   // 初始目標 5000
+            state.currentRewardGap = 5000;  // 初始間距 5000
             state.isDeleteMode = false;
             
+            // UI 更新
             document.querySelectorAll('.skill-btn').forEach(b => b.classList.remove('used', 'active'));
             document.getElementById('score').innerText = "0"; 
             document.getElementById('timer').innerText = "100";
@@ -490,18 +544,25 @@ const GameEngine = (function() {
 
         initGrid: () => initGrid(),
 
-        // 🔄 迴圈
+        // 🔄 遊戲主迴圈
         loop: function(t) {
             const dt = t - lastTime; lastTime = t; timerAcc += dt;
             if (state.gameActive) {
-                if (timerAcc >= 1000) { state.timeLeft--; document.getElementById('timer').innerText = state.timeLeft; timerAcc -= 1000; if (state.timeLeft <= 0) this.end(); }
-                if (state.combo > 0) { state.comboTimer--; if (state.comboTimer <= 0) state.combo = 0; }
+                if (timerAcc >= 1000) { 
+                    state.timeLeft--; document.getElementById('timer').innerText = state.timeLeft; 
+                    timerAcc -= 1000; if (state.timeLeft <= 0) this.end(); 
+                }
+                if (state.combo > 0) { 
+                    state.comboTimer--; if (state.comboTimer <= 0) state.combo = 0; 
+                }
             }
             updateComboUI();
+            
             let fallingSpeed = 8; 
             state.grid.forEach(row => row.forEach(cell => {
                 if (cell.offsetY < 0) { cell.offsetY += fallingSpeed; if (cell.offsetY > 0) cell.offsetY = 0; }
             }));
+            
             if (input.isDragging && !state.isDeleteMode) this.updateStates();
             render(); animationId = requestAnimationFrame((ts) => this.loop(ts));
         },
@@ -509,22 +570,29 @@ const GameEngine = (function() {
         openSettings: () => GameSystem.toggleOverlay('screen-settings', true),
         resumeFromSettings: () => GameSystem.toggleOverlay('screen-settings', false),
 
-        // 👆 按下 (全場消除技能)
+        // 👆 按下事件 (炸彈觸發點)
         handleDown: function(pos) {
             if (!state.gameActive) return; 
+            
+            // 🔥 全場消除模式
             if (state.isDeleteMode) {
                 const c = Math.floor((pos.x - OFFSET_X) / SIZE);
                 const r = Math.floor((pos.y - OFFSET_Y) / SIZE);
+                
                 if (r >= 0 && r < ROWS && c >= 0 && c < COLS && !state.grid[r][c].removed && state.grid[r][c].offsetY === 0) {
                     const targetVal = state.grid[r][c].val;
-                    state.skillLog.push({ t: Date.now(), act: 'skill_delete', val: targetVal }); // 紀錄技能
+
+                    // 📝 紀錄技能
+                    state.skillLog.push({ t: Date.now(), act: 'skill_delete', val: targetVal });
 
                     state.skillsUsed.delete = true; 
                     state.isDeleteMode = false;
+                    
                     document.getElementById('skill-btn-delete').classList.remove('active', 'used'); 
                     document.getElementById('skill-btn-delete').classList.add('used');
                     SoundManager.playEliminate(); 
 
+                    // 全場消除
                     state.grid.forEach((row, rIdx) => {
                         row.forEach((cell, cIdx) => {
                             if (!cell.removed && cell.val === targetVal) {
@@ -535,7 +603,9 @@ const GameEngine = (function() {
                             }
                         });
                     });
-                    applyGravity(); checkBoardStatus();
+
+                    applyGravity(); 
+                    checkBoardStatus();
                 }
                 return;
             }
@@ -554,7 +624,7 @@ const GameEngine = (function() {
             }));
         },
 
-        // 👆 放開 (結算)
+        // 👆 放開事件 (結算與獎勵)
         handleUp: function() {
             if (!input.isDragging) return; input.isDragging = false;
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
@@ -566,23 +636,41 @@ const GameEngine = (function() {
 
                 state.score += totalPoints; state.combo++; state.comboTimer = state.maxComboTime;
                 
-                // 🎁 獎勵機制 (累進難度：Gap += 3000)
+                // =========================================
+                // 🎁 萬分獎勵機制 (累進制)
+                // =========================================
                 if (state.score >= state.nextRewardScore) {
+                    // 1. 執行獎勵：補時 50 秒
                     state.timeLeft += 50; 
                     state.hintCharges++;
-                    state.shuffleCharges++; 
+                    // 🔥 W (洗牌) 技能不補充，只補充 Q
                     
-                    state.skillLog.push({ t: Date.now(), act: 'bonus_reward', score: state.score }); // 紀錄獎勵
+                    // 2. 視覺特效：時間變大變綠
+                    const timerEl = document.getElementById('timer');
+                    timerEl.style.transition = "all 0.2s ease";
+                    timerEl.style.color = "#2ecc71"; 
+                    timerEl.style.fontSize = "30px"; 
+                    timerEl.style.textShadow = "0 0 10px #2ecc71"; 
+                    setTimeout(() => {
+                        timerEl.style.color = "#e74c3c"; 
+                        timerEl.style.fontSize = ""; 
+                        timerEl.style.textShadow = "none";
+                    }, 500);
 
-                    // 🔥 更新下一次門檻：間距 +3000
+                    // 3. 紀錄獎勵
+                    state.skillLog.push({ t: Date.now(), act: 'bonus_reward', score: state.score });
+
+                    // 4. 更新下一次門檻 (間距 +3000)
                     state.currentRewardGap += 3000;
                     state.nextRewardScore += state.currentRewardGap;
                     
+                    // 5. 恢復 Q 按鈕 (W 不恢復)
                     document.getElementById('skill-btn-hint').classList.remove('used');
-                    document.getElementById('skill-btn-shuffle').classList.remove('used');
                     
-                    this.spawnFloatingText(200, 300, "Bonus! +Time/Hint/Shuffle", '#2ecc71');
+                    // 6. 顯示漂浮文字
+                    this.spawnFloatingText(200, 300, "Bonus! Time +50s & Hint +1", '#2ecc71');
                 }
+                // =========================================
 
                 if (state.combo >= 3) SoundManager.playWaha();
 
@@ -604,7 +692,7 @@ const GameEngine = (function() {
         },
         spawnFloatingText: (x, y, text, color) => { floatingTexts.push({ x: x, y: y, text: text, color: color, life: 60 }); },
 
-        // 🔍 Q：提示
+        // 🔍 技能 Q：提示
         useSkillHint: function() {
             if (!state.gameActive || state.hintCharges <= 0) return;
             const cells = findOneMove();
@@ -617,9 +705,10 @@ const GameEngine = (function() {
             }
         },
 
-        // 🌀 W：洗牌
+        // 🌀 技能 W：洗牌
         useSkillShuffle: function(markUsed = true) {
             if (!state.gameActive) return;
+            // 手動觸發時檢查次數
             if (markUsed && state.shuffleCharges <= 0) return; 
 
             if (markUsed) { 
@@ -638,7 +727,7 @@ const GameEngine = (function() {
             } while (!findOneMove() && attempts < 20);
         },
 
-        // 💣 E：模式
+        // 💣 技能 E：模式切換
         toggleDeleteMode: function() {
             if (!state.gameActive) return; 
             if (!state.skillsUsed.delete) {
@@ -653,7 +742,7 @@ const GameEngine = (function() {
             this.stop(false); 
             document.getElementById('final-result-score').innerText = state.score; 
             document.getElementById('result-player-display').innerText = `Player: ${state.name}`;
-            state.skillLog.push({ t: Date.now(), act: 'game_end', finalScore: state.score }); // 紀錄結束
+            state.skillLog.push({ t: Date.now(), act: 'game_end', finalScore: state.score }); // 紀錄
             GameSystem.openResultOverlay(); 
         },
 
