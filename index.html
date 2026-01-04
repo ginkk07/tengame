@@ -107,9 +107,47 @@
         canvas { background: #fff; border-radius: 8px; display: block; width: 100%; height: auto; touch-action: none; }
 
         .skill-container { display: flex; justify-content: space-around; width: 100%; margin-top: 15px; }
-        .skill-btn { width: 85px; height: 50px; background: #dfe6e9; border: 2px solid #b2bec3; border-radius: 12px; font-size: 13px; font-weight: bold; color: #2d3436; cursor: pointer; transition: all 0.2s; display: flex; justify-content: center; align-items: center; line-height: 1.2; text-align: center; }
+        .skill-btn { 
+            position: relative;
+            overflow: visible;
+            width: 85px; 
+            height: 50px; 
+            background: #dfe6e9; 
+            border: 2px solid #b2bec3; 
+            border-radius: 12px; 
+            font-size: 13px; 
+            font-weight: bold; 
+            color: #2d3436; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            line-height: 1.2; 
+            text-align: center; 
+        }
         .skill-btn.active { background: #e74c3c; color: white; border-color: #c0392b; }
         .skill-btn.used { background: #ced6e0; color: #a4b0be; opacity: 0.6; filter: grayscale(1); pointer-events: none; }
+        .skill-badge {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            min-width: 24px;
+            height: 24px;
+            background-color: #ff4757;
+            color: white;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 10;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+
 
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; }
@@ -237,9 +275,12 @@
         </div>
 
         <div class="skill-container">
-            <button id="skill-btn-hint" class="skill-btn" onclick="GameEngine.useSkillHint()">[Q]<br>尋找一組</button>
+            <button id="skill-btn-hint" class="skill-btn" onclick="GameEngine.useSkillHint()">
+                <div id="hint-badge" class="skill-badge">1</div> [Q]<br>尋找一組
+            </button>
+
             <button id="skill-btn-shuffle" class="skill-btn" onclick="GameEngine.useSkillShuffle(true)">[W]<br>隨機打亂</button>
-            <button id="skill-btn-delete" class="skill-btn" onclick="GameEngine.toggleDeleteMode()">[E]<br>消除數字</button>
+            <button id="skill-btn-delete" class="skill-btn" onclick="GameEngine.toggleDeleteMode()">[E]<br>全場消除</button>
         </div>
     </div>
 
