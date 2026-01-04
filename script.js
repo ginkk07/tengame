@@ -650,39 +650,48 @@ const GameEngine = (function() {
                 // 🎁 萬分獎勵機制 (累進制)
                 // =========================================
                 if (state.score >= state.nextRewardScore) {
-                    // 1. 執行獎勵：補時 50 秒
+                    // 1. 執行獎勵
                     state.timeLeft += 50; 
                     state.hintCharges++;
-                    // 🔥 W (洗牌) 技能不補充，只補充 Q (提示)
+                    // W (洗牌) 不補充
                     
-                    // 2. 視覺特效：時間變大變綠 (持續 2 秒)
-                    const timerEl = document.getElementById('timer');
-                    timerEl.style.transition = "color 0.2s ease";
-                    timerEl.style.color = "#2ecc71"; 
+                    // 2. 🔥 修正：針對「父層容器」變色，讓 "Time:" 和 "s" 一起變綠
+                    const timerSpan = document.getElementById('timer');
+                    const timerContainer = timerSpan.parentElement; // 抓取外層 div
+
+                    timerContainer.style.transition = "color 0.2s ease"; 
+                    timerContainer.style.color = "#2ecc71"; // 整串變綠
+                    timerContainer.style.textShadow = "0 0 10px #2ecc71"; // 發光
+                    
+                    // 2秒後恢復
                     setTimeout(() => {
-                        timerEl.style.color = "#e74c3c"; 
-                        timerEl.style.textShadow = "none";
-                    }, 2000); // 🔥 改成 2 秒
+                        timerContainer.style.color = "#e74c3c"; // 變回紅色
+                        timerContainer.style.textShadow = "none";
+                    }, 2000);
 
                     // 3. 紀錄獎勵
                     state.skillLog.push({ t: Date.now(), act: 'bonus_reward', score: state.score });
 
-                    // 4. 更新下一次門檻 (間距 +3000)
+                    // 4. 更新下一次門檻
                     state.currentRewardGap += 3000;
                     state.nextRewardScore += state.currentRewardGap;
                     
-                    // 5. 恢復 Q 按鈕 (W 不恢復)
+                    // 5. 恢復 Q 按鈕
                     document.getElementById('skill-btn-hint').classList.remove('used');
                     
                     // 6. 顯示漂浮文字
-                    this.spawnFloatingText(200, 300, "Bonus! Time +50s & Hint +1", '#2ecc71');
+                    this.spawnFloatingText(200, 300, "Bonus! Time +50s", '#2ecc71');
                 }
                 // =========================================
 
                 if (state.combo >= 3) SoundManager.playWaha();
 
                 state.matchLog.push({ t: Date.now(), p: totalPoints }); 
-                document.getElementById('score').innerText = state.score; document.getElementById('timer').innerText = state.timeLeft;
+                
+                // 更新 UI
+                document.getElementById('score').innerText = state.score;
+                document.getElementById('timer').innerText = state.timeLeft; // 更新數字
+                
                 SoundManager.playEliminate(); this.spawnBoom(input.current);
                 let text = `+${totalPoints}`; if (state.combo > 1) text += ` (Combo x${state.combo})`;
                 this.spawnFloatingText(input.current.x, input.current.y - 20, text, '#f1c40f');
