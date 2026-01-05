@@ -437,39 +437,101 @@ const GameEngine = (function() {
         handleUp: function() {
             if (!input.isDragging) return; input.isDragging = false;
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
+            
+            // 判斷是否總和為 10
             if (sel.reduce((s, c) => s + c.val, 0) === 10 && sel.length > 0) {
-                let basePoints = sel.length * 100;
-                let comboBonus = 0; if (state.combo >= 2) comboBonus = (state.combo - 1) * 50;
-                let totalPoints = basePoints + comboBonus; if (totalPoints > 2500) totalPoints = 2500; 
-                state.score += totalPoints; state.combo++; state.comboTimer = state.maxComboTime;
                 
-                // 🎁 萬分獎勵機制 (累進制)
-                if (state.score >= state.nextRewardScore) {
-                    state.timeLeft += 50; 
-                    state.hintCharges++; // 次數 +1
-                    
-                    updateBadge(); // 🔥 [新增 3] 獲得獎勵時，更新徽章顯示
-                    
-                    const timerSpan = document.getElementById('timer');
-                    const timerContainer = timerSpan.parentElement; 
-                    timerContainer.style.transition = "color 0.2s ease, text-shadow 0.2s ease"; 
-                    timerContainer.style.color = "#2ecc71"; timerContainer.style.textShadow = "0 0 10px #2ecc71"; 
-                    setTimeout(() => { timerContainer.style.color = "#e74c3c"; timerContainer.style.textShadow = "none"; }, 2000);
+                // =========================================
+                // 🔢 分數計算核心 (V6.5 修正版)
+                // =========================================
+                let count = sel.length;
+                let basePoints = 0;
 
-                    state.skillLog.push({ t: Date.now(), act: 'bonus_reward', score: state.score });
-                    state.currentRewardGap += 3000; state.nextRewardScore += state.currentRewardGap;
-                    
-                    document.getElementById('skill-btn-hint').classList.remove('used');
-                    this.spawnFloatingText(200, 300, "Bonus! Time +50s & Hint +1", '#2ecc71');
+                if (count >= 2) {
+                    // 規則：每多一個方塊，分數乘 2
+                    // 公式：200 * 2^(數量-2)
+                    // 極限情況：10 個 1 -> 200 * 2^8 = 51,200 分
+                    basePoints = 200 * Math.pow(2, count - 2);
+                } else {
+                    // 防呆：單顆方塊 (雖然 1~9 不可能單顆湊成 10，但保留邏輯)
+                    basePoints = 100;
                 }
 
-                if (state.combo >= 3) SoundManager.playWaha();
+                // Combo 加分
+                let comboBonus = 0; 
+                if (state.combo >= 2) comboBonus = (state.combo - 1) * 50;
+                
+                let totalPoints = basePoints + comboBonus; 
+                
+                // 上限設定：51,200 + Combo 加成不會超過 99,999，此設定安全
+                if (totalPoints > 99999) totalPoints = 99999; 
+
+                state.score += totalPoints; 
+                state.combo++; 
+                state.comboTimer = state.maxComboTime;
+                
+                // =========================================
+                // 🎁 萬分獎勵機制 (累進制)
+                // =========================================
+                if (state.score >= state.nextRewardScore) {
+                    // 1. 執行獎勵：補時 50 秒
+                    state.timeLeft += 50; 
+                    state.hintCharges++; // 補 Q 次數
+                    updateBadge();       // 更新 Q 徽章數字
+                    // W 不補
+                    
+                    // 2. 視覺特效：整串變綠 + 發光 (不改變大小)
+                    const timerSpan = document.getElementById('timer');
+                    const timerContainer = timerSpan.parentElement; 
+                    
+                    timerContainer.style.transition = "color 0.2s ease, text-shadow 0.2s ease"; 
+                    timerContainer.style.color = "#2ecc71"; 
+                    timerContainer.style.textShadow = "0 0 10px #2ecc71"; 
+                    
+                    setTimeout(() => {
+                        timerContainer.style.color = "#e74c3c"; 
+                        timerContainer.style.textShadow = "none";
+                    }, 2000); // 2秒後恢復
+
+                // 3. 紀錄獎勵
+                state.skillLog.push({ t: Date.now(), act: 'bonus_reward', score: state.score });
+
+                // 4. 更新下一次門檻 (間距 +3000)
+                state.currentRewardGap += 3000;
+                state.nextRewardScore += state.currentRewardGap;
+                
+                // 5. 恢復 Q 按鈕
+                document.getElementById('skill-btn-hint').classList.remove('used');
+                
+                // 6. 顯示漂浮文字
+                this.spawnFloatingText(200, 300, "Bonus! Time +50s & Hint +1", '#2ecc71');
+            }
+            // =========================================
+
+            if (state.combo >= 3) SoundManager.playWaha();
+
                 state.matchLog.push({ t: Date.now(), p: totalPoints }); 
-                document.getElementById('score').innerText = state.score; document.getElementById('timer').innerText = state.timeLeft;
-                SoundManager.playEliminate(); this.spawnBoom(input.current);
-                let text = `+${totalPoints}`; if (state.combo > 1) text += ` (Combo x${state.combo})`;
-                this.spawnFloatingText(input.current.x, input.current.y - 20, text, '#f1c40f');
-                sel.forEach(c => c.removed = true); applyGravity(); checkBoardStatus();
+                
+                // 更新 UI
+                document.getElementById('score').innerText = state.score;
+                document.getElementById('timer').innerText = state.timeLeft;
+                
+                SoundManager.playEliminate(); 
+                this.spawnBoom(input.current);
+
+                // 漂浮文字顯示
+                let text = `+${totalPoints}`; 
+                let textColor = '#f1c40f'; // 預設黃色
+
+                // 如果分數 >= 800 (代表圈了 4 個以上)，用紫色顯示強調！
+                if (totalPoints >= 800) textColor = '#9b59b6'; 
+
+                if (state.combo > 1) text += ` (Combo x${state.combo})`;
+                this.spawnFloatingText(input.current.x, input.current.y - 20, text, textColor);
+
+                sel.forEach(c => c.removed = true); 
+                applyGravity(); 
+                checkBoardStatus();
             }
             state.grid.flat().forEach(c => c.active = false);
         },
@@ -558,23 +620,4 @@ window.addEventListener('load', () => {
             GameEngine.toggleDeleteMode();
         }
     });
-});
-
-// 初始化與監聽
-window.addEventListener('load', () => {
-    SoundManager.init(); GameSystem.initNamePersistence();
-    const canvas = document.getElementById('gameCanvas');
-    if (canvas) {
-        canvas.addEventListener('pointerdown', (e) => {
-            canvas.setPointerCapture(e.pointerId);
-            GameEngine.handleDown(GameEngine.getPos(e));
-        });
-        window.addEventListener('pointermove', (e) => GameEngine.handleMove(GameEngine.getPos(e)));
-        window.addEventListener('pointerup', (e) => {
-            canvas.releasePointerCapture(e.pointerId);
-            GameEngine.handleUp();
-        });
-    }
-    document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
-    document.addEventListener('gesturestart', (e) => e.preventDefault());
 });
