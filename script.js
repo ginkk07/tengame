@@ -446,7 +446,7 @@ const GameEngine = (function() {
                 // =========================================
                 let count = sel.length;
                 
-                // 1. 計算倍率 (Multiplier)
+                // 1. 計算消除倍率 (Multiplier)
                 // 2消=1倍, 3消=2倍, 4消=4倍, 5消=8倍...
                 let multiplier = 1;
                 if (count >= 2) {
@@ -454,7 +454,7 @@ const GameEngine = (function() {
                 }
 
                 // 2. 計算基礎分 (Base)
-                // 200 為基底 * 倍率
+                // 200 為基底 * 倍率 (例如 3消就是 400)
                 let basePoints = (count >= 2 ? 200 : 100) * multiplier;
 
                 // 3. 計算連擊基數 (Combo Raw)
@@ -462,15 +462,14 @@ const GameEngine = (function() {
                 // Combo 1~2 = 0
                 // Combo 3 = 50
                 // Combo 4 = 100
-                // Combo 5 = 150
                 let comboRaw = 0;
                 if (state.combo >= 3) {
                     comboRaw = (state.combo - 2) * 50;
                 }
 
-                // 4. 計算連擊加成 (Combo Bonus)
+                // 4. 🔥 計算連擊加成 (Combo Bonus)
                 // 核心邏輯：連擊基數 * 消除倍率
-                // 例(Combo5, 3消): 150 * 2 = 300
+                // 讓高難度消除也能享受倍率化的連擊加分
                 let comboBonus = comboRaw * multiplier;
 
                 // 5. 最終總分
@@ -520,15 +519,14 @@ const GameEngine = (function() {
                 SoundManager.playEliminate(); 
                 this.spawnBoom(input.current);
 
-                // 🔥 漂浮文字：顯示細節
-                // 為了讓玩家理解分數構成，顯示 "400 + 300" 這種格式
+                // 🔥 漂浮文字：顯示分數與連擊
                 let text = `+${totalPoints}`;
                 
                 // 顏色分級
                 let textColor = '#f1c40f'; // 黃
-                if (totalPoints >= 5000) textColor = '#ff4757';      // 紅
-                else if (totalPoints >= 2000) textColor = '#9b59b6'; // 紫
-                else if (totalPoints >= 800) textColor = '#2ecc71';  // 綠
+                if (totalPoints >= 5000) textColor = '#ff4757';      // 紅 (傳說)
+                else if (totalPoints >= 2000) textColor = '#9b59b6'; // 紫 (史詩)
+                else if (totalPoints >= 800) textColor = '#2ecc71';  // 綠 (優秀)
 
                 if (state.combo > 1) {
                     text += ` (Combo x${state.combo})`;
@@ -628,4 +626,3 @@ window.addEventListener('load', () => {
         }
     });
 });
-
