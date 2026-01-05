@@ -433,7 +433,7 @@ const GameEngine = (function() {
         handleMove: function(pos) { if (input.isDragging && !state.isDeleteMode) { input.current = pos; } },
         updateStates: () => { let x1 = Math.min(input.start.x, input.current.x), x2 = Math.max(input.start.x, input.current.x); let y1 = Math.min(input.start.y, input.current.y), y2 = Math.max(input.start.y, input.current.y); state.grid.forEach((row, r) => row.forEach((cell, c) => { if (cell.offsetY !== 0) { cell.active = false; return; } let tx = c * SIZE + OFFSET_X; let ty = r * SIZE + OFFSET_Y; cell.active = !cell.removed && !(tx + SIZE < x1 || tx > x2 || ty + SIZE < y1 || ty > y2); })); },
 
-        // 👆 放開事件 (結算與獎勵)
+        // 👆 放開事件 (結算與獎勵核心)
         handleUp: function() {
             if (!input.isDragging) return; input.isDragging = false;
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
@@ -442,28 +442,41 @@ const GameEngine = (function() {
             if (sel.reduce((s, c) => s + c.val, 0) === 10 && sel.length > 0) {
                 
                 // =========================================
-                // 🔢 分數計算核心 (V6.5 修正版)
+                // 🔢 分數計算核心 (V6.9 乘數疊加版)
                 // =========================================
                 let count = sel.length;
-                let basePoints = 0;
-
+                
+                // 1. 計算倍率 (Multiplier)
+                // 2消=1倍, 3消=2倍, 4消=4倍, 5消=8倍...
+                let multiplier = 1;
                 if (count >= 2) {
-                    // 規則：每多一個方塊，分數乘 2
-                    // 公式：200 * 2^(數量-2)
-                    // 極限情況：10 個 1 -> 200 * 2^8 = 51,200 分
-                    basePoints = 200 * Math.pow(2, count - 2);
-                } else {
-                    // 防呆：單顆方塊 (雖然 1~9 不可能單顆湊成 10，但保留邏輯)
-                    basePoints = 100;
+                    multiplier = Math.pow(2, count - 2);
                 }
 
-                // Combo 加分
-                let comboBonus = 0; 
-                if (state.combo >= 2) comboBonus = (state.combo - 1) * 50;
+                // 2. 計算基礎分 (Base)
+                // 200 為基底 * 倍率
+                let basePoints = (count >= 2 ? 200 : 100) * multiplier;
+
+                // 3. 計算連擊基數 (Combo Raw)
+                // 規則：從 Combo 3 開始加乘，數列為 50, 100, 150...
+                // Combo 1~2 = 0
+                // Combo 3 = 50
+                // Combo 4 = 100
+                // Combo 5 = 150
+                let comboRaw = 0;
+                if (state.combo >= 3) {
+                    comboRaw = (state.combo - 2) * 50;
+                }
+
+                // 4. 計算連擊加成 (Combo Bonus)
+                // 核心邏輯：連擊基數 * 消除倍率
+                // 例(Combo5, 3消): 150 * 2 = 300
+                let comboBonus = comboRaw * multiplier;
+
+                // 5. 最終總分
+                let totalPoints = basePoints + comboBonus;
                 
-                let totalPoints = basePoints + comboBonus; 
-                
-                // 上限設定：51,200 + Combo 加成不會超過 99,999，此設定安全
+                // 上限防呆
                 if (totalPoints > 99999) totalPoints = 99999; 
 
                 state.score += totalPoints; 
@@ -474,59 +487,53 @@ const GameEngine = (function() {
                 // 🎁 萬分獎勵機制 (累進制)
                 // =========================================
                 if (state.score >= state.nextRewardScore) {
-                    // 1. 執行獎勵：補時 50 秒
                     state.timeLeft += 50; 
-                    state.hintCharges++; // 補 Q 次數
-                    updateBadge();       // 更新 Q 徽章數字
-                    // W 不補
+                    state.hintCharges++; 
+                    updateBadge();       
                     
-                    // 2. 視覺特效：整串變綠 + 發光 (不改變大小)
                     const timerSpan = document.getElementById('timer');
                     const timerContainer = timerSpan.parentElement; 
-                    
                     timerContainer.style.transition = "color 0.2s ease, text-shadow 0.2s ease"; 
                     timerContainer.style.color = "#2ecc71"; 
                     timerContainer.style.textShadow = "0 0 10px #2ecc71"; 
-                    
                     setTimeout(() => {
                         timerContainer.style.color = "#e74c3c"; 
                         timerContainer.style.textShadow = "none";
-                    }, 2000); // 2秒後恢復
+                    }, 2000); 
 
-                // 3. 紀錄獎勵
-                state.skillLog.push({ t: Date.now(), act: 'bonus_reward', score: state.score });
+                    state.skillLog.push({ t: Date.now(), act: 'bonus_reward', score: state.score });
+                    state.currentRewardGap += 3000;
+                    state.nextRewardScore += state.currentRewardGap;
+                    
+                    document.getElementById('skill-btn-hint').classList.remove('used');
+                    this.spawnFloatingText(200, 300, "Bonus! Time +50s & Hint +1", '#2ecc71');
+                }
+                // =========================================
 
-                // 4. 更新下一次門檻 (間距 +3000)
-                state.currentRewardGap += 3000;
-                state.nextRewardScore += state.currentRewardGap;
-                
-                // 5. 恢復 Q 按鈕
-                document.getElementById('skill-btn-hint').classList.remove('used');
-                
-                // 6. 顯示漂浮文字
-                this.spawnFloatingText(200, 300, "Bonus! Time +50s & Hint +1", '#2ecc71');
-            }
-            // =========================================
-
-            if (state.combo >= 3) SoundManager.playWaha();
+                if (state.combo >= 3) SoundManager.playWaha();
 
                 state.matchLog.push({ t: Date.now(), p: totalPoints }); 
                 
-                // 更新 UI
                 document.getElementById('score').innerText = state.score;
                 document.getElementById('timer').innerText = state.timeLeft;
                 
                 SoundManager.playEliminate(); 
                 this.spawnBoom(input.current);
 
-                // 漂浮文字顯示
-                let text = `+${totalPoints}`; 
-                let textColor = '#f1c40f'; // 預設黃色
+                // 🔥 漂浮文字：顯示細節
+                // 為了讓玩家理解分數構成，顯示 "400 + 300" 這種格式
+                let text = `+${totalPoints}`;
+                
+                // 顏色分級
+                let textColor = '#f1c40f'; // 黃
+                if (totalPoints >= 5000) textColor = '#ff4757';      // 紅
+                else if (totalPoints >= 2000) textColor = '#9b59b6'; // 紫
+                else if (totalPoints >= 800) textColor = '#2ecc71';  // 綠
 
-                // 如果分數 >= 800 (代表圈了 4 個以上)，用紫色顯示強調！
-                if (totalPoints >= 800) textColor = '#9b59b6'; 
-
-                if (state.combo > 1) text += ` (Combo x${state.combo})`;
+                if (state.combo > 1) {
+                    text += ` (Combo x${state.combo})`;
+                }
+                
                 this.spawnFloatingText(input.current.x, input.current.y - 20, text, textColor);
 
                 sel.forEach(c => c.removed = true); 
