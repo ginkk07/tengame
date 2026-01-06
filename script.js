@@ -17,7 +17,8 @@
 const SoundManager = (function() {
     const BGM_FILES = ['./sound/bgmusic01.ogg', './sound/bgmusic02.ogg', './sound/bgmusic03.ogg'];
     const SFX_EXP = './sound/effect-expball.wav';
-    const SFX_WAHA = './sound/effect-waha.ogg'; // 🔥 新增音效路徑
+    const SFX_WAHA = './sound/effect-waha.ogg'; // waha音效路徑
+    const SFX_START = './sound/effect-start.wav'; // [V7.8] 新增開場音效路徑 (長度約 2 秒)
     
     let bgmVolume = parseFloat(localStorage.getItem('bgm_vol')) || 0.5;
     let sfxVolume = parseFloat(localStorage.getItem('sfx_vol')) || 0.5;
@@ -28,6 +29,7 @@ const SoundManager = (function() {
     
     // 🔥 Waha 音效物件
     let wahaAudio = null;
+    let startAudio = null; //開始音效
 
     return {
         init: function() {
@@ -38,9 +40,13 @@ const SoundManager = (function() {
                 sfxPool.push(audio);
             }
 
-            // 🔥 初始化 Waha 音效
+            // 初始化 Waha 音效
             wahaAudio = new Audio(SFX_WAHA);
             wahaAudio.volume = sfxVolume;
+
+            // 初始化 Start 音效
+            startAudio = new Audio(SFX_START);
+            startAudio.volume = sfxVolume;
 
             const mSlider = document.getElementById('music-slider');
             const sSlider = document.getElementById('sfx-slider');
@@ -59,8 +65,11 @@ const SoundManager = (function() {
                     sfxVolume = parseFloat(e.target.value);
                     sfxPool.forEach(a => a.volume = sfxVolume);
                     
-                    // 同步更新 Waha 音量
+                    // 同步 Waha 音量
                     if (wahaAudio) wahaAudio.volume = sfxVolume;
+
+                    // 同步 Start 音效音量
+                    if (startAudio) startAudio.volume = sfxVolume;
                     
                     localStorage.setItem('sfx_vol', sfxVolume);
                 });
@@ -86,11 +95,19 @@ const SoundManager = (function() {
             audio.play().catch(() => {});
         },
 
-        // 🔥 新增：播放 Waha 音效函式
+        // 播放 Waha 音效函式
         playWaha: function() {
             if (wahaAudio) {
                 wahaAudio.currentTime = 0; // 重頭播放
                 wahaAudio.play().catch(() => {});
+            }
+        },
+
+        // 播放 Waha 音效函式
+        playStart: function() {
+            if (startAudio) {
+                startAudio.currentTime = 0;
+                startAudio.play().catch(() => {});
             }
         }
     };
@@ -338,15 +355,46 @@ const GameEngine = (function() {
         if (state.combo > 0) { barContainer.style.display = 'block'; let percent = (state.comboTimer / state.maxComboTime) * 100; barFill.style.width = `${percent}%`; if (state.combo < 3) barFill.style.background = '#f1c40f'; else if (state.combo < 6) barFill.style.background = '#e67e22'; else barFill.style.background = '#e74c3c'; } else { barContainer.style.display = 'none'; }
     }
 
+    // Start倒數計時
     function runCountdown(callback) {
-        const cdEl = document.getElementById('start-countdown'); const maskEl = document.getElementById('start-mask');
+        const cdEl = document.getElementById('start-countdown'); 
+        const maskEl = document.getElementById('start-mask');
+        
+        // 如果找不到元素，直接開始遊戲
         if (!cdEl) { callback(); return; }
-        let count = 3; cdEl.style.display = 'block'; if (maskEl) maskEl.style.display = 'block';
-        cdEl.innerText = count; cdEl.style.animation = 'none'; cdEl.offsetHeight; cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-        let timer = setInterval(() => {
-            count--;
-            if (count > 0) { cdEl.innerText = count; cdEl.style.animation = 'none'; cdEl.offsetHeight; cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; } else if (count === 0) { cdEl.innerText = "GO!"; cdEl.style.animation = 'none'; cdEl.offsetHeight; cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; } else { clearInterval(timer); cdEl.style.display = 'none'; if (maskEl) maskEl.style.display = 'none'; callback(); }
+        
+        // 1. 顯示遮罩與倒數文字框
+        cdEl.style.display = 'block'; 
+        if (maskEl) maskEl.style.display = 'block';
+
+        // 2. 播放 Start 音效 (總長約 2 秒)
+        SoundManager.playStart();
+
+        // 3. 階段一：顯示 "Ready" (對應音效前半段 0s ~ 1s)
+        cdEl.innerText = "Ready";
+        
+        // 重置動畫，讓 Ready 字樣有 popIn 效果
+        cdEl.style.animation = 'none'; 
+        void cdEl.offsetWidth; // 強制瀏覽器重繪 (Trigger Reflow)
+        cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+
+        // 4. 階段二：1 秒後顯示 "GO!" (對應音效後半段 1s ~ 2s)
+        setTimeout(() => {
+            cdEl.innerText = "GO!";
+            // 重置動畫，讓 GO 也跳出來
+            cdEl.style.animation = 'none'; 
+            void cdEl.offsetWidth; 
+            cdEl.style.animation = 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
         }, 1000);
+
+        // 5. 結束：2 秒後正式開始遊戲 (音效結束)
+        setTimeout(() => {
+            cdEl.style.display = 'none'; 
+            if (maskEl) maskEl.style.display = 'none'; 
+            
+            // 執行回調，正式啟動遊戲計時器
+            callback(); 
+        }, 2000);
     }
 
     function render() {
@@ -387,10 +435,18 @@ const GameEngine = (function() {
             document.getElementById('score').innerText = "0"; document.getElementById('timer').innerText = "100";
             
             updateBadge(); // 🔥 [新增 2] 遊戲開始時，重置徽章數字為 1
-
-            initGrid(); GameSystem.showScreen('screen-game'); updateComboUI(); 
-            lastTime = performance.now(); this.loop(lastTime);
-            runCountdown(() => { state.gameActive = true; SoundManager.playBGM(); timerAcc = 0; lastTime = performance.now(); });
+            initGrid(); 
+            GameSystem.showScreen('screen-game'); 
+            updateComboUI(); 
+            lastTime = performance.now(); 
+            this.loop(lastTime);
+            runCountdown(() => {
+                state.gameActive = true;
+                SoundManager.playBGM(); 
+                timerAcc = 0; 
+                lastTime = performance.now();
+                this.loop(lastTime);
+            });
         },
 
         initGrid: () => initGrid(),
@@ -626,3 +682,4 @@ window.addEventListener('load', () => {
         }
     });
 });
+
