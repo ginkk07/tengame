@@ -16,7 +16,7 @@
  */
 const SoundManager = (function() {
     const BGM_FILES = ['./sound/bgmusic01.ogg', './sound/bgmusic02.ogg', './sound/bgmusic03.ogg'];
-    const SFX_EXP = './sound/effect-expball.wav';
+    const SFX_EXP = './sound/effect-knife.wav';
     const SFX_WAHA = './sound/effect-waha.ogg'; // waha音效路徑
     const SFX_START = './sound/effect-start.wav'; // [V7.8] 新增開場音效路徑 (長度約 2 秒)
     
@@ -733,4 +733,5 @@ window.addEventListener('load', () => {
         }
     });
 });
+
 
