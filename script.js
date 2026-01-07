@@ -274,7 +274,7 @@ const GameEngine = (function() {
         // 🎁 獎勵系統
         nextRewardScore: 5000, currentRewardGap: 5000, 
         
-        matchLog: [], skillLog: [], combo: 0, comboTimer: 0, maxComboTime: 240, numberBag: []
+        matchLog: [], skillLog: [], combo: 0, comboTimer: 0, maxComboTime: 270, numberBag: []
     };
 
     let input = { isDragging: false, start: { x: 0, y: 0 }, current: { x: 0, y: 0 } };
@@ -741,5 +741,6 @@ window.addEventListener('load', () => {
         }
     });
 });
+
 
 
