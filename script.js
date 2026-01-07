@@ -19,6 +19,13 @@ const SoundManager = (function() {
     const SFX_EXP = './sound/effect-knife.wav';
     const SFX_WAHA = './sound/effect-waha.ogg'; // waha音效路徑
     const SFX_START = './sound/effect-start.wav'; // [V7.8] 新增開場音效路徑 (長度約 2 秒)
+
+    const COMBO_VOICES = [
+        './sound/combo-h-1.wav', // 對應 Combo 3
+        './sound/combo-h-2.wav', // 對應 Combo 4
+        './sound/combo-h-3.wav', // 對應 Combo 5
+        './sound/combo-h-4.wav'  // 對應 Combo 6+
+    ];
     
     let bgmVolume = parseFloat(localStorage.getItem('bgm_vol')) || 0.5;
     let sfxVolume = parseFloat(localStorage.getItem('sfx_vol')) || 0.5;
@@ -27,9 +34,12 @@ const SoundManager = (function() {
     const sfxPool = [];
     const POOL_SIZE = 5;
     
-    // 🔥 Waha 音效物件
+    // Waha 音效物件
     let wahaAudio = null;
     let startAudio = null; //開始音效
+
+    // COMBO用陣列來存這 4 個音效物件
+    let comboAudioPool = []; 
 
     return {
         init: function() {
@@ -39,6 +49,13 @@ const SoundManager = (function() {
                 audio.volume = sfxVolume;
                 sfxPool.push(audio);
             }
+
+            // 初始化 4 個 Combo 音效
+            comboAudioPool = COMBO_VOICES.map(src => {
+                const audio = new Audio(src);
+                audio.volume = sfxVolume;
+                return audio;
+            });
 
             // 初始化 Waha 音效
             wahaAudio = new Audio(SFX_WAHA);
@@ -70,6 +87,9 @@ const SoundManager = (function() {
 
                     // 同步 Start 音效音量
                     if (startAudio) startAudio.volume = sfxVolume;
+
+                    // 同步 Combo 語音音量
+                    comboAudioPool.forEach(a => a.volume = sfxVolume);
                     
                     localStorage.setItem('sfx_vol', sfxVolume);
                 });
@@ -103,7 +123,24 @@ const SoundManager = (function() {
             }
         },
 
-        // 播放 Waha 音效函式
+        playRandomComboVoice: function() {
+            if (comboAudioPool.length === 0) return;
+
+            // 1. 隨機選一個索引 (0 ~ 3)
+            const randomIndex = Math.floor(Math.random() * comboAudioPool.length);
+            const audio = comboAudioPool[randomIndex];
+
+            // 2. 先暫停所有正在播的語音 (避免太吵或重疊)
+            comboAudioPool.forEach(a => { 
+                a.pause(); 
+                a.currentTime = 0; 
+            });
+
+            // 3. 播放選中的那一個
+            audio.play().catch(() => {});
+        },
+
+        // 播放 開始音效函式
         playStart: function() {
             if (startAudio) {
                 startAudio.currentTime = 0;
@@ -258,7 +295,8 @@ const GameEngine = (function() {
     // 📐 遊戲常數 (8x14)
     // =========================================
     const ROWS = 12; const COLS = 9; const SIZE = 42; const MARGIN = 3; 
-    const OFFSET_X = (400 - COLS * SIZE) / 2; const OFFSET_Y = (640 - ROWS * SIZE) / 2; 
+    const OFFSET_X = (400 - COLS * SIZE) / 2;
+    const OFFSET_Y = 220; 
 
     // =========================================
     // 🎮 遊戲狀態
@@ -270,9 +308,6 @@ const GameEngine = (function() {
         shuffleCharges: 1,      
         hintCharges: 1,         // Q 技能次數
         skillsUsed: { delete: false }, 
-        
-        // 🎁 獎勵系統
-        nextRewardScore: 5000, currentRewardGap: 5000, 
         
         matchLog: [], skillLog: [], combo: 0, comboTimer: 0, maxComboTime: 280, numberBag: []
     };
@@ -462,20 +497,94 @@ const GameEngine = (function() {
 
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // =========================================
+        // 1. 畫上半部：戰鬥畫面 (不受遮罩影響)
+        // =========================================
+        BattleSystem.render(ctx);
+
+        // (選用) 畫一條分隔線，讓區域更明顯
+        ctx.beginPath();
+        ctx.moveTo(0, OFFSET_Y - 10); // 在方塊區上方 10px 畫線
+        ctx.lineTo(canvas.width, OFFSET_Y - 10);
+        ctx.strokeStyle = "rgba(0,0,0,0.1)"; // 淡淡的線
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // =========================================
+        // 2. 畫下半部：方塊遊戲區 (設定遮罩 Clip)
+        // =========================================
+        ctx.save(); // 【關鍵】保存畫布狀態
+
+        //定義遮罩區域：只允許在 OFFSET_Y 之後的地方顯示
+        ctx.beginPath();
+        // 參數：x, y, width, height
+        // 這裡設定從 OFFSET_Y - 20 的位置開始往下才顯示，確保方塊不會飛到人物頭上
+        ctx.rect(0, OFFSET_Y - 20, canvas.width, canvas.height - (OFFSET_Y - 20));
+        ctx.clip(); // 【關鍵】啟動遮罩！之後畫的東西如果超出這個框框就會隱形
+
+        // --- 原本畫格子的程式碼 (保持不變) ---
         state.grid.forEach((row, r) => row.forEach((cell, c) => {
-            if (cell.removed) return; // V8.0: 空格不繪製
-            let drawY = (r * SIZE) + (cell.offsetY || 0); let x = c * SIZE + MARGIN + OFFSET_X; let y = drawY + MARGIN + OFFSET_Y; let s = SIZE - MARGIN * 2;
+            if (cell.removed) return; 
+            let drawY = (r * SIZE) + (cell.offsetY || 0); 
+            let x = c * SIZE + MARGIN + OFFSET_X; 
+            let y = drawY + MARGIN + OFFSET_Y; 
+            let s = SIZE - MARGIN * 2;
+            
             ctx.beginPath(); ctx.roundRect(x, y, s, s, 6);
-            if (state.isDeleteMode) ctx.fillStyle = cell.active ? '#ff7675' : '#fab1a0'; else if (cell.active) ctx.fillStyle = '#ffbe76'; else if (cell.hinted) ctx.fillStyle = '#b8e994'; else ctx.fillStyle = '#ffffff';
+            if (state.isDeleteMode) ctx.fillStyle = cell.active ? '#ff7675' : '#fab1a0'; 
+            else if (cell.active) ctx.fillStyle = '#ffbe76'; 
+            else if (cell.hinted) ctx.fillStyle = '#b8e994'; 
+            else ctx.fillStyle = '#ffffff';
+            
             ctx.fill();
-            ctx.strokeStyle = (cell.active || cell.hinted) ? '#e67e22' : '#f1f3f5'; ctx.lineWidth = 1.5; ctx.stroke();
-            ctx.fillStyle = (cell.active || cell.hinted) ? '#fff' : '#2c3e50'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(cell.val, x + s/2, y + s/2);
+            ctx.strokeStyle = (cell.active || cell.hinted) ? '#e67e22' : '#f1f3f5'; 
+            ctx.lineWidth = 1.5; ctx.stroke();
+            
+            ctx.fillStyle = (cell.active || cell.hinted) ? '#fff' : '#2c3e50'; 
+            ctx.font = 'bold 20px Arial'; 
+            ctx.textAlign = 'center'; 
+            ctx.textBaseline = 'middle'; 
+            ctx.fillText(cell.val, x + s/2, y + s/2);
         }));
-        for (let i = particles.length - 1; i >= 0; i--) { let p = particles[i]; p.x += p.vx; p.y += p.vy; p.life--; let alpha = p.life / 60; if (alpha < 0) alpha = 0; ctx.globalAlpha = alpha; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); p.vy += 0.1; if (p.life <= 0) particles.splice(i, 1); }
+        
+        // 拖曳中的虛線框也要被遮罩包住
+        if (input.isDragging && !state.isDeleteMode) { 
+            ctx.strokeStyle = '#3498db'; 
+            ctx.setLineDash([5, 3]); 
+            ctx.strokeRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y); 
+            ctx.setLineDash([]); 
+            ctx.fillStyle = 'rgba(52, 152, 219, 0.1)'; 
+            ctx.fillRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y); 
+        }
+
+        ctx.restore(); // 【關鍵】解除遮罩！
+
+        // =========================================
+        // 3. 畫特效 (粒子/文字) - 放在遮罩外面
+        // =========================================
+        // 這樣爆炸特效如果炸得很高，還是可以蓋在人物上面 (看起來比較爽快)
+        // 如果你希望特效也被切掉，就把這段搬進上面的 restore() 之前
+
+        for (let i = particles.length - 1; i >= 0; i--) { 
+            let p = particles[i]; 
+            p.x += p.vx; p.y += p.vy; p.life--; 
+            let alpha = p.life / 60; if (alpha < 0) alpha = 0; 
+            ctx.globalAlpha = alpha; ctx.fillStyle = p.color; 
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); 
+            p.vy += 0.1; 
+            if (p.life <= 0) particles.splice(i, 1); 
+        }
         ctx.globalAlpha = 1;
-        for (let i = floatingTexts.length - 1; i >= 0; i--) { let ft = floatingTexts[i]; ft.y -= 1; ft.life--; ctx.globalAlpha = Math.max(0, ft.life / 30); ctx.fillStyle = ft.color; ctx.font = "bold 24px Arial"; ctx.textAlign = "center"; ctx.fillText(ft.text, ft.x, ft.y); if (ft.life <= 0) floatingTexts.splice(i, 1); }
+        
+        for (let i = floatingTexts.length - 1; i >= 0; i--) { 
+            let ft = floatingTexts[i]; ft.y -= 1; ft.life--; 
+            ctx.globalAlpha = Math.max(0, ft.life / 30); 
+            ctx.fillStyle = ft.color; ctx.font = "bold 24px Arial"; 
+            ctx.textAlign = "center"; ctx.fillText(ft.text, ft.x, ft.y); 
+            if (ft.life <= 0) floatingTexts.splice(i, 1); 
+        }
         ctx.globalAlpha = 1;
-        if (input.isDragging && !state.isDeleteMode) { ctx.strokeStyle = '#3498db'; ctx.setLineDash([5, 3]); ctx.strokeRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y); ctx.setLineDash([]); ctx.fillStyle = 'rgba(52, 152, 219, 0.1)'; ctx.fillRect(input.start.x, input.start.y, input.current.x - input.start.x, input.current.y - input.start.y); }
     }
 
     return {
@@ -501,10 +610,13 @@ const GameEngine = (function() {
             
             updateBadge(); 
             initGrid(); 
+
+            //  [修正] 確保初始化戰鬥系統
+            BattleSystem.init();
             GameSystem.showScreen('screen-game'); 
             updateComboUI(); 
             
-            // 🔥 修改點：立即啟動遊戲迴圈 (讓方塊掉落動畫開始)
+            // 修改點：立即啟動遊戲迴圈 (讓方塊掉落動畫開始)
             // 這樣在 Ready...Go 的時候，背景就會有方塊掉下來了
             lastTime = performance.now(); 
             this.loop(lastTime); 
@@ -522,7 +634,12 @@ const GameEngine = (function() {
         loop: function(t) {
             const dt = t - lastTime; lastTime = t; timerAcc += dt;
             if (state.gameActive) {
-                if (timerAcc >= 1000) { state.timeLeft--; document.getElementById('timer').innerText = state.timeLeft; timerAcc -= 1000; if (state.timeLeft <= 0) this.end(); }
+                if (timerAcc >= 1000) {
+                    state.timeLeft--;
+                    document.getElementById('timer').innerText = state.timeLeft;
+                    timerAcc -= 1000;
+                    if (state.timeLeft <= 0) this.end(); 
+                }
                 
                 if (state.combo > 0) { 
                     state.comboTimer--; 
@@ -532,11 +649,40 @@ const GameEngine = (function() {
                         refillBoard(); 
                     } 
                 }
+
+                // 每一幀更新戰鬥動畫
+                BattleSystem.update();
             }
             updateComboUI();
             let fallingSpeed = 8; state.grid.forEach(row => row.forEach(cell => { if (cell.offsetY < 0) { cell.offsetY += fallingSpeed; if (cell.offsetY > 0) cell.offsetY = 0; } }));
             if (input.isDragging && !state.isDeleteMode) this.updateStates();
             render(); animationId = requestAnimationFrame((ts) => this.loop(ts));
+        },
+
+        triggerReward: function() {
+            if (!state.gameActive) return;
+
+            state.timeLeft += 50; 
+            state.hintCharges++; 
+            updateBadge();       
+            
+            // 時間增加的特效
+            const timerSpan = document.getElementById('timer');
+            if (timerSpan) {
+                const timerContainer = timerSpan.parentElement; 
+                timerContainer.style.transition = "color 0.2s ease, text-shadow 0.2s ease"; 
+                timerContainer.style.color = "#2ecc71"; 
+                timerContainer.style.textShadow = "0 0 10px #2ecc71"; 
+                setTimeout(() => { timerContainer.style.color = "#e74c3c"; timerContainer.style.textShadow = "none"; }, 2000); 
+            }
+
+            state.skillLog.push({ t: Date.now(), act: 'bonus_reward_monster_kill' });
+            
+            // 讓尋找按鈕亮起來
+            document.getElementById('skill-btn-hint').classList.remove('used');
+            
+            // 顯示獎勵文字
+            this.spawnFloatingText(200, 350, "Stage Clear! Time +50s", '#2ecc71');
         },
 
         openSettings: () => GameSystem.toggleOverlay('screen-settings', true),
@@ -608,6 +754,9 @@ const GameEngine = (function() {
                     state.matchLog.push({ t: Date.now(), p: totalPoints }); 
                     state.score += totalPoints; 
                     
+                    // 觸發全消除
+                    BattleSystem.playerAttack(totalPoints, true);
+                    //播放音效
                     SoundManager.playWaha(); 
                 } else {
                     // 一般情況：繼續 Combo
@@ -616,30 +765,15 @@ const GameEngine = (function() {
                     state.comboTimer = state.maxComboTime;
                     state.matchLog.push({ t: Date.now(), p: totalPoints }); 
                     
-                    if (state.combo >= 5) SoundManager.playWaha();
+                    if (state.combo >= 5) {
+                        SoundManager.playRandomComboVoice();
+                    }
+                    // 觸發一般攻擊
+                    BattleSystem.playerAttack(totalPoints, false);
                     applyGravity(); 
                 }
                 
-                // --- 3. 獎勵機制與特效 ---
-                if (state.score >= state.nextRewardScore) {
-                    state.timeLeft += 50; 
-                    state.hintCharges++; 
-                    updateBadge();       
-                    
-                    const timerSpan = document.getElementById('timer');
-                    const timerContainer = timerSpan.parentElement; 
-                    timerContainer.style.transition = "color 0.2s ease, text-shadow 0.2s ease"; 
-                    timerContainer.style.color = "#2ecc71"; 
-                    timerContainer.style.textShadow = "0 0 10px #2ecc71"; 
-                    setTimeout(() => { timerContainer.style.color = "#e74c3c"; timerContainer.style.textShadow = "none"; }, 2000); 
-
-                    state.skillLog.push({ t: Date.now(), act: 'bonus_reward', score: state.score });
-                    state.currentRewardGap += 3000;
-                    state.nextRewardScore += state.currentRewardGap;
-                    document.getElementById('skill-btn-hint').classList.remove('used');
-                    this.spawnFloatingText(200, 300, "Bonus! Time +50s & Hint +1", '#2ecc71');
-                }
-
+                // 更新介面
                 document.getElementById('score').innerText = state.score;
                 document.getElementById('timer').innerText = state.timeLeft;
                 SoundManager.playEliminate(); 
@@ -742,6 +876,231 @@ window.addEventListener('load', () => {
     });
 });
 
+/**
+ * -----------------------------------------------------------------------------
+ * 新增部分：戰鬥系統 (BATTLE SYSTEM) - Canvas Render 版
+ * -----------------------------------------------------------------------------
+ */
+const BattleSystem = (function() {
+    // 🔥 資源設定
+    const SRC_PLAYER_IDLE = './images/guren-0.png'; // 待機圖
+    
+    // 攻擊連動圖 (5張)
+    const SRC_PLAYER_ATTACK = [
+        './images/guren-attack-1.png',
+        './images/guren-attack-2.png',
+        './images/guren-attack-3.png',
+        './images/guren-attack-4.png',
+        './images/guren-attack-5.png'
+    ];
 
+    const MONSTER_LIST = [
+        './images/monster01.png', 
+    ];
+
+    // 圖片物件
+    let imgPlayerIdle = new Image();
+    let imgPlayerAttackFrames = []; // 預先載入攻擊圖
+    let imgMonster = new Image();
+    
+    // 遊戲數值
+    let monsterMaxHp = 5000;
+    let monsterCurrentHp = 5000;
+    let monsterLevel = 1;
+
+    // 動畫狀態
+    let animState = {
+        playerX: -20,      // 玩家位置
+        playerY: 50,      
+        monsterX: 250,    // 怪物位置
+        monsterY: 50,     
+        
+        shakeTimer: 0,    // 受傷震動
+        dieAlpha: 1,      // 死亡透明度
+        monsterState: 'alive', // alive, dying, spawning
+        
+        // 🔥 攻擊動畫控制
+        isAttacking: false,
+        attackFrameIndex: 0,
+        attackFrameTimer: 0,
+        attackSpeed: 5 // 每幾幀換一張圖 (數字越小越快)
+    };
+
+    // 傷害數字粒子
+    let damageTexts = [];
+
+    return {
+        init: function() {
+
+            //圖片初始化
+            imgPlayerAttackFrames = [];
+            // 載入圖片
+            imgPlayerIdle.src = SRC_PLAYER_IDLE;
+            
+            // 預載攻擊圖
+            SRC_PLAYER_ATTACK.forEach(src => {
+                let img = new Image();
+                img.src = src;
+                imgPlayerAttackFrames.push(img);
+            });
+
+            // 生成第一隻怪
+            this.spawnMonster(true);
+        },
+
+        spawnMonster: function(firstTime = false) {
+            if (!firstTime) monsterLevel++;
+            
+            const src = MONSTER_LIST[Math.floor(Math.random() * MONSTER_LIST.length)] || MONSTER_LIST[0];
+            imgMonster.src = src;
+
+            // ✅ 修正後的寫法 (正確)：
+            if (firstTime) {
+                monsterMaxHp = 5000; // 第一隻 5000
+            } else {
+                monsterMaxHp += 3000; // 之後每隻 +3000
+            }
+
+            monsterCurrentHp = monsterMaxHp; // 補滿血
+            
+            animState.monsterState = 'alive';
+            animState.dieAlpha = 1;
+            animState.shakeTimer = 0;
+        },
+
+        // 🔥 更新邏輯 (每一幀呼叫)
+        update: function() {
+            // 1. 處理攻擊動畫 (播放序列圖)
+            if (animState.isAttacking) {
+                animState.attackFrameTimer++;
+                if (animState.attackFrameTimer >= animState.attackSpeed) {
+                    animState.attackFrameTimer = 0;
+                    animState.attackFrameIndex++;
+                    
+                    // 播完最後一張圖，結束攻擊
+                    if (animState.attackFrameIndex >= imgPlayerAttackFrames.length) {
+                        animState.isAttacking = false;
+                        animState.attackFrameIndex = 0;
+                    }
+                }
+            }
+
+            // 2. 受傷震動
+            if (animState.shakeTimer > 0) {
+                animState.shakeTimer--;
+            }
+
+            // 3. 死亡淡出
+            if (animState.monsterState === 'dying') {
+                animState.dieAlpha -= 0.05;
+                if (animState.dieAlpha <= 0) {
+                    animState.dieAlpha = 0;
+                    animState.monsterState = 'spawning';
+                    setTimeout(() => this.spawnMonster(), 1000);
+                }
+            }
+
+            // 4. 傷害數字浮動
+            for (let i = damageTexts.length - 1; i >= 0; i--) {
+                let d = damageTexts[i];
+                d.y -= 1.5;
+                d.life--;
+                d.scale += 0.01;
+                if (d.life <= 0) damageTexts.splice(i, 1);
+            }
+        },
+
+        // 🔥 繪製邏輯 (每一幀呼叫)
+        render: function(ctx) {
+            // 1. 畫玩家 (紅蓮)
+            let drawPlayerImg = imgPlayerIdle; // 預設畫待機圖
+            
+            if (animState.isAttacking) {
+                // 如果正在攻擊，畫對應的連動圖
+                // 確保 index 安全
+                let idx = Math.min(animState.attackFrameIndex, imgPlayerAttackFrames.length - 1);
+                if (imgPlayerAttackFrames[idx] && imgPlayerAttackFrames[idx].complete) {
+                    drawPlayerImg = imgPlayerAttackFrames[idx];
+                }
+            }
+            
+            // 繪製玩家 (寬高設為 120x120 讓角色大一點)
+            ctx.drawImage(drawPlayerImg, animState.playerX, animState.playerY, 256, 128);
+
+            // 2. 畫怪物
+            if (animState.monsterState !== 'spawning') {
+                ctx.save();
+                let shakeX = 0, shakeY = 0;
+                if (animState.shakeTimer > 0) {
+                    shakeX = (Math.random() - 0.5) * 10;
+                    shakeY = (Math.random() - 0.5) * 10;
+                }
+                ctx.globalAlpha = animState.dieAlpha;
+                ctx.drawImage(imgMonster, animState.monsterX + shakeX, animState.monsterY + shakeY, 128, 128);
+                
+                // 3. 畫血條
+                if (animState.monsterState === 'alive') {
+                    const hpW = 100; const hpH = 8;
+                    const hpX = animState.monsterX + shakeX + 15;
+                    const hpY = animState.monsterY + shakeY + 128;
+                    ctx.fillStyle = '#555'; ctx.fillRect(hpX, hpY, hpW, hpH);
+                    const pct = Math.max(0, monsterCurrentHp / monsterMaxHp);
+                    ctx.fillStyle = '#e74c3c'; ctx.fillRect(hpX, hpY, hpW * pct, hpH);
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(hpX, hpY, hpW, hpH);
+                }
+                ctx.restore();
+            }
+
+            // 4. 畫傷害數字
+            ctx.save();
+            ctx.textAlign = "center";
+            for (let d of damageTexts) {
+                ctx.globalAlpha = Math.min(1, d.life / 20);
+                ctx.font = `bold ${Math.floor(10 * d.scale)}px Arial`;
+                ctx.fillStyle = d.color;
+                ctx.strokeStyle = "white";
+                ctx.lineWidth = 2;
+                ctx.strokeText(d.text, d.x, d.y);
+                ctx.fillText(d.text, d.x, d.y);
+            }
+            ctx.restore();
+        },
+
+        // 觸發攻擊
+        playerAttack: function(damage, isCritical) {
+            // 啟動連續圖動畫
+            animState.isAttacking = true;
+            animState.attackFrameIndex = 0;
+            animState.attackFrameTimer = 0;
+
+            // 配合揮刀動作，延遲造成傷害 (例如第3張圖是砍下去)
+            // 假設 5幀換一張，第3張圖大約是 15幀 * 16ms = 240ms 後
+            setTimeout(() => {
+                this.monsterTakeDamage(damage, isCritical);
+            }, 200); 
+        },
+
+        monsterTakeDamage: function(damage, isCritical) {
+            if (animState.monsterState !== 'alive') return;
+            monsterCurrentHp -= damage;
+            animState.shakeTimer = 10;
+            damageTexts.push({
+                x: animState.monsterX + 50, y: animState.monsterY,
+                text: isCritical ? Math.floor(damage) + "!" : Math.floor(damage),
+                color: isCritical ? "#ff00ff" : "#ff0000",
+                life: 60, scale: 1
+            });
+            // 🔥 檢查死亡 (觸發獎勵)
+            if (monsterCurrentHp <= 0) {
+                monsterCurrentHp = 0;
+                animState.monsterState = 'dying';
+
+                // 🌟 怪獸死亡 = 玩家獲勝 = 發放獎勵！
+                // 呼叫 GameEngine 的獎勵函式
+                GameEngine.triggerReward(); 
+            }
+        }
+    };
+})();
 
 

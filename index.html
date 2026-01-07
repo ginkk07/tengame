@@ -22,6 +22,8 @@
             overscroll-behavior-y: contain; overflow: hidden; 
         }
 
+        canvas { background: #fff; display: block; width: 100%; height: auto; touch-action: none; }
+
         .screen { 
             display: none; flex-direction: column; align-items: center; 
             background: white; padding: 25px; border-radius: 24px; 
@@ -103,8 +105,6 @@
         }
         .gear-btn { font-size: 24px; cursor: pointer; color: #7f8c8d; padding: 0 5px; }
 
-        #game-canvas-container { background: #eee; padding: 4px; border-radius: 12px; }
-        canvas { background: #fff; border-radius: 8px; display: block; width: 100%; height: auto; touch-action: none; }
 
         .skill-container { display: flex; justify-content: space-around; width: 100%; margin-top: 15px; }
         .skill-btn { 
@@ -260,11 +260,11 @@
         <button class="btn btn-back" onclick="GameEngine.backToHome()">回主選單</button>
     </div>
 
-    <div id="screen-game" class="screen">
+<div id="screen-game" class="screen">
         <div class="game-header">
-            <div>Score: <span id="score">0</span></div>
-            <div style="color: #e74c3c;">Time: <span id="timer">60</span>s</div>
-            <div class="gear-btn" onclick="GameEngine.openSettings()">⚙️</div>
+            <div class="header-left">Score: <span id="score">0</span></div>
+            <div class="header-center">Time: <span id="timer">100</span>s</div>
+            <div class="header-right" onclick="GameEngine.openSettings()">⚙️</div>
             <div id="combo-bar-container" style="display:none;"><div id="combo-bar-fill"></div></div>
         </div>
 
@@ -272,20 +272,18 @@
         <div id="start-countdown" style="display:none;">3</div>
 
         <div id="game-canvas-container">
-            <canvas id="gameCanvas" width="400" height="640"></canvas>
+            <canvas id="gameCanvas" width="400" height="740"></canvas>
         </div>
 
         <div class="skill-container">
             <button id="skill-btn-hint" class="skill-btn" onclick="GameEngine.useSkillHint()">
-                <div id="hint-badge" class="skill-badge">1</div> [Q]<br>尋找一組
+                <div id="hint-badge" class="skill-badge">1</div> [Q]<br>尋找
             </button>
-
-            <button id="skill-btn-shuffle" class="skill-btn" onclick="GameEngine.useSkillShuffle(true)">[W]<br>隨機打亂</button>
-            <button id="skill-btn-delete" class="skill-btn" onclick="GameEngine.toggleDeleteMode()">[E]<br>消除1數字</button>
+            <button id="skill-btn-shuffle" class="skill-btn" onclick="GameEngine.useSkillShuffle(true)">[W]<br>打亂</button>
+            <button id="skill-btn-delete" class="skill-btn" onclick="GameEngine.toggleDeleteMode()">[E]<br>消除</button>
         </div>
     </div>
 
     <script src="script.js"></script>
 </body>
 </html>
-
