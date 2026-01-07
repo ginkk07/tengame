@@ -257,7 +257,7 @@ const GameEngine = (function() {
     // =========================================
     // 📐 遊戲常數 (8x14)
     // =========================================
-    const ROWS = 14; const COLS = 8; const SIZE = 45; const MARGIN = 3; 
+    const ROWS = 12; const COLS = 9; const SIZE = 42; const MARGIN = 3; 
     const OFFSET_X = (400 - COLS * SIZE) / 2; const OFFSET_Y = (640 - ROWS * SIZE) / 2; 
 
     // =========================================
@@ -295,8 +295,16 @@ const GameEngine = (function() {
     function getNextNumber() {
         if (state.numberBag.length === 0) {
             let newSet = [];
-            for (let k = 0; k < 2; k++) { for (let i = 1; i <= 9; i++) newSet.push(i); }
-            for (let i = newSet.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [newSet[i], newSet[j]] = [newSet[j], newSet[i]]; }
+            // 🔥 V8.5 修改：一次生成 12 組 1~9 (12 * 9 = 108)
+            // 剛好填滿 12x9 版面，總和 540 (10的倍數)，保證數學平衡
+            for (let k = 0; k < 12; k++) { 
+                for (let i = 1; i <= 9; i++) newSet.push(i); 
+            }
+            // 洗牌
+            for (let i = newSet.length - 1; i > 0; i--) { 
+                const j = Math.floor(Math.random() * (i + 1)); 
+                [newSet[i], newSet[j]] = [newSet[j], newSet[i]]; 
+            }
             state.numberBag = newSet;
         }
         return state.numberBag.pop();
