@@ -20,6 +20,9 @@ const SoundManager = (function() {
     const SFX_WAHA = './sound/effect-waha.ogg'; // waha音效路徑
     const SFX_START = './sound/effect-start.wav'; // [V7.8] 新增開場音效路徑 (長度約 2 秒)
 
+    // 紅蓮技能sound
+    const SFX_SKILL = './sound/skill-guren.wav';
+
     const COMBO_VOICES = [
         './sound/combo-h-1.wav', // 對應 Combo 3
         './sound/combo-h-2.wav', // 對應 Combo 4
@@ -40,6 +43,9 @@ const SoundManager = (function() {
 
     // COMBO用陣列來存這 4 個音效物件
     let comboAudioPool = []; 
+
+    //技能音效
+    let skillAudio = null;
 
     return {
         init: function() {
@@ -64,6 +70,10 @@ const SoundManager = (function() {
             // 初始化 Start 音效
             startAudio = new Audio(SFX_START);
             startAudio.volume = sfxVolume;
+
+            // 初始化技能語音
+            skillAudio = new Audio(SFX_SKILL);
+            skillAudio.volume = sfxVolume;
 
             const mSlider = document.getElementById('music-slider');
             const sSlider = document.getElementById('sfx-slider');
@@ -90,6 +100,9 @@ const SoundManager = (function() {
 
                     // 同步 Combo 語音音量
                     comboAudioPool.forEach(a => a.volume = sfxVolume);
+
+                    // 同步技能音量
+                    if (skillAudio) skillAudio.volume = sfxVolume;
                     
                     localStorage.setItem('sfx_vol', sfxVolume);
                 });
@@ -138,6 +151,13 @@ const SoundManager = (function() {
 
             // 3. 播放選中的那一個
             audio.play().catch(() => {});
+        },
+
+        playSkillVoice: function() {
+            if (skillAudio) {
+                skillAudio.currentTime = 0;
+                skillAudio.play().catch(() => {});
+            }
         },
 
         // 播放 開始音效函式
@@ -303,6 +323,9 @@ const GameEngine = (function() {
     // =========================================
     let state = {
         grid: [], score: 0, timeLeft: 100, gameActive: false, isDeleteMode: false, name: "",
+
+        // 暫停旗標
+        isPaused: false,
         
         // 🛠️ 技能與次數
         shuffleCharges: 1,      
@@ -312,6 +335,8 @@ const GameEngine = (function() {
         matchLog: [], skillLog: [], combo: 0, comboTimer: 0, maxComboTime: 280, numberBag: []
     };
 
+
+    let pauseTimeout = null;  // 用來儲存計時器的變數
     let input = { isDragging: false, start: { x: 0, y: 0 }, current: { x: 0, y: 0 } };
     let particles = []; let floatingTexts = []; 
     let animationId = null, lastTime = 0, timerAcc = 0;
@@ -328,20 +353,43 @@ const GameEngine = (function() {
     }
 
     function getNextNumber() {
+        // 如果袋子空了，重新生成一批數字
         if (state.numberBag.length === 0) {
             let newSet = [];
-            // 🔥 V8.5 修改：一次生成 12 組 1~9 (12 * 9 = 108)
-            // 剛好填滿 12x9 版面，總和 540 (10的倍數)，保證數學平衡
-            for (let k = 0; k < 12; k++) { 
-                for (let i = 1; i <= 9; i++) newSet.push(i); 
+            
+            // 🔥【平衡修改】使用加權機率 (Weighted Probability)
+            // 解決底部容易卡死大數字的問題
+            
+            const weights = [
+                { val: 1, count: 5 }, // 1 最萬用，給最多 (原本約11% -> 改為約16%)
+                { val: 2, count: 5 }, // 2 也很重要
+                { val: 3, count: 4 }, // 3 好湊
+                { val: 4, count: 4 }, 
+                { val: 5, count: 3 }, // 5+5 容易，普通量
+                { val: 6, count: 3 }, 
+                { val: 7, count: 2 }, // 7 容易卡，減少
+                { val: 8, count: 2 }, // 8 容易卡，減少
+                { val: 9, count: 2 }  // 9 最容易卡 (只能配1)，給最少
+            ];
+            // 總共 30 個數字為一組。
+            
+            // 我們生成 4 組放入袋子 (30 * 4 = 120 顆)，夠玩一陣子才洗牌
+            for (let k = 0; k < 4; k++) { 
+                weights.forEach(item => {
+                    for (let c = 0; c < item.count; c++) {
+                        newSet.push(item.val);
+                    }
+                });
             }
-            // 洗牌
+            
+            // 洗牌 (Fisher-Yates Shuffle)
             for (let i = newSet.length - 1; i > 0; i--) { 
                 const j = Math.floor(Math.random() * (i + 1)); 
                 [newSet[i], newSet[j]] = [newSet[j], newSet[i]]; 
             }
             state.numberBag = newSet;
         }
+        
         return state.numberBag.pop();
     }
 
@@ -634,24 +682,25 @@ const GameEngine = (function() {
         loop: function(t) {
             const dt = t - lastTime; lastTime = t; timerAcc += dt;
             if (state.gameActive) {
-                if (timerAcc >= 1000) {
-                    state.timeLeft--;
-                    document.getElementById('timer').innerText = state.timeLeft;
-                    timerAcc -= 1000;
-                    if (state.timeLeft <= 0) this.end(); 
+                if (!state.isPaused) {
+                    if (timerAcc >= 1000) {
+                        state.timeLeft--;
+                        document.getElementById('timer').innerText = state.timeLeft;
+                        timerAcc -= 1000;
+                        if (state.timeLeft <= 0) this.end(); 
+                    }
+                    
+                    if (state.combo > 0) { 
+                        state.comboTimer--; 
+                        if (state.comboTimer <= 0) { 
+                            // Combo 結束 (斷掉) -> 觸發補牌 (Refill)
+                            state.combo = 0; 
+                            refillBoard(); 
+                        } 
+                    }                    
                 }
-                
-                if (state.combo > 0) { 
-                    state.comboTimer--; 
-                    if (state.comboTimer <= 0) { 
-                        // Combo 結束 (斷掉) -> 觸發補牌 (Refill)
-                        state.combo = 0; 
-                        refillBoard(); 
-                    } 
-                }
-
                 // 每一幀更新戰鬥動畫
-                BattleSystem.update();
+                    BattleSystem.update();
             }
             updateComboUI();
             let fallingSpeed = 8; state.grid.forEach(row => row.forEach(cell => { if (cell.offsetY < 0) { cell.offsetY += fallingSpeed; if (cell.offsetY > 0) cell.offsetY = 0; } }));
@@ -683,6 +732,68 @@ const GameEngine = (function() {
             
             // 顯示獎勵文字
             this.spawnFloatingText(200, 350, "Stage Clear! Time +50s", '#2ecc71');
+        },
+
+        useSkillWipe: function() {
+            // 檢查：是否進行中？是否已使用？
+            if (!state.gameActive || state.skillsUsed.delete) return;
+
+            // 標記使用
+            state.skillsUsed.delete = true;
+            document.getElementById('skill-btn-delete').classList.remove('active');
+            document.getElementById('skill-btn-delete').classList.add('used');
+
+            // 紀錄 Log
+            state.skillLog.push({ t: Date.now(), act: 'skill_wipe' });
+
+            // 播放語音 (skill-guren.wav) 與音效
+            SoundManager.playSkillVoice();
+            SoundManager.playEliminate(); 
+
+            // 執行全場消除 (視覺效果)
+            state.grid.forEach((row, r) => {
+                row.forEach((cell, c) => {
+                    if (!cell.removed) {
+                        cell.removed = true;
+                        // 產生爆炸特效
+                        let visualX = c * SIZE + MARGIN + OFFSET_X + SIZE/2;
+                        let visualY = (r * SIZE + (cell.offsetY || 0)) + MARGIN + OFFSET_Y + SIZE/2;
+                        GameEngine.spawnBoom({x: visualX, y: visualY});
+                    }
+                });
+            });
+
+            // 核心邏輯：不算分，但續 Combo
+            // state.score 不變
+            // state.combo 不變
+            state.comboTimer = state.maxComboTime; // 補滿時間條，讓 Combo 繼續
+            this.triggerTimeFreeze(); //凍結COMBO條
+
+            // 顯示文字
+            GameEngine.spawnFloatingText(200, 300, "GUREN WIPE!", '#e74c3c');
+
+            // 稍微延遲後補牌
+            setTimeout(() => {
+                refillBoard();
+                checkBoardStatus();
+            }, 100); 
+        },
+
+        triggerTimeFreeze: function() {
+            state.isPaused = true;
+            
+            // 視覺提示：讓時間變色 (選用)
+            const timerEl = document.getElementById('timer');
+            if (timerEl) timerEl.style.color = '#2222228c'; // 變藍色代表凍結
+
+            // 如果已經有在倒數，先清除舊的 (避免連續消除時提早解凍)
+            if (pauseTimeout) clearTimeout(pauseTimeout);
+
+            // 設定 2 秒後解除暫停
+            pauseTimeout = setTimeout(() => {
+                state.isPaused = false;
+                if (timerEl) timerEl.style.color = ''; // 恢復顏色
+            }, 2000);
         },
 
         openSettings: () => GameSystem.toggleOverlay('screen-settings', true),
@@ -871,7 +982,9 @@ window.addEventListener('load', () => {
         }
         // E: 切換刪除模式
         if (key === 'e') {
-            GameEngine.toggleDeleteMode();
+            // GameEngine.toggleDeleteMode(); //(舊版)指定刪除
+            // 新的寫法 (正確)：直接呼叫全場消除技能
+            GameEngine.useSkillWipe();
         }
     });
 });
