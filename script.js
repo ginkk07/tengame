@@ -390,6 +390,10 @@ const GameSystem = (function() {
 const GameEngine = (function() {
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+
+    // 🔥【新增】特效畫布變數 (這裡直接抓，因為 HTML 裡已經有了)
+    const fxCanvas = document.getElementById('fxCanvas');
+    const fxCtx = fxCanvas ? fxCanvas.getContext('2d') : null;
     
     // =========================================
     // 📐 遊戲常數 (8x14)
@@ -403,6 +407,8 @@ const GameEngine = (function() {
     // =========================================
     let state = {
         grid: [], score: 0, timeLeft: 100, gameActive: false, isDeleteMode: false, name: "",
+        // 技能狀態
+        skillsUsed: { delete: false },
 
         // 暫停旗標
         isPaused: false,
@@ -412,6 +418,8 @@ const GameEngine = (function() {
         hintCharges: 1,         // Q 技能次數
         skillsUsed: { delete: false }, 
         
+        // 新增】特效列表
+        effects: [],
         matchLog: [], skillLog: [], combo: 0, comboTimer: 0, maxComboTime: 280, numberBag: []
     };
 
@@ -713,6 +721,52 @@ const GameEngine = (function() {
             if (ft.life <= 0) floatingTexts.splice(i, 1); 
         }
         ctx.globalAlpha = 1;
+
+        // 🔥【新增】全螢幕特效繪製 (這段負責畫出刀光)
+        if (fxCtx) {
+            fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+            const now = Date.now();
+            state.effects = state.effects.filter(eff => now - eff.startTime < eff.duration);
+
+            state.effects.forEach(eff => {
+                const elapsed = now - eff.startTime;
+                
+                // 🔥【新增】如果時間還沒到 (延遲中)，就先跳過不畫
+                if (elapsed < 0) return;
+
+                const progress = elapsed / eff.duration;
+                
+                fxCtx.save();
+                
+                if (eff.type === 'flash') {
+                    // 黑色背景：隨進度慢慢變透明
+                    // 使用 4次方 (Math.pow) 讓它在剛開始時維持黑色久一點，後面才快速淡出
+                    const fade = Math.pow(1 - progress, 2);
+                    const currentAlpha = (eff.maxAlpha || 0.4) * fade;
+                    const rgb = eff.colorRGB || '0, 0, 0';
+                    
+                    fxCtx.fillStyle = `rgba(${rgb}, ${currentAlpha.toFixed(2)})`;
+                    fxCtx.fillRect(0, 0, fxCanvas.width, fxCanvas.height);
+
+                } else if (eff.type === 'slash') {
+                    // 刀光邏輯 (保持不變)
+                    fxCtx.beginPath();
+                    let currentEndX = eff.startX + (eff.endX - eff.startX) * progress;
+                    let currentEndY = eff.startY + (eff.endY - eff.startY) * progress;
+                    
+                    fxCtx.moveTo(eff.startX, eff.startY);
+                    fxCtx.lineTo(currentEndX, currentEndY);
+                    
+                    fxCtx.shadowBlur = 100; 
+                    fxCtx.shadowColor = eff.color;
+                    fxCtx.lineWidth = eff.width * (1 - progress);
+                    fxCtx.strokeStyle = eff.color;
+                    fxCtx.lineCap = 'round';
+                    fxCtx.stroke();
+                }
+                fxCtx.restore();
+            });
+        }
     }
 
     return {
@@ -768,7 +822,12 @@ const GameEngine = (function() {
         initGrid: () => initGrid(),
 
         loop: function(t) {
-            const dt = t - lastTime; lastTime = t; timerAcc += dt;
+            const dt = t - lastTime; 
+            lastTime = t; 
+            if (!state.isPaused) {
+                timerAcc += dt;
+            }
+
             if (state.gameActive) {
                 if (!state.isPaused) {
                     if (timerAcc >= 1000) {
@@ -837,6 +896,8 @@ const GameEngine = (function() {
             // 播放語音 (skill-guren.wav) 與音效
             SoundManager.playSkillVoice();
             SoundManager.playEliminate(); 
+            // 觸發特效
+            this.spawnSlashEffect();
 
             // 執行全場消除 (視覺效果)
             state.grid.forEach((row, r) => {
@@ -857,9 +918,6 @@ const GameEngine = (function() {
             state.comboTimer = state.maxComboTime; // 補滿時間條，讓 Combo 繼續
             this.triggerTimeFreeze(); //凍結COMBO條
 
-            // 顯示文字
-            GameEngine.spawnFloatingText(200, 300, "GUREN WIPE!", '#e74c3c');
-
             // 稍微延遲後補牌
             setTimeout(() => {
                 refillBoard();
@@ -867,21 +925,53 @@ const GameEngine = (function() {
             }, 100); 
         },
 
+        spawnSlashEffect: function() {
+            if (!fxCanvas) return;
+            const w = fxCanvas.width;
+            const h = fxCanvas.height;
+            const now = Date.now(); // 取得統一的基準時間
+
+            // 1. 先推入「黑屏閃光」 (背景層)
+            state.effects.push({ 
+                type: 'flash', 
+                startTime: now,       // 立即開始
+                duration: 3500,       // 時間總長度
+                maxAlpha: 0.85,       // 稍微更黑一點
+                colorRGB: '0, 0, 0'   // 黑色
+            });
+
+            // 2. 再推入「白色刀光」 (前景層)
+            state.effects.push({ 
+                type: 'slash', 
+                startTime: now + 200, // 🔥 關鍵：延後 150ms 才開始畫刀，製造「先黑後斬」的時間差
+                duration: 250,        // 刀光速度
+                color: '#ffffff',     // 白色
+                startX: -100,       startY: h / 2, // 左
+                endX: w + 100,      endY: h / 2,   // 右
+                width: 60 //刀光寬度
+            });
+        },
+
         triggerTimeFreeze: function() {
             state.isPaused = true;
             
             // 視覺提示：讓時間變色 (選用)
             const timerEl = document.getElementById('timer');
-            if (timerEl) timerEl.style.color = '#2222228c'; // 變藍色代表凍結
+            if (timerEl && timerEl.parentElement) {
+                // 設定為灰色
+                timerEl.parentElement.style.color = '#dddddd'; 
+            }
 
             // 如果已經有在倒數，先清除舊的 (避免連續消除時提早解凍)
             if (pauseTimeout) clearTimeout(pauseTimeout);
 
-            // 設定 2 秒後解除暫停
+            // 設定技能後解除暫停
             pauseTimeout = setTimeout(() => {
                 state.isPaused = false;
-                if (timerEl) timerEl.style.color = ''; // 恢復顏色
-            }, 2000);
+                if (timerEl && timerEl.parentElement) {
+                    timerEl.parentElement.style.color = ''; // 恢復顏色
+                } 
+            }, 4000);
         },
 
         openSettings: () => GameSystem.toggleOverlay('screen-settings', true),
@@ -1047,7 +1137,8 @@ const GameEngine = (function() {
 
 // 初始化與監聽
 window.addEventListener('load', () => {
-    SoundManager.init(); GameSystem.initNamePersistence();
+    SoundManager.init(); 
+    GameSystem.initNamePersistence();
     const canvas = document.getElementById('gameCanvas');
     if (canvas) {
         canvas.addEventListener('pointerdown', (e) => {
@@ -1063,6 +1154,13 @@ window.addEventListener('load', () => {
     document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
     document.addEventListener('gesturestart', (e) => e.preventDefault());
 
+    // 🔥【新增】設定特效畫布尺寸為全螢幕
+    const fxC = document.getElementById('fxCanvas');
+    if (fxC) {
+        const resizeFx = () => { fxC.width = window.innerWidth; fxC.height = window.innerHeight; };
+        window.addEventListener('resize', resizeFx);
+        resizeFx(); // 立即執行一次
+    }
     // ⌨️ 全域鍵盤快捷鍵監聽 (Key Listeners)
     window.addEventListener('keydown', (e) => {
         // 防止在輸入名字時觸發快捷鍵
@@ -1313,5 +1411,6 @@ const BattleSystem = (function() {
         }
     };
 })();
+
 
 
