@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>圈十遊戲</title>
+    <title>修練之路</title>
     <style>
         :root { 
             --primary-color: #4a90e2; 
@@ -27,14 +27,24 @@
             overflow: hidden; 
         }
 
-        canvas { background: #fff; display: block; width: 100%; height: auto; touch-action: none; }
+        canvas { 
+            background: #fff;
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+            aspect-ratio: 400 / 735;
+        }
+        #game-canvas-container{
+            height: 80vh;
+        }
 
         .screen { 
             display: none; 
             flex-direction: column; 
             align-items: center; 
             background: white; 
-            padding: 25px; 
+            padding: 15px 20px; 
             border-radius: 24px; 
             box-shadow: 0 10px 40px rgba(0,0,0,0.1); 
             margin: 0 auto;
@@ -121,16 +131,16 @@
         .gear-btn { font-size: 24px; cursor: pointer; color: #7f8c8d; padding: 0 5px; }
 
 
-        .skill-container { display: flex; justify-content: space-around; width: 100%; margin-top: 15px; }
+        .skill-container { display: flex; justify-content: space-around; width: 100%;}
         .skill-btn { 
             position: relative;
             overflow: visible;
-            width: 85px; 
-            height: 50px; 
+            width: 30%; 
+            height: 40px; 
             background: #dfe6e9; 
-            border: 2px solid #b2bec3; 
-            border-radius: 12px; 
-            font-size: 13px; 
+            border: 1px solid #b2bec3; 
+            border-radius: 6px; 
+            font-size: 12px; 
             font-weight: bold; 
             color: #2d3436; 
             cursor: pointer; 
@@ -225,7 +235,7 @@
 <body>
 
     <div id="screen-home" class="screen active">
-        <h1>圈十遊戲</h1>
+        <h1>修練之路</h1>
         <div class="name-input-group"><input type="text" id="home-player-name" placeholder="請輸入名稱" maxlength="10"></div>
         <button class="btn btn-start" onclick="GameEngine.start()">開始遊戲</button>
         <button class="btn btn-help" onclick="GameSystem.showHelp()">遊戲說明</button>
@@ -287,15 +297,15 @@
         <div id="start-countdown" style="display:none;">3</div>
 
         <div id="game-canvas-container">
-            <canvas id="gameCanvas" width="400" height="740"></canvas>
+            <canvas id="gameCanvas" width="400" height="735"></canvas>
         </div>
 
         <div class="skill-container">
             <button id="skill-btn-hint" class="skill-btn" onclick="GameEngine.useSkillHint()">
-                <div id="hint-badge" class="skill-badge">1</div> [Q]<br>尋找
+                <div id="hint-badge" class="skill-badge">1</div> [Q] 尋找
             </button>
-            <button id="skill-btn-shuffle" class="skill-btn" onclick="GameEngine.useSkillShuffle(true)">[W]<br>打亂</button>
-            <button id="skill-btn-delete" class="skill-btn" onclick="GameEngine.useSkillWipe()">[E]<br>紅蓮一閃</button>
+            <button id="skill-btn-shuffle" class="skill-btn" onclick="GameEngine.useSkillShuffle(true)">[W] 打亂</button>
+            <button id="skill-btn-delete" class="skill-btn" onclick="GameEngine.useSkillWipe()">[E] 紅蓮一閃</button>
         </div>
     </div>
 
