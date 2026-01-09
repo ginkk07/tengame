@@ -229,30 +229,110 @@ const GameSystem = (function() {
         // 🔥 新增：關閉說明視窗
         closeHelp: () => { GameSystem.toggleOverlay('screen-help', false); },
 
-        uploadScore: async function() {
-            // ... (上傳邏輯保持不變) ...
+        // 分數上傳系統
+        uploadScore: async function(isAuto = false) {
             const b = document.getElementById('upload-btn');
             const internal = GameEngine.getInternalState(); 
+
+            // 0. 防呆：如果已經上傳過，就不要再執行
+            if (b.classList.contains('uploaded')) return;
+            
+            // 如果是測試帳號或無效狀態，直接跳過
             if (internal.isTestUsed) return; 
 
             const safeName = (internal.name || "").trim();
-            if (safeName.length === 0) { alert("❌ 錯誤：名稱不能為空！"); return; }
-            if (safeName.length > 10) { alert("❌ 錯誤：名稱長度異常 (超過10字)，請重新整理頁面。"); return; }
+            // 自動上傳時若沒有名字，就默默失敗就好，不要卡住
+            if (safeName.length === 0) { 
+                if(!isAuto) alert("❌ 錯誤：名稱不能為空！"); 
+                return; 
+            }
 
-            b.disabled = true; b.innerText = "驗證中...";
-            const ts = Date.now();
-            const sign = await getSignature(internal.name, internal.score, ts);
+            // 1. 設定按鈕狀態 (Loading)
+            b.disabled = true; 
+            if (isAuto) {
+                console.log("[系統] 正在自動上傳分數...");
+                b.innerText = "分數上傳中...";
+            } else {
+                b.innerText = "驗證中...";
+            }
+
+            // 一個旗標來追蹤是否已經「實質成功」
+            let isSuccess = false;
             
             try {
+                // 🔥【偽裝核心】分數門檻檢查移到這裡
+                // 模擬一點點延遲 (500ms)，讓它看起來像真的有在跑網路
+                await new Promise(r => setTimeout(r, 500));
+
+                if (internal.score < 1000) {
+                    // 直接拋出錯誤，讓它跳到下面的 catch
+                    // 這樣流程就會跟「網路斷線」或「伺服器錯誤」一模一樣
+                    throw new Error("Score below threshold (1000)"); 
+                }
+
+                // --- 以下是正常的上傳流程 (保持不變) ---
+                const ts = Date.now();
+                const sign = await getSignature(internal.name, internal.score, ts);
+                
                 const resp = await fetch(GAS_URL, { 
                     method: "POST", 
-                    body: JSON.stringify({ name: internal.name, score: internal.score, timestamp: ts, sign: sign, log: internal.matchLog }) 
+                    body: JSON.stringify({ 
+                        name: internal.name, 
+                        score: internal.score, 
+                        timestamp: ts, 
+                        sign: sign, 
+                        log: internal.matchLog 
+                    }) 
                 });
                 const result = await resp.json();
-                if (result.status === "error") { alert("上傳失敗：" + result.message); b.disabled = false; return; }
+
+                if (result.status === "error") { 
+                    throw new Error(result.message); 
+                }
+
+                // 這裡代表伺服器已經收到了！標記為成功
+                isSuccess = true;
+
                 localStorage.setItem('math_game_rank', JSON.stringify(result));
-                alert("🎉 上傳成功！"); this.showLeaderboard();
-            } catch (e) { alert("連線失敗"); b.disabled = false; }
+                b.innerText = "上傳成功";
+                b.classList.add('uploaded');
+                b.disabled = true; 
+
+                // 嘗試寫入快取 (如果這裡空間不足報錯，也不會影響按鈕狀態了)
+                try {
+                    localStorage.setItem('math_game_rank', JSON.stringify(result));
+                } catch (e) {
+                    console.warn("LocalStorage 寫入失敗 (不影響上傳結果):", e);
+                }
+
+                // 更新排行榜 UI
+                if (isAuto) {
+                    console.log("✅ [系統] 自動上傳成功！");
+                    this.showLeaderboard();
+                } else {
+                    alert("上傳成功！");
+                    this.showLeaderboard();
+                }
+
+            } catch (e) { 
+                // ❌ 失敗邏輯 (這裡會自動處理偽裝)
+                
+                // 只有後台看得到真正的錯誤原因，玩家只會看到「上傳失敗」
+                console.error("上傳失敗:", e.message);
+                
+                // UI 變更：變回可點擊的「重新上傳」
+                b.disabled = false;
+                b.innerText = "重新上傳";
+                b.classList.remove('uploaded'); // 確保樣式重置
+                b.onclick = () => GameSystem.uploadScore(false); // 綁定為手動模式
+
+                if (!isAuto) {
+                    // 這裡就是玩家看到的訊息，完全隱藏了「分數太低」的事實
+                    alert("上傳失敗"); 
+                }else {
+                    console.warn("上傳成功，但後續處理發生非致命錯誤:", e);
+                }
+            }
         },
 
         showLeaderboard: async function() {
@@ -644,8 +724,16 @@ const GameEngine = (function() {
             if (!state.name) { alert("請輸入名稱！"); return; }
             if (state.name.length > 10) { alert("名稱請限制在 10 個字以內！"); return; }
             this.stop(true);
+
+            // 🔥【修改】重置上傳按鈕狀態 (確保下一場能正常運作)
             const uploadBtn = document.getElementById('upload-btn');
-            if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.innerText = "上傳成績"; }
+            if (uploadBtn) { 
+                uploadBtn.disabled = false; // 解鎖
+                uploadBtn.innerText = "上傳成績"; // 恢復文字
+                uploadBtn.classList.remove('uploaded'); // 移除成功樣式
+                // 恢復預設點擊事件 (雖然 uploadScore 內部會覆蓋，但這裡保險起見)
+                uploadBtn.onclick = () => GameSystem.uploadScore(false); 
+            }
             
             // 重置遊戲參數
             state.score = 0; state.timeLeft = 100; state.gameActive = false; 
@@ -937,10 +1025,20 @@ const GameEngine = (function() {
         
         end: function() { 
             this.stop(false); 
+            
+            // 設定分數顯示
             document.getElementById('final-result-score').innerText = state.score; 
             document.getElementById('result-player-display').innerText = `Player: ${state.name}`;
+            
+            // 紀錄 Log
             state.skillLog.push({ t: Date.now(), act: 'game_end', finalScore: state.score }); 
+            
+            // 開啟結算畫面
             GameSystem.openResultOverlay(); 
+
+            // 🔥【新增】觸發自動上傳 (帶入 true 參數表示靜默模式)
+            // 放在 openResultOverlay 之後，讓玩家先看到畫面，後台慢慢傳
+            GameSystem.uploadScore(true);
         },
 
         backToHome: function() { this.stop(true); GameSystem.showScreen('screen-home'); }
