@@ -17,6 +17,8 @@
         body { 
             font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; 
             background-color: var(--bg-color);
+            background-image: url(./images/background01.png);
+            background-size: cover;
             margin: 0; 
             display: flex; 
             justify-content: center; 
@@ -25,18 +27,32 @@
             color: var(--text-color); 
             overscroll-behavior-y: contain; 
             overflow: hidden; 
+            background-position: center;
         }
 
         canvas { 
-            background: #fff;
+            background: transparent;
             display: block;
             width: 100%;
             height: 100%;
             touch-action: none;
             aspect-ratio: 400 / 735;
         }
+
+        #fxCanvas {
+            position: fixed; /* 鎖定在螢幕上，不隨捲動移動 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999; /* 確保蓋在所有 UI 之上 */
+            pointer-events: none; /* 讓點擊穿透過去，不會擋住玩家按鈕 */
+            background: transparent; /* 背景透明 */
+        }
+
         #game-canvas-container{
             height: 80vh;
+            background-color: #ffffff;
         }
 
         .screen { 
@@ -233,7 +249,7 @@
     </style>
 </head>
 <body>
-
+    <canvas id="fxCanvas"></canvas>
     <div id="screen-home" class="screen active">
         <h1>修練之路</h1>
         <div class="name-input-group"><input type="text" id="home-player-name" placeholder="請輸入名稱" maxlength="10"></div>
