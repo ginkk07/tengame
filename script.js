@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- * 圈十遊戲 (Make 10) - 核心邏輯腳本 (v8.1)
+ * 圈十遊戲 (Make 10) - 核心邏輯腳本 (v8.2)
  * =============================================================================
  * 包含完整功能：
  * 1. 音效管理 (SoundManager)
@@ -281,7 +281,8 @@ const GameSystem = (function() {
                         score: internal.score, 
                         timestamp: ts, 
                         sign: sign, 
-                        log: internal.matchLog 
+                        log: internal.matchLog,
+                        gameStartTime: internal.gameStartTime  //遊戲開始時間
                     }) 
                 });
                 const result = await resp.json();
@@ -407,6 +408,9 @@ const GameEngine = (function() {
     // =========================================
     let state = {
         grid: [], score: 0, timeLeft: 100, gameActive: false, isDeleteMode: false, name: "",
+
+        // 記錄遊戲正式開始的時間
+        gameStartTime: 0,
         // 技能狀態
         skillsUsed: { delete: false },
 
@@ -771,7 +775,14 @@ const GameEngine = (function() {
 
     return {
         getPos: (e) => { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; },
-        getInternalState: () => ({ name: state.name, score: state.score, matchLog: state.matchLog, skillLog: state.skillLog, gameActive: state.gameActive }),
+        getInternalState: () => ({ 
+            name: state.name, 
+            score: state.score, 
+            matchLog: state.matchLog, 
+            skillLog: state.skillLog, 
+            gameActive: state.gameActive,
+            gameStartTime: state.gameStartTime
+        }),
 
         start: function() {
             state.name = document.getElementById('home-player-name').value.trim();
@@ -816,6 +827,7 @@ const GameEngine = (function() {
                 state.gameActive = true; // 倒數結束，解鎖操作
                 SoundManager.playBGM(); 
                 timerAcc = 0; 
+                state.gameStartTime = Date.now();  //倒數結束，遊戲正式開始記錄
             });
         },
 
@@ -1010,6 +1022,8 @@ const GameEngine = (function() {
             if (!input.isDragging) return; 
             input.isDragging = false;
 
+            const now = Date.now();
+
             // 計算持續時間
             // 如果沒有 pressTime (防呆)，就設為 0
             const duration = input.pressTime ? (Date.now() - input.pressTime) : 0;
@@ -1048,9 +1062,7 @@ const GameEngine = (function() {
                     state.comboTimer = 0;
                     refillBoard(); 
                     
-                    state.matchLog.push({ t: Date.now(), p: totalPoints }); 
-                    state.score += totalPoints; 
-                    
+                    state.score += totalPoints;
                     // 觸發全消除
                     BattleSystem.playerAttack(totalPoints, true);
                     //播放音效
@@ -1060,7 +1072,6 @@ const GameEngine = (function() {
                     state.score += totalPoints; 
                     state.combo++; 
                     state.comboTimer = state.maxComboTime;
-                    state.matchLog.push({ t: Date.now(), p: totalPoints }); 
                     
                     if (state.combo >= 5) {
                         SoundManager.playRandomComboVoice();
@@ -1086,11 +1097,21 @@ const GameEngine = (function() {
 
                 if (!isPerfectClear) checkBoardStatus();
 
-                
+                // 偵錯代碼 
+                // 取得上一筆 Log 的時間
+                const lastLog = state.matchLog[state.matchLog.length - 1];
+                const lastTime = lastLog ? lastLog.t : now;
+                const gap = now - lastTime;
+
+                console.log(`%c[動作偵測] 差距: ${gap}ms | 持續: ${duration}ms`, 
+                            gap < 20 ? "color: red; font-weight: bold" : "color: green");
+
+                // Log 統一在這裡寫入一次就好
+                // 這樣既包含了 duration，又不會重複計算
                 state.matchLog.push({ 
                     t: Date.now(), 
                     p: totalPoints,
-                    d: duration  // 記錄這一次操作
+                    d: duration 
                 });
             }
             state.grid.flat().forEach(c => c.active = false);
