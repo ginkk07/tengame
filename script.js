@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- * 圈十遊戲 (Make 10) - 核心邏輯腳本 (v8.0)
+ * 圈十遊戲 (Make 10) - 核心邏輯腳本 (v8.1)
  * =============================================================================
  * 包含完整功能：
  * 1. 音效管理 (SoundManager)
@@ -1086,6 +1086,7 @@ const GameEngine = (function() {
 
                 if (!isPerfectClear) checkBoardStatus();
 
+                
                 state.matchLog.push({ 
                     t: Date.now(), 
                     p: totalPoints,
@@ -1425,3 +1426,6 @@ const BattleSystem = (function() {
         }
     };
 })();
+
+
+
