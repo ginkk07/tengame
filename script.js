@@ -994,7 +994,10 @@ const GameEngine = (function() {
                 return;
             }
             state.grid.flat().forEach(c => c.hinted = false);
-            input.isDragging = true; input.start = pos; input.current = { ...pos };
+            input.isDragging = true; 
+            input.start = pos; 
+            input.current = { ...pos };
+            input.pressTime = Date.now();
         },
 
         handleMove: function(pos) { if (input.isDragging && !state.isDeleteMode) { input.current = pos; } },
@@ -1004,7 +1007,12 @@ const GameEngine = (function() {
         // 👆 放開事件 (結算與 Perfect Clear 核心)
         // =========================================
         handleUp: function() {
-            if (!input.isDragging) return; input.isDragging = false;
+            if (!input.isDragging) return; 
+            input.isDragging = false;
+
+            // 計算持續時間
+            // 如果沒有 pressTime (防呆)，就設為 0
+            const duration = input.pressTime ? (Date.now() - input.pressTime) : 0;
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
             
             // 判斷是否總和為 10
@@ -1077,6 +1085,12 @@ const GameEngine = (function() {
                 this.spawnFloatingText(input.current.x, input.current.y - 20, text, textColor);
 
                 if (!isPerfectClear) checkBoardStatus();
+
+                state.matchLog.push({ 
+                    t: Date.now(), 
+                    p: totalPoints,
+                    d: duration  // 記錄這一次操作
+                });
             }
             state.grid.flat().forEach(c => c.active = false);
         },
@@ -1411,6 +1425,3 @@ const BattleSystem = (function() {
         }
     };
 })();
-
-
-
