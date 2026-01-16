@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- * 圈十遊戲 (Make 10) - 核心邏輯腳本 (v8.2)
+ * 圈十遊戲 (Make 10) - 核心邏輯腳本 (v8.3)
  * =============================================================================
  * 包含完整功能：
  * 1. 音效管理 (SoundManager)
@@ -1022,17 +1022,20 @@ const GameEngine = (function() {
             if (!input.isDragging) return; 
             input.isDragging = false;
 
-            const now = Date.now();
-
-            // 計算持續時間
-            // 如果沒有 pressTime (防呆)，就設為 0
+            // 1. 計算持續時間 (防瞬移)
             const duration = input.pressTime ? (Date.now() - input.pressTime) : 0;
+            
+            // 找出被選取的方塊
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
             
             // 判斷是否總和為 10
             if (sel.reduce((s, c) => s + c.val, 0) === 10 && sel.length > 0) {
                 
-                // --- 1. 計算消除倍率與分數 ---
+                // 🔥【新增 1】取得這次消除的所有數字 (例如 [3, 7])
+                // 這就是給後端驗算的證據！
+                let removedValues = sel.map(c => c.val);
+
+                // --- 計算分數邏輯 ---
                 let count = sel.length;
                 let multiplier = 1;
                 if (count >= 2) { multiplier = Math.pow(2, count - 2); }
@@ -1045,43 +1048,40 @@ const GameEngine = (function() {
                 
                 if (totalPoints > 99999) totalPoints = 99999; 
 
-                // --- 2. 標記為已消除 ---
+                // --- 標記為已消除 ---
                 sel.forEach(c => c.removed = true); 
 
-                // 🔥 [V8.1] 檢查是否 Perfect Clear (全場消除)
+                // 檢查 Perfect Clear
                 let isPerfectClear = state.grid.flat().every(c => c.removed);
-                
+                let actionType = 'normal'; // 預設動作類型
+
                 if (isPerfectClear) {
-                    // 1.5 倍獎勵 (並做 50 倍數修正)
+                    // Perfect Clear 處理
                     totalPoints = Math.round((totalPoints * 1.5) / 50) * 50;
-                    
                     this.spawnFloatingText(200, 300, "Perfect Clear! x1.5", '#ff00ff');
                     
-                    // 強制斷 Combo 並重置版面
                     state.combo = 0;
                     state.comboTimer = 0;
                     refillBoard(); 
                     
-                    state.score += totalPoints;
-                    // 觸發全消除
+                    state.score += totalPoints; 
+                    actionType = 'perfect'; // 🔥 標記為完美消除
+
                     BattleSystem.playerAttack(totalPoints, true);
-                    //播放音效
                     SoundManager.playWaha(); 
                 } else {
-                    // 一般情況：繼續 Combo
+                    // 一般消除處理
                     state.score += totalPoints; 
                     state.combo++; 
                     state.comboTimer = state.maxComboTime;
+                    actionType = 'normal'; // 🔥 標記為一般消除
                     
-                    if (state.combo >= 5) {
-                        SoundManager.playRandomComboVoice();
-                    }
-                    // 觸發一般攻擊
+                    if (state.combo >= 5) { SoundManager.playRandomComboVoice(); }
                     BattleSystem.playerAttack(totalPoints, false);
                     applyGravity(); 
                 }
                 
-                // 更新介面
+                // --- UI 更新 ---
                 document.getElementById('score').innerText = state.score;
                 document.getElementById('timer').innerText = state.timeLeft;
                 SoundManager.playEliminate(); 
@@ -1097,21 +1097,13 @@ const GameEngine = (function() {
 
                 if (!isPerfectClear) checkBoardStatus();
 
-                // 偵錯代碼 
-                // 取得上一筆 Log 的時間
-                const lastLog = state.matchLog[state.matchLog.length - 1];
-                const lastTime = lastLog ? lastLog.t : now;
-                const gap = now - lastTime;
-
-                console.log(`%c[動作偵測] 差距: ${gap}ms | 持續: ${duration}ms`, 
-                            gap < 20 ? "color: red; font-weight: bold" : "color: green");
-
-                // Log 統一在這裡寫入一次就好
-                // 這樣既包含了 duration，又不會重複計算
+                // 寫入 Log (包含 v 和 act)
                 state.matchLog.push({ 
                     t: Date.now(), 
                     p: totalPoints,
-                    d: duration 
+                    d: duration,      // 持續時間
+                    v: removedValues, // 🔥 數值陣列 (給後端驗算用)
+                    act: actionType   // 🔥 動作類型 (normal / perfect)
                 });
             }
             state.grid.flat().forEach(c => c.active = false);
