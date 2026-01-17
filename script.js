@@ -1,11 +1,12 @@
 /**
  * =============================================================================
- * 圈十遊戲 (Make 10) - 核心邏輯腳本 (v8.3)
+ * 圈十遊戲 (Make 10) - 核心邏輯腳本 (v8.4)
  * =============================================================================
  * 包含完整功能：
  * 1. 音效管理 (SoundManager)
  * 2. 系統與安全 (GameSystem): SHA-256 簽章、證據鏈上傳、介面彈窗控制
  * 3. 遊戲引擎 (GameEngine): 核心演算法、粒子特效、技能系統
+ * 4. 修復技能漏洞
  * =============================================================================
  */
 
@@ -884,8 +885,13 @@ const GameEngine = (function() {
                 setTimeout(() => { timerContainer.style.color = "#e74c3c"; timerContainer.style.textShadow = "none"; }, 2000); 
             }
 
-            state.skillLog.push({ t: Date.now(), act: 'bonus_reward_monster_kill' });
-            
+            // 寫入 matchLog，並補上 p:0 防止後端算分 NaN
+            state.matchLog.push({ 
+                t: Date.now(), 
+                act: 'bonus_reward', 
+                p: 0 
+            });
+
             // 讓尋找按鈕亮起來
             document.getElementById('skill-btn-hint').classList.remove('used');
             
@@ -902,8 +908,12 @@ const GameEngine = (function() {
             document.getElementById('skill-btn-delete').classList.remove('active');
             document.getElementById('skill-btn-delete').classList.add('used');
 
-            // 紀錄 Log
-            state.skillLog.push({ t: Date.now(), act: 'skill_wipe' });
+            // 寫入 matchLog，並補上 p:0
+            state.matchLog.push({ 
+                t: Date.now(), 
+                act: 'skill_wipe', 
+                p: 0 
+            });
 
             // 播放語音 (skill-guren.wav) 與音效
             SoundManager.playSkillVoice();
@@ -995,7 +1005,15 @@ const GameEngine = (function() {
                 const c = Math.floor((pos.x - OFFSET_X) / SIZE); const r = Math.floor((pos.y - OFFSET_Y) / SIZE);
                 if (r >= 0 && r < ROWS && c >= 0 && c < COLS && !state.grid[r][c].removed && state.grid[r][c].offsetY === 0) {
                     const targetVal = state.grid[r][c].val;
-                    state.skillLog.push({ t: Date.now(), act: 'skill_delete', val: targetVal });
+                    
+                    // 寫入 matchLog，並補上 p:0
+                    state.matchLog.push({ 
+                        t: Date.now(), 
+                        act: 'skill_delete', 
+                        val: targetVal,
+                        p: 0 
+                    });
+
                     state.skillsUsed.delete = true; state.isDeleteMode = false;
                     document.getElementById('skill-btn-delete').classList.remove('active', 'used'); 
                     document.getElementById('skill-btn-delete').classList.add('used');
@@ -1119,7 +1137,13 @@ const GameEngine = (function() {
             if (cells) { 
                 state.hintCharges--; 
                 updateBadge(); 
-                state.skillLog.push({ t: Date.now(), act: 'skill_hint' });
+                // 寫入 matchLog，並補上 p:0
+                // 這樣後端就會收到這個玩家在幾點幾分用了提示
+                state.matchLog.push({ 
+                    t: Date.now(), 
+                    act: 'skill_hint', 
+                    p: 0 
+                });
                 if (state.hintCharges === 0) document.getElementById('skill-btn-hint').classList.add('used');
                 cells.forEach(c => c.hinted = true);
                 setTimeout(() => state.grid.flat().forEach(c => c.hinted = false), 10000);
@@ -1129,7 +1153,15 @@ const GameEngine = (function() {
         useSkillShuffle: function(markUsed = true) {
             if (!state.gameActive) return;
             if (markUsed && state.shuffleCharges <= 0) return; 
-            if (markUsed) { state.shuffleCharges--; state.skillLog.push({ t: Date.now(), act: 'skill_shuffle_manual' }); if (state.shuffleCharges <= 0) document.getElementById('skill-btn-shuffle').classList.add('used'); } else { state.skillLog.push({ t: Date.now(), act: 'skill_shuffle_auto' }); }
+            if (markUsed) { 
+                state.shuffleCharges--; 
+                // 寫入 matchLog，並補上 p:0
+                state.matchLog.push({ t: Date.now(), act: 'skill_shuffle_manual', p: 0 }); 
+                if (state.shuffleCharges <= 0) document.getElementById('skill-btn-shuffle').classList.add('used'); 
+            } else { 
+                // 自動洗牌也記錄一下比較保險
+                state.matchLog.push({ t: Date.now(), act: 'skill_shuffle_auto', p: 0 }); 
+            }
             let remains = state.grid.flat().filter(c => !c.removed); let vals = remains.map(c => c.val); let attempts = 0;
             do { for (let i = vals.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [vals[i], vals[j]] = [vals[j], vals[i]]; } remains.forEach((c, i) => c.val = vals[i]); attempts++; } while (!findOneMove() && attempts < 20);
         },
