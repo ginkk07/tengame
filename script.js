@@ -1,12 +1,13 @@
 /**
  * =============================================================================
- * 圈十遊戲 (Make 10) - 核心邏輯腳本 (v8.4)
+ * 圈十遊戲 (Make 10) - 核心邏輯腳本 (v8.5)
  * =============================================================================
  * 包含完整功能：
  * 1. 音效管理 (SoundManager)
  * 2. 系統與安全 (GameSystem): SHA-256 簽章、證據鏈上傳、介面彈窗控制
  * 3. 遊戲引擎 (GameEngine): 核心演算法、粒子特效、技能系統
  * 4. 修復技能漏洞
+ * 5. 傷口系統 (v8.5)
  * =============================================================================
  */
 
@@ -224,11 +225,13 @@ const GameSystem = (function() {
 
         openResultOverlay: () => { GameSystem.toggleOverlay('screen-result', true); },
 
-        // 🔥 新增：開啟說明視窗
+        // 🔥 新增：說明視窗開關
         showHelp: () => { GameSystem.toggleOverlay('screen-help', true); },
-
-        // 🔥 新增：關閉說明視窗
         closeHelp: () => { GameSystem.toggleOverlay('screen-help', false); },
+
+        // 🔥 新增：更新日誌開關
+        showNews: () => { GameSystem.toggleOverlay('screen-news', true); },
+        closeNews: () => { GameSystem.toggleOverlay('screen-news', false); },
 
         // 分數上傳系統
         uploadScore: async function(isAuto = false) {
@@ -236,7 +239,10 @@ const GameSystem = (function() {
             const internal = GameEngine.getInternalState(); 
 
             // 0. 防呆：如果已經上傳過，就不要再執行
-            if (b.classList.contains('uploaded')) return;
+            if (b.innerText === "檢視排行榜") {
+                GameSystem.showLeaderboard();
+                return;
+            }
             
             // 如果是測試帳號或無效狀態，直接跳過
             if (internal.isTestUsed) return; 
@@ -261,17 +267,14 @@ const GameSystem = (function() {
             let isSuccess = false;
             
             try {
-                // 🔥【偽裝核心】分數門檻檢查移到這裡
-                // 模擬一點點延遲 (500ms)，讓它看起來像真的有在跑網路
+                // 模擬網路延遲
                 await new Promise(r => setTimeout(r, 500));
 
                 if (internal.score < 1000) {
-                    // 直接拋出錯誤，讓它跳到下面的 catch
-                    // 這樣流程就會跟「網路斷線」或「伺服器錯誤」一模一樣
                     throw new Error("Score below threshold (1000)"); 
                 }
 
-                // --- 以下是正常的上傳流程 (保持不變) ---
+                // --- 正常的上傳流程 ---
                 const ts = Date.now();
                 const sign = await getSignature(internal.name, internal.score, ts);
                 
@@ -283,7 +286,7 @@ const GameSystem = (function() {
                         timestamp: ts, 
                         sign: sign, 
                         log: internal.matchLog,
-                        gameStartTime: internal.gameStartTime  //遊戲開始時間
+                        gameStartTime: internal.gameStartTime
                     }) 
                 });
                 const result = await resp.json();
@@ -292,28 +295,32 @@ const GameSystem = (function() {
                     throw new Error(result.message); 
                 }
 
-                // 這裡代表伺服器已經收到了！標記為成功
+                // =========================================
+                // 🔥【修改重點】上傳成功後的 UI 行為
+                // =========================================
                 isSuccess = true;
 
-                localStorage.setItem('math_game_rank', JSON.stringify(result));
-                b.innerText = "上傳成功";
-                b.classList.add('uploaded');
-                b.disabled = true; 
-
-                // 嘗試寫入快取 (如果這裡空間不足報錯，也不會影響按鈕狀態了)
+                // 1. 儲存快取
                 try {
                     localStorage.setItem('math_game_rank', JSON.stringify(result));
-                } catch (e) {
-                    console.warn("LocalStorage 寫入失敗 (不影響上傳結果):", e);
-                }
+                } catch (e) { console.warn("LocalStorage Error:", e); }
 
-                // 更新排行榜 UI
+                // 2. 改變按鈕狀態：變成「檢視排行榜」入口
+                b.innerText = "檢視排行榜";  // ❌ 舊版是 "上傳成功"
+                b.classList.add('uploaded'); 
+                b.disabled = false;          // ❌ 舊版是 true (鎖死)，這裡要解鎖讓玩家點
+                
+                // 🔥 關鍵：重新綁定點擊事件 -> 開啟排行榜
+                b.onclick = function() {
+                    GameSystem.showLeaderboard();
+                };
+
+                // 3. 使用者回饋 (不自動跳轉)
                 if (isAuto) {
                     console.log("✅ [系統] 自動上傳成功！");
-                    this.showLeaderboard();
                 } else {
                     alert("上傳成功！");
-                    this.showLeaderboard();
+                    // ❌ 舊版這裡有 GameSystem.showLeaderboard()，這行要刪掉！
                 }
 
             } catch (e) { 
@@ -403,6 +410,9 @@ const GameEngine = (function() {
     const ROWS = 12; const COLS = 9; const SIZE = 42; const MARGIN = 3; 
     const OFFSET_X = (400 - COLS * SIZE) / 2;
     const OFFSET_Y = 220; 
+
+    const imgWound = new Image();
+    imgWound.src = './images/icon-wound.png'; // 請確保你有這張圖，或是先用 canvas 畫
 
     // =========================================
     // 🎮 遊戲狀態
@@ -673,20 +683,37 @@ const GameEngine = (function() {
             let s = SIZE - MARGIN * 2;
             
             ctx.beginPath(); ctx.roundRect(x, y, s, s, 6);
-            if (state.isDeleteMode) ctx.fillStyle = cell.active ? '#ff7675' : '#fab1a0'; 
-            else if (cell.active) ctx.fillStyle = '#ffbe76'; 
-            else if (cell.hinted) ctx.fillStyle = '#b8e994'; 
-            else ctx.fillStyle = '#ffffff';
-            
-            ctx.fill();
+
+            // 🔥【修改】如果是傷口，畫圖片或特殊顏色
+            if (cell.isWound) {
+                if (imgWound.complete && imgWound.src) {
+                    ctx.drawImage(imgWound, x, y, s, s);
+                } else {
+                    // 如果圖片還沒載入，先畫紫色代替
+                    ctx.fillStyle = '#8e44ad'; 
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText("?", x + s/2, y + s/2);
+                }
+            } else {
+                // 原本的顏色邏輯
+                if (state.isDeleteMode) ctx.fillStyle = cell.active ? '#ff7675' : '#fab1a0'; 
+                else if (cell.active) ctx.fillStyle = '#ffbe76'; 
+                else if (cell.hinted) ctx.fillStyle = '#b8e994'; 
+                else ctx.fillStyle = '#ffffff'; 
+                // 原本的顏色邏輯
+                ctx.fill();
+                ctx.fillStyle = (cell.active || cell.hinted) ? '#fff' : '#2c3e50';
+                // 繪製數字
+                ctx.font = 'bold 20px Arial'; 
+                ctx.textAlign = 'center'; 
+                ctx.textBaseline = 'middle';
+                ctx.fillText(cell.val, x + s/2, y + s/2);
+            }
+
             ctx.strokeStyle = (cell.active || cell.hinted) ? '#e67e22' : '#f1f3f5'; 
             ctx.lineWidth = 1.5; ctx.stroke();
             
-            ctx.fillStyle = (cell.active || cell.hinted) ? '#fff' : '#2c3e50'; 
-            ctx.font = 'bold 20px Arial'; 
-            ctx.textAlign = 'center'; 
-            ctx.textBaseline = 'middle'; 
-            ctx.fillText(cell.val, x + s/2, y + s/2);
         }));
         
         // 拖曳中的虛線框也要被遮罩包住
@@ -854,6 +881,40 @@ const GameEngine = (function() {
                         state.comboTimer--; 
                         if (state.comboTimer <= 0) { 
                             // Combo 結束 (斷掉) -> 觸發補牌 (Refill)
+                            // 規則：10層轉1個，20層轉2個，30層轉3個
+                            let woundCount = 0;
+                            if (state.combo >= 30) woundCount = 3;
+                            else if (state.combo >= 20) woundCount = 2;
+                            else if (state.combo >= 10) woundCount = 1;
+
+                            if (woundCount > 0) {
+                                // 找出所有「不是傷口」且「未消除」的方塊
+                                let candidates = [];
+                                state.grid.forEach((row, r) => {
+                                    row.forEach((cell, c) => {
+                                        if (!cell.removed && !cell.isWound) {
+                                            candidates.push(cell);
+                                        }
+                                    });
+                                });
+
+                                // 隨機挑選轉換
+                                for (let i = 0; i < woundCount; i++) {
+                                    if (candidates.length === 0) break;
+                                    let idx = Math.floor(Math.random() * candidates.length);
+                                    let target = candidates[idx];
+                                    
+                                    // 變身為傷口！
+                                    target.isWound = true;
+                                    target.val = 0; // 暫時為 0，消除時才決定數值
+                                    
+                                    // 播放一個變身音效或特效 (選用)
+                                    // GameEngine.spawnBoom(...) 
+                                    
+                                    candidates.splice(idx, 1); // 移除已選的，避免重複
+                                }
+                            }
+
                             state.combo = 0; 
                             refillBoard(); 
                         } 
@@ -1045,11 +1106,47 @@ const GameEngine = (function() {
             
             // 找出被選取的方塊
             let sel = state.grid.flat().filter(c => !c.removed && c.active);
+
+            // 傷口邏輯運算 (Wound Calculation)
+            let normalCells = sel.filter(c => !c.isWound); // 普通方塊
+            let woundCells = sel.filter(c => c.isWound);   // 傷口方塊
+
+            let sumNormal = normalCells.reduce((acc, c) => acc + c.val, 0); // 普通總和
+            let gap = 10 - sumNormal; // 計算缺口
+            let wCount = woundCells.length; // 傷口數量
+
+
+            // 如果沒有傷口(wCount===0)，預設為有效(true)
+            // 如果有傷口，先設為無效(false)，等通過檢查才變 true
+            let isWoundValid = (wCount === 0);
+
+            // 只有當選取了傷口，才進行特殊運算
+            if (wCount > 0) {
+                // 規則1: 缺口必須存在 (>0) -> 擋住 1+3+6+傷口 (Gap=0) 的情況
+                // 規則2: 缺口夠分 (>= 傷口數)
+                // 規則3: 缺口沒爆 (<= 傷口數 * 9)
+                if (gap > 0 && gap >= wCount && gap <= wCount * 9) {
+                    
+                    // 🔥【關鍵修正 2】通過檢查，標記為有效
+                    isWoundValid = true;
+
+                    // 自動分配數值
+                    let baseVal = Math.floor(gap / wCount);
+                    let remainder = gap % wCount;
+
+                    woundCells.forEach((c, idx) => {
+                        let extra = (idx < remainder) ? 1 : 0;
+                        c.val = baseVal + extra; // 賦予傷口真實數值
+                    });
+                }
+            }
             
             // 判斷是否總和為 10
-            if (sel.reduce((s, c) => s + c.val, 0) === 10 && sel.length > 0) {
-                
-                // 🔥【新增 1】取得這次消除的所有數字 (例如 [3, 7])
+            // 這裡直接計算一次即可
+            let currentSum = sel.reduce((s, c) => s + c.val, 0);
+            
+            if (currentSum === 10 && sel.length > 0 && isWoundValid) {
+                // 🔥【新增 1】取得這次消除的所有數字 (例如 [3, 7] 或 [4, 6] <- 傷口變的)
                 // 這就是給後端驗算的證據！
                 let removedValues = sel.map(c => c.val);
 
@@ -1098,13 +1195,13 @@ const GameEngine = (function() {
                     BattleSystem.playerAttack(totalPoints, false);
                     applyGravity(); 
                 }
-                
+
                 // --- UI 更新 ---
                 document.getElementById('score').innerText = state.score;
                 document.getElementById('timer').innerText = state.timeLeft;
                 SoundManager.playEliminate(); 
                 this.spawnBoom(input.current);
-                
+
                 let text = `+${totalPoints}`;
                 let textColor = '#f1c40f'; 
                 if (totalPoints >= 5000) textColor = '#ff4757';      
@@ -1114,7 +1211,6 @@ const GameEngine = (function() {
                 this.spawnFloatingText(input.current.x, input.current.y - 20, text, textColor);
 
                 if (!isPerfectClear) checkBoardStatus();
-
                 // 寫入 Log (包含 v 和 act)
                 state.matchLog.push({ 
                     t: Date.now(), 
@@ -1123,6 +1219,13 @@ const GameEngine = (function() {
                     v: removedValues, // 🔥 數值陣列 (給後端驗算用)
                     act: actionType   // 🔥 動作類型 (normal / perfect)
                 });
+
+            }else {
+                // === 失敗邏輯 ===
+                // 如果剛剛有把傷口變成數字 (例如 Gap=10，分配了但不合法)，要還原
+                if (wCount > 0) {
+                    woundCells.forEach(c => c.val = 0);
+                }
             }
             state.grid.flat().forEach(c => c.active = false);
         },
@@ -1471,6 +1574,3 @@ const BattleSystem = (function() {
         }
     };
 })();
-
-
-

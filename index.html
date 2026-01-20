@@ -61,12 +61,13 @@
             flex-direction: column; 
             align-items: center; 
             background: white; 
-            padding: 15px 20px; 
+            padding: 30px 20px; 
             border-radius: 24px; 
             box-shadow: 0 10px 40px rgba(0,0,0,0.1); 
             margin: 0 auto;
             width: 92%; 
-            max-width: 450px; 
+            max-width: 500px;
+            min-width: 350px;
             text-align: center; 
             box-sizing: border-box; 
             max-height: 98dvh;
@@ -108,15 +109,15 @@
 
         h1 { font-size: 32px; margin: 0 0 15px 0; color: var(--primary-color); }
 
-        input[type="text"] { padding: 10px; font-size: 16px; border: 2px solid #e1e8ed; border-radius: 12px; width: 260px; text-align: center; outline: none; box-sizing: border-box;}
+        input[type="text"] { }
 
         .setting-item { width: 100%; margin: 15px 0; display: flex; flex-direction: column; align-items: center; }
         .setting-item label { font-weight: bold; margin-bottom: 8px; font-size: 16px; }
         .volume-slider { width: 80%; cursor: pointer; height: 10px; border-radius: 5px; background: #dfe6e9; outline: none; -webkit-appearance: none; }
         .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; background: var(--primary-color); border-radius: 50%; cursor: pointer; }
 
-        .btn { padding: 12px 0; font-size: 16px; margin-top: 15px; border: none; border-radius: 50px; cursor: pointer; width: 260px; font-weight: bold; transition: transform 0.1s; }
-        .btn:active { transform: scale(0.95); }
+        .btn { padding: 12px 0; font-size: 16px; margin-top: 15px; border: none; border-radius: 3px; cursor: pointer; width: 260px; font-weight: bold; transition: transform 0.1s; }
+        .btn:active { transform: translateY(2px); }
         .btn-start { background: var(--secondary-color); color: white; }
         .btn-rank { background: var(--primary-color); color: white; }
         .btn-upload { background: #277aef; color: white; }
@@ -125,12 +126,43 @@
         .btn-quit { background: #d32626; color: white; }
         .btn-help { background: #d32626; color: white; }
 
+
+
+        #screen-home{
+            background-color: transparent;
+            box-shadow: none; 
+        }
+        #home-player-name{
+            padding: 10px; 
+            font-size: 20px; 
+            border: 2px solid #ffffff; 
+            border-radius: 5px; 
+            width: 260px; 
+            text-align: center; 
+            outline: none; 
+            box-sizing: border-box;
+
+            &:focus{
+                outline: #97c0ae 5px solid;
+            }
+        }
+
+
+
         /* 🔥 新增：說明文字內容樣式 */
         .help-content {
-            text-align: left; font-size: 15px; line-height: 1.6; color: #34495e;
-            background: #f8f9fa; padding: 15px; border-radius: 12px; 
-            width: 100%; box-sizing: border-box; margin-bottom: 10px;
-            max-height: 300px; overflow-y: auto; /* 內容太長可捲動 */
+            text-align: left;
+            font-size: 17px; 
+            line-height: 1.6; 
+            color: #34495e;
+            background: #f8f9fa; 
+            padding: 15px; 
+            border-radius: 12px; 
+            width: 100%; 
+            box-sizing: border-box; 
+            margin-bottom: 10px;
+            max-height: 300px; 
+            overflow-y: auto; /* 內容太長可捲動 */
         }
 
         /* 🔥 [修正] Game Header 加上 position: relative 與 padding */
@@ -247,31 +279,117 @@
             box-shadow: 0 0 8px rgba(241, 196, 15, 0.6);
             transition: width 0.1s linear;
         }
+
+        /* 🔥 新增：更新日誌按鈕顏色 (建議用藍綠色或紫色區隔) */
+        .btn-news { background: #1f1f1f; color: white; }
+
+        /* 🔥 新增：更新日誌內容樣式 */
+        .news-content {
+            text-align: left;
+            background: #f8f9fa; 
+            padding: 15px; 
+            border-radius: 12px; 
+            width: 100%; 
+            box-sizing: border-box; 
+            margin-bottom: 10px;
+            max-height: 300px; 
+            overflow-y: auto; 
+        }
+
+        .news-item {
+            margin-bottom: 15px;
+            border-bottom: 1px dashed #cbd5e0;
+            padding-bottom: 10px;
+        }
+        .news-item:last-child { border-bottom: none; margin-bottom: 0; }
+
+        .news-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .news-ver {
+            font-weight: bold;
+            color: var(--primary-color);
+            background: rgba(74, 144, 226, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .news-date {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        .news-list {
+            margin: 5px 0 0 0;
+            padding-left: 20px;
+            font-size: 17px;
+            color: #2c3e50;
+        }
+        .news-list li { margin-bottom: 4px; }
+
+        /**/
+        .btnS-green{
+            background-image: url(./images/button_up.png);
+            background-position: center center;
+            background-size: cover;
+            font-size: 20px;
+            color: #fff;
+        }
+        .btnS-green:hover{
+            background-image: url(./images/button_down.png);
+        }
     </style>
 </head>
 <body>
     <canvas id="fxCanvas"></canvas>
     <div id="screen-home" class="screen active">
-        <h1>修練之路</h1>
+        <div><img src="./images/title.png" alt="修練之路" style="width: 100%;"></div>
         <div class="name-input-group"><input type="text" id="home-player-name" placeholder="請輸入名稱" maxlength="10"></div>
-        <button class="btn btn-start" onclick="GameEngine.start()">開始遊戲</button>
-        <button class="btn btn-help" onclick="GameSystem.showHelp()">遊戲說明</button>
-        <button class="btn btn-rank" onclick="GameSystem.showLeaderboard()">排行榜</button>
+        <button class="btn btnS-green" onclick="GameEngine.start()">開始遊戲</button>
+        <button class="btn btnS-green" onclick="GameSystem.showHelp()">遊戲說明</button>
+        <button class="btn btnS-green" onclick="GameSystem.showLeaderboard()">排行榜</button>
+        <button class="btn btnS-green" onclick="GameSystem.showNews()">更新日誌</button>
     </div>
 
     <div id="overlay-bg"></div>
 
+    <!--遊戲說明-->
     <div id="screen-help" class="overlay-screen">
         <h1>遊戲說明</h1>
         <div class="help-content">
             <p><b>目標：</b>框選數字總和為 <b>10</b> 的方塊進行消除得到。</p>
             <p><b>得分：</b>2數框選消除後可獲得 <b>200</b> 分，3數以上消除時每多一個都會將得分獎勵翻倍。</p>
             <p><b>連擊 (Combo)：</b>連續消除可累積，Combo 3 以上獲得額外加分！</p>
-            <p><b>獎勵：</b>獲得分數達到<b>5,000</b> 時，獎勵「剩餘時間 +50s」與「補充尋找技能」，但每次獎勵需求都會提高。</p>
+            <p><b>傷口：</b><span><img alt="wound" src="./images/icon-wound.png" style="margin-bottom: -6px;" width="24px" height="24px"></span>可當作 <b>1~9</b> 的任意數字，自動補足缺口。</p>
+            <p><b>獎勵：</b>擊敗萊徹時獲得獎勵「剩餘時間 +50s」與「補充尋找技能」，但每次獎勵需求都會提高。</p>
+            
         </div>
         <button class="btn btn-back" onclick="GameSystem.closeHelp()">關閉</button>
     </div>
 
+    <!--更新日誌-->
+    <div id="screen-news" class="overlay-screen">
+        <h1>更新日誌</h1>
+        <div class="news-content">
+            <div class="news-item">
+                <div class="news-header">
+                    <span class="news-ver">V8.6</span>
+                    <span class="news-date">2026/01/20</span>
+                </div>
+                <ul class="news-list">
+                    <li>新增機制「傷口」</li>
+                    <li>重製排行榜</li>
+                    <li>修正分數上傳BUG</li>
+                    <li>製作按鈕UI</li>
+                </ul>
+            </div>
+        </div>
+        <button class="btn btn-back" onclick="GameSystem.closeNews()">關閉</button>
+    </div>
+
+    <!--遊戲設定-->
     <div id="screen-settings" class="overlay-screen">
         <h1>遊戲設定</h1>
         <div class="setting-item">
@@ -286,6 +404,7 @@
         <button class="btn btn-quit" onclick="GameEngine.end()">結束遊戲</button>
     </div>
 
+    <!--結束畫面-->
     <div id="screen-result" class="overlay-screen">
         <h1>遊戲結束</h1>
         <div class="result-score" id="final-result-score">0</div>
@@ -293,7 +412,8 @@
         <button class="btn btn-upload" id="upload-btn" onclick="GameSystem.uploadScore()">上傳成績</button>
         <button class="btn btn-back" onclick="GameEngine.backToHome()">回主選單</button>
     </div>
-
+    
+    <!--排行榜-->
     <div id="screen-rank" class="screen">
         <h1>排行榜</h1>
         <div style="max-height: 400px; overflow-y: auto; width: 100%;">
@@ -302,7 +422,7 @@
         <button class="btn btn-back" onclick="GameEngine.backToHome()">回主選單</button>
     </div>
 
-<div id="screen-game" class="screen">
+    <div id="screen-game" class="screen">
         <div class="game-header">
             <div class="header-left">Score: <span id="score">0</span></div>
             <div class="header-center">Time: <span id="timer">100</span>s</div>
