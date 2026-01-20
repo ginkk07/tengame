@@ -502,9 +502,36 @@ const GameEngine = (function() {
                 if (state.grid[r1][c1].removed) continue;
                 for (let r2 = r1; r2 < ROWS; r2++) {
                     for (let c2 = c1; c2 < COLS; c2++) {
-                        let sum = 0, cells = [];
-                        for (let r = r1; r <= r2; r++) { for (let c = c1; c <= c2; c++) { if (!state.grid[r][c].removed) { sum += state.grid[r][c].val; cells.push(state.grid[r][c]); } } }
-                        if (sum === 10 && cells.length > 0) return cells;
+                        let sum = 0, woundCount = 0;
+                        let cells = [];
+                        
+                        // 掃描選取範圍
+                        for (let r = r1; r <= r2; r++) { 
+                            for (let c = c1; c <= c2; c++) { 
+                                if (!state.grid[r][c].removed) { 
+                                    if (state.grid[r][c].isWound) {
+                                        woundCount++; // 🔥 統計傷口數
+                                    } else {
+                                        sum += state.grid[r][c].val; // 只加普通數字
+                                    }
+                                    cells.push(state.grid[r][c]); 
+                                } 
+                            } 
+                        }
+
+                        // 🔥 判斷邏輯：
+                        // 1. 如果沒有傷口，就照舊檢查 sum === 10
+                        if (woundCount === 0) {
+                            if (sum === 10 && cells.length > 0) return cells;
+                        } 
+                        // 2. 如果有傷口，使用萬能公式檢查
+                        else {
+                            let gap = 10 - sum;
+                            // 鐵律：缺口存在，且傷口夠填，且傷口沒爆
+                            if (gap > 0 && gap >= woundCount && gap <= woundCount * 9) {
+                                return cells;
+                            }
+                        }
                     }
                 }
             }
@@ -1252,10 +1279,10 @@ const GameEngine = (function() {
                 setTimeout(() => state.grid.flat().forEach(c => c.hinted = false), 10000);
             }
         },
-
         useSkillShuffle: function(markUsed = true) {
             if (!state.gameActive) return;
             if (markUsed && state.shuffleCharges <= 0) return; 
+            
             if (markUsed) { 
                 state.shuffleCharges--; 
                 // 寫入 matchLog，並補上 p:0
@@ -1265,8 +1292,22 @@ const GameEngine = (function() {
                 // 自動洗牌也記錄一下比較保險
                 state.matchLog.push({ t: Date.now(), act: 'skill_shuffle_auto', p: 0 }); 
             }
-            let remains = state.grid.flat().filter(c => !c.removed); let vals = remains.map(c => c.val); let attempts = 0;
-            do { for (let i = vals.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [vals[i], vals[j]] = [vals[j], vals[i]]; } remains.forEach((c, i) => c.val = vals[i]); attempts++; } while (!findOneMove() && attempts < 20);
+
+            // 🔥【修正重點】這裡加上了 && !c.isWound
+            // 這樣洗牌時，傷口會被「釘」在原地，只有普通數字會亂跑
+            let remains = state.grid.flat().filter(c => !c.removed && !c.isWound); 
+            
+            let vals = remains.map(c => c.val); 
+            let attempts = 0;
+            
+            do { 
+                for (let i = vals.length - 1; i > 0; i--) { 
+                    const j = Math.floor(Math.random()*(i+1)); 
+                    [vals[i], vals[j]] = [vals[j], vals[i]]; 
+                } 
+                remains.forEach((c, i) => c.val = vals[i]); 
+                attempts++; 
+            } while (!findOneMove() && attempts < 20);
         },
 
         toggleDeleteMode: function() {
