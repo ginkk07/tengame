@@ -713,13 +713,89 @@ tail.rotation.z=Math.PI/2;
 tail.position.x=-3.4;
 heli.add(tail);
 
+// Helicopter-style tail surfaces: swept vertical fin + compact horizontal stabilizer.
+const finMat=new THREE.MeshStandardMaterial({
+  color:0xc85353,
+  roughness:.82,
+  side:THREE.DoubleSide
+});
+
+// Swept triangular vertical fin in the helicopter's longitudinal X/Y plane.
+const finShape=new THREE.Shape();
+finShape.moveTo(0,0);
+finShape.lineTo(-1.15,.18);
+finShape.lineTo(-.82,2.55);
+finShape.lineTo(.18,.95);
+finShape.closePath();
+
+const verticalFin=new THREE.Mesh(
+  new THREE.ShapeGeometry(finShape),
+  finMat
+);
+verticalFin.position.set(-5.35,.35,0);
+heli.add(verticalFin);
+
+// Small tapered horizontal stabilizer, mounted ahead of the tail rotor.
+const stabGeo=new THREE.BufferGeometry();
+stabGeo.setAttribute(
+  'position',
+  new THREE.Float32BufferAttribute([
+    -.85,0,-1.9,
+     .65,0,-1.45,
+     .65,0, 1.45,
+    -.85,0, 1.9
+  ],3)
+);
+stabGeo.setIndex([0,1,2,0,2,3]);
+stabGeo.computeVertexNormals();
+
+const horizontalStab=new THREE.Mesh(
+  stabGeo,
+  finMat
+);
+horizontalStab.position.set(-4.95,.62,0);
+heli.add(horizontalStab);
+
+// Tail rotor: vertical disc mounted on the side of the tail.
+// Shaft points laterally, so the rotor spins in the X/Y plane.
+const tailRotor=new THREE.Group();
+tailRotor.position.set(-6.05,1.25,.28);
+heli.add(tailRotor);
+
+const tailRotorHub=new THREE.Mesh(
+  new THREE.CylinderGeometry(.09,.09,.34,10),
+  darkMat
+);
+tailRotorHub.rotation.x=Math.PI/2;
+tailRotor.add(tailRotorHub);
+
+const tailBladeA=new THREE.Mesh(
+  new THREE.BoxGeometry(1.75,.10,.06),
+  darkMat
+);
+tailRotor.add(tailBladeA);
+
+const tailBladeB=new THREE.Mesh(
+  new THREE.BoxGeometry(.10,1.75,.06),
+  darkMat
+);
+tailRotor.add(tailBladeB);
+
+// Small tail-rotor guard / visual ring for easier recognition.
+const tailRotorRing=new THREE.Mesh(
+  new THREE.TorusGeometry(.92,.035,8,32),
+  new THREE.MeshBasicMaterial({color:0x303438})
+);
+tailRotorRing.position.z=.01;
+tailRotor.add(tailRotorRing);
+
 const rotor=new THREE.Group();
 rotor.position.y=1.9;
 heli.add(rotor);
 rotor.add(new THREE.Mesh(new THREE.BoxGeometry(9,.05,.16),darkMat));
 rotor.add(new THREE.Mesh(new THREE.BoxGeometry(.16,.05,9),darkMat));
 
-const fuselageParts=[body,nose,tail];
+const fuselageParts=[body,nose,tail,verticalFin,horizontalStab,tailRotor];
 
 const state={
   pos:new THREE.Vector3(0,42,320),
@@ -1712,6 +1788,7 @@ function update(dt){
   heli.position.copy(state.pos);
   heli.quaternion.copy(qBody);
   rotor.rotation.y+=dt*24;
+  tailRotor.rotation.z+=dt*38;
 }
 
 const camPos=new THREE.Vector3();
