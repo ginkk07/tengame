@@ -92,8 +92,8 @@
       <div class="row"><span>垂直慣性</span><strong>強</strong></div>
       <div class="row"><span>高度保持</span><strong>動態捕捉</strong></div>
       <div class="row"><span>下降重力</span><strong>加強</strong></div>
-      <div class="row"><span>水平重量感</span><strong>重型</strong></div>
-      <div class="row"><span>巡航慣性</span><strong>保留</strong></div>
+      <div class="row"><span>水平慣性</span><strong>速度保留</strong></div>
+      <div class="row"><span>加速度模型</span><strong>直接 F / m</strong></div>
       <div class="row"><span>物理核心</span><strong>Rotor + 6DoF 簡化</strong></div>
       <div class="row"><span>Pitch 輔助</span><strong>放手姿態保持</strong></div>
       <div class="row"><span>基準引擎重量</span><strong>4200 kg</strong></div>
@@ -823,10 +823,6 @@ const state={
   rotorPitch:0,
   rotorRoll:0,
 
-  // Horizontal acceleration itself has inertia; it does not snap instantly.
-  horizontalAccelX:0,
-  horizontalAccelZ:0,
-
   // Tracks release of vertical input so altitude hold can capture smoothly.
   verticalWasActive:false,
 
@@ -1013,7 +1009,38 @@ function updateVerticalInput(dt){
   }
 }
 
-function verticalController(dt,thrustRatio){
+function rotorSpeedFactor(horizontalSpeed){
+  // Small translational-lift benefit after leaving hover.
+  const etl=
+    1 +
+    .045 *
+    THREE.MathUtils.smoothstep(
+      horizontalSpeed,
+      5,
+      24
+    );
+
+  /*
+   * High-speed rotor efficiency:
+   * instead of using huge airframe drag as a fake speed limiter,
+   * available rotor thrust gradually falls in the high-speed regime.
+   *
+   * 0–162 km/h: essentially full rotor authority
+   * ~324 km/h: about 55% high-speed effectiveness
+   */
+  const highSpeedLoss=
+    1 -
+    .45 *
+    THREE.MathUtils.smoothstep(
+      horizontalSpeed,
+      45,
+      90
+    );
+
+  return etl*highSpeedLoss;
+}
+
+function verticalController(dt,thrustRatio,rotorFactor=1){
   const active=Math.abs(state.verticalInput)>.025;
   const verticalFactor=Math.max(.22,rotorUp.y);
 
@@ -1022,7 +1049,7 @@ function verticalController(dt,thrustRatio){
 
   const hoverCollective=THREE.MathUtils.clamp(
     (mass/BASE_MASS) /
-    (thrustRatio*verticalFactor),
+    (thrustRatio*verticalFactor*rotorFactor),
     0,
     1
   );
@@ -1112,7 +1139,8 @@ function verticalController(dt,thrustRatio){
         BASE_MASS *
         G *
         thrustRatio *
-        verticalFactor
+        verticalFactor *
+        rotorFactor
       );
   }
 
@@ -1570,80 +1598,39 @@ function update(dt){
   updateRotorThrustDirection();
 
   const thrustRatio=+document.getElementById('maxThrust').value/100;
-  verticalController(dt,thrustRatio);
+  const rotorFactor=rotorSpeedFactor(horizontalSpeed);
 
-  // Mild effective-translational-lift gain as the rotor leaves hover.
-  const etl=
-    1 +
-    .045 *
-    THREE.MathUtils.smoothstep(
-      horizontalSpeed,
-      5,
-      24
-    );
+  verticalController(
+    dt,
+    thrustRatio,
+    rotorFactor
+  );
 
   const mass=currentMass();
 
+  /*
+   * Fixed engine / rotor output.
+   *
+   * Acceleration is no longer artificially delayed:
+   * current force divided by current mass gives acceleration immediately.
+   * The inertia the player feels now lives where it should: velocity.
+   */
   const thrust=
     BASE_MASS *
     G *
     thrustRatio *
     state.effectiveCollective *
-    etl;
+    rotorFactor;
 
   force.copy(rotorUp).multiplyScalar(thrust);
   force.y-=mass*G;
 
-  const targetAccelX=
-    force.x/mass;
-
-  const targetAccelZ=
-    force.z/mass;
-
-  /*
-   * Translational inertia:
-   * horizontal acceleration takes roughly half a second to build.
-   * This creates the missing heavy-airframe feeling without lowering
-   * sustained high-speed capability.
-   */
-  function accelerationFollow(current,target){
-    const sameDirection=
-      Math.sign(current)===Math.sign(target) ||
-      Math.abs(target)<.0001;
-
-    const releasing=
-      sameDirection &&
-      Math.abs(target)<Math.abs(current);
-
-    // Build/reverse normally; when cyclic recenters, rotor/translational
-    // acceleration decays more gradually instead of collapsing at once.
-    const tau=
-      releasing ? 1.15 : .38;
-
-    return 1-Math.exp(-dt/tau);
-  }
-
-  state.horizontalAccelX +=
-    (targetAccelX-state.horizontalAccelX) *
-    accelerationFollow(
-      state.horizontalAccelX,
-      targetAccelX
-    );
-
-  state.horizontalAccelZ +=
-    (targetAccelZ-state.horizontalAccelZ) *
-    accelerationFollow(
-      state.horizontalAccelZ,
-      targetAccelZ
-    );
-
   state.vel.x +=
-    state.horizontalAccelX*dt;
+    (force.x/mass)*dt;
 
   state.vel.z +=
-    state.horizontalAccelZ*dt;
+    (force.z/mass)*dt;
 
-  // Vertical force remains direct so collective/gravity behaviour is preserved.
   state.vel.y +=
     (force.y/mass)*dt;
 
@@ -1667,19 +1654,14 @@ function update(dt){
   }
 
   /*
-   * Horizontal coast / parasitic drag.
+   * Parasitic airframe drag.
    *
-   * IMPORTANT:
-   * "weight feel" is handled by rotor-disc dynamics and acceleration inertia,
-   * NOT by a linear velocity damper. The previous LINEAR_DRAG acted like an
-   * artificial brake as soon as the aircraft leveled out, which is why speed
-   * collapsed too quickly after releasing cyclic.
-   *
-   * Quadratic drag remains for aerodynamic high-speed resistance and keeps
-   * the full-power speed target close to the ~310 km/h calibration.
+   * Kept deliberately lower than before so leveling the aircraft does not
+   * feel like pressing a brake pedal. High-speed rotor-efficiency loss now
+   * does most of the top-speed limiting.
    */
   const AIR_DENSITY=1.225;
-  const CDA=11.5;
+  const CDA=6.8;
 
   const horizontalSpeedNow=Math.hypot(state.vel.x,state.vel.z);
 
@@ -1893,8 +1875,6 @@ function reset(){
   state.yawRateBody=0;
   state.rotorPitch=0;
   state.rotorRoll=0;
-  state.horizontalAccelX=0;
-  state.horizontalAccelZ=0;
   state.verticalWasActive=false;
   state.pitchTrim=0;
   state.pitchWasActive=false;
