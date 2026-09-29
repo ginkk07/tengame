@@ -17,6 +17,36 @@
   h3{font-size:14px;margin:0 0 8px}
   .row{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:3px 0}
   .assist{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+  .assist-options[hidden]{display:none}
+  .assist[data-tip]{position:relative;cursor:help}
+  .assist[data-tip]::after{
+    content:attr(data-tip);
+    position:absolute;
+    z-index:30;
+    left:0;
+    top:calc(100% + 6px);
+    width:100%;
+    padding:8px 10px;
+    border:1px solid #4b5962;
+    border-radius:6px;
+    background:rgba(10,14,17,.97);
+    color:#e8eef1;
+    font-size:12px;
+    line-height:1.5;
+    white-space:normal;
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+    opacity:0;
+    visibility:hidden;
+    transform:translateY(-3px);
+    transition:opacity .12s ease,transform .12s ease,visibility .12s;
+    pointer-events:none;
+  }
+  .assist[data-tip]:hover{z-index:31}
+  .assist[data-tip]:hover::after{
+    opacity:1;
+    visibility:visible;
+    transform:translateY(0);
+  }
   .bindrow{display:grid;grid-template-columns:1fr 86px;gap:8px;align-items:center;margin:6px 0;font-size:13px}
   button,input{font:inherit}
   button{background:#202930;color:var(--text);border:1px solid var(--border);border-radius:6px;min-height:34px}
@@ -27,6 +57,14 @@
   .num{width:78px;background:#11181c;color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 7px;text-align:right}
   input[type=range]{width:100%}
   .btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+  .version-label{
+    margin-top:8px;
+    text-align:center;
+    font-size:11px;
+    color:rgba(220,228,232,.5);
+    letter-spacing:.08em;
+    user-select:none;
+  }
   #hud{position:absolute;inset:0;pointer-events:none}
 
   .collective-side{
@@ -90,10 +128,11 @@
       <div class="row"><span>視角</span><strong id="cameraModeVal">第三人稱</strong></div>
       <div class="row"><span>操控反應</span><strong>較平緩</strong></div>
       <div class="row"><span>垂直慣性</span><strong>強</strong></div>
-      <div class="row"><span>高度保持</span><strong>動態捕捉</strong></div>
+      <div class="row"><span>高度保持</span><strong>物理煞停捕捉</strong></div>
       <div class="row"><span>下降重力</span><strong>加強</strong></div>
       <div class="row"><span>水平慣性</span><strong>速度保留</strong></div>
       <div class="row"><span>加速度模型</span><strong>直接 F / m</strong></div>
+      <div class="row"><span>升降模型</span><strong>線性總距 + F / m</strong></div>
       <div class="row"><span>物理核心</span><strong>Rotor + 6DoF 簡化</strong></div>
       <div class="row"><span>Pitch 輔助</span><strong>放手姿態保持</strong></div>
       <div class="row"><span>基準引擎重量</span><strong>4200 kg</strong></div>
@@ -103,11 +142,32 @@
 
     <div class="section">
       <h3>飛行輔助</h3>
-      <div class="assist"><label>Flight Assists</label><input id="assistMaster" type="checkbox" checked></div>
-      <div class="assist"><label>Stability Assist</label><input id="stabilityAssist" type="checkbox" checked></div>
-      <div class="assist"><label>Auto-Hover Assist</label><input id="hoverAssist" type="checkbox" checked></div>
-      <div class="assist"><label>Envelope Limits</label><input id="envelopeAssist" type="checkbox" checked></div>
-      <div class="assist"><label>Turn Coordination</label><input id="turnAssist" type="checkbox" checked></div>
+      <div class="assist">
+        <label>Flight Assists</label>
+        <input id="assistMaster" type="checkbox" checked>
+      </div>
+
+      <div id="assistOptions" class="assist-options">
+        <div class="assist" data-tip="穩定姿態。前後傾放開後會保持當下 Pitch 姿態並抑制殘留角速度；左右 Roll 放開後會逐漸回到水平。">
+          <label>Stability Assist</label>
+          <input id="stabilityAssist" type="checkbox" checked>
+        </div>
+
+        <div class="assist" data-tip="自動懸停輔助。只在低速、姿態接近水平時抑制水平漂移，不會在正常巡航速度下主動煞車。">
+          <label>Auto-Hover Assist</label>
+          <input id="hoverAssist" type="checkbox" checked>
+        </div>
+
+        <div class="assist" data-tip="姿態包線限制。接近大 Pitch／Roll 角度時逐漸介入，避免機體超出設定的安全傾角範圍。">
+          <label>Envelope Limits</label>
+          <input id="envelopeAssist" type="checkbox" checked>
+        </div>
+
+        <div class="assist" data-tip="轉彎協調。沒有手動偏航輸入時，依 Roll 角加入少量偏航，讓轉彎方向更自然。">
+          <label>Turn Coordination</label>
+          <input id="turnAssist" type="checkbox" checked>
+        </div>
+      </div>
     </div>
 
     <div class="section">
@@ -146,6 +206,7 @@
       <button id="reset">重置</button>
       <button id="pause">暫停</button>
     </div>
+    <div class="version-label">VERSION v37</div>
   </aside>
 </div>
 
@@ -160,13 +221,51 @@ renderer.shadowMap.enabled=true;
 stage.prepend(renderer.domElement);
 document.getElementById('loading').remove();
 
+const pmremGenerator=new THREE.PMREMGenerator(renderer);
+pmremGenerator.compileEquirectangularShader();
+
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xb9c6d2);
 scene.fog=new THREE.Fog(0xb9c6d2,4200,13500);
 
+// Local sky texture.
+// Place the downloaded Poly Haven JPG at:
+// ./assets/sky/kloofendal_48d_partly_cloudy_puresky.jpg
+const SKY_TEXTURE_URL='./assets/sky/kloofendal_48d_partly_cloudy_puresky.jpg';
+
+new THREE.TextureLoader().load(
+  SKY_TEXTURE_URL,
+  texture=>{
+    texture.mapping=THREE.EquirectangularReflectionMapping;
+    texture.colorSpace=THREE.SRGBColorSpace;
+
+    // Keep the equirectangular texture alive because it is also the visible sky.
+    // Disposing it here caused the background to disappear after PMREM creation.
+    texture.needsUpdate=true;
+    window.__skyTexture=texture;
+
+    scene.background=texture;
+
+    const envMap=pmremGenerator.fromEquirectangular(texture).texture;
+    window.__skyEnvMap=envMap;
+    scene.environment=envMap;
+
+    if('environmentIntensity' in scene){
+      scene.environmentIntensity=.75;
+    }
+
+    pmremGenerator.dispose();
+  },
+  undefined,
+  err=>{
+    console.warn('Local sky texture failed to load. Expected:',SKY_TEXTURE_URL,err);
+    scene.background=new THREE.Color(0x9fc5df);
+  }
+);
+
 const camera=new THREE.PerspectiveCamera(55,1,.1,24000);
-scene.add(new THREE.HemisphereLight(0xffffff,0x4b5c44,1.8));
-const sun=new THREE.DirectionalLight(0xffffff,2);
+scene.add(new THREE.HemisphereLight(0xffffff,0x4b5c44,1.35));
+const sun=new THREE.DirectionalLight(0xffffff,1.6);
 sun.position.set(40,70,30);
 scene.add(sun);
 
@@ -832,7 +931,9 @@ const state={
   pitchWasActive:false
 };
 
-const bindings={
+const STORAGE_KEY='wardogsHelicopterTrainerSettingsV2';
+
+const DEFAULT_BINDINGS={
   pitchForward:'KeyW',
   pitchBack:'KeyS',
   rollLeft:'KeyA',
@@ -840,8 +941,10 @@ const bindings={
   yawLeft:'KeyQ',
   yawRight:'KeyE',
   collectiveUp:'ShiftLeft',
-  collectiveDown:'ControlLeft'
+  collectiveDown:'AltLeft'
 };
+
+const bindings={...DEFAULT_BINDINGS};
 
 const pressed=new Set();
 let rebinding=null;
@@ -894,6 +997,7 @@ root.addEventListener('keydown',e=>{
     rebinding=null;
     pressed.clear();
     updateBindUI();
+    saveSettings();
     return;
   }
   if(Object.values(bindings).includes(e.code)){
@@ -915,12 +1019,22 @@ function sync(id){
   const r=document.getElementById(id);
   const n=document.getElementById(id+'Number');
   const clamp=v=>Math.max(+r.min,Math.min(+r.max,Number.isFinite(+v)?+v:+r.value));
-  r.addEventListener('input',()=>n.value=r.value);
-  n.addEventListener('input',()=>r.value=clamp(n.value));
+
+  r.addEventListener('input',()=>{
+    n.value=r.value;
+    saveSettings();
+  });
+
+  n.addEventListener('input',()=>{
+    r.value=clamp(n.value);
+    saveSettings();
+  });
+
   n.addEventListener('change',()=>{
     const v=clamp(n.value);
     n.value=v;
     r.value=v;
+    saveSettings();
   });
 }
 ['attitudeRate','yawRate','maxThrust','massKg'].forEach(sync);
@@ -936,14 +1050,102 @@ function updateMassReadout(){
 massSlider.addEventListener('input',updateMassReadout);
 massNumber.addEventListener('input',updateMassReadout);
 massNumber.addEventListener('change',updateMassReadout);
-updateMassReadout();
 
 const assistMaster=document.getElementById('assistMaster');
 const stabilityAssist=document.getElementById('stabilityAssist');
 const hoverAssist=document.getElementById('hoverAssist');
 const envelopeAssist=document.getElementById('envelopeAssist');
 const turnAssist=document.getElementById('turnAssist');
+const assistOptions=document.getElementById('assistOptions');
+
 const assistsOn=e=>assistMaster.checked&&e.checked;
+
+function updateAssistVisibility(){
+  assistOptions.hidden=!assistMaster.checked;
+}
+
+function saveSettings(){
+  try{
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        bindings:{...bindings},
+        attitudeRate:+document.getElementById('attitudeRate').value,
+        yawRate:+document.getElementById('yawRate').value,
+        maxThrust:+document.getElementById('maxThrust').value,
+        massKg:+document.getElementById('massKg').value,
+        assists:{
+          master:assistMaster.checked,
+          stability:stabilityAssist.checked,
+          hover:hoverAssist.checked,
+          envelope:envelopeAssist.checked,
+          turn:turnAssist.checked
+        }
+      })
+    );
+  }catch(err){
+    // Storage can be unavailable in some private/sandbox browser modes.
+  }
+}
+
+function loadSettings(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(!raw)return;
+
+    const saved=JSON.parse(raw);
+
+    if(saved.bindings && typeof saved.bindings==='object'){
+      Object.keys(DEFAULT_BINDINGS).forEach(action=>{
+        if(typeof saved.bindings[action]==='string'){
+          bindings[action]=saved.bindings[action];
+        }
+      });
+    }
+
+    const applyNumber=(id,value)=>{
+      if(!Number.isFinite(+value))return;
+
+      const range=document.getElementById(id);
+      const number=document.getElementById(id+'Number');
+
+      const min=+range.min;
+      const max=+range.max;
+      const v=Math.max(min,Math.min(max,+value));
+
+      range.value=v;
+      number.value=v;
+    };
+
+    applyNumber('attitudeRate',saved.attitudeRate);
+    applyNumber('yawRate',saved.yawRate);
+    applyNumber('maxThrust',saved.maxThrust);
+    applyNumber('massKg',saved.massKg);
+
+    if(saved.assists){
+      if(typeof saved.assists.master==='boolean')assistMaster.checked=saved.assists.master;
+      if(typeof saved.assists.stability==='boolean')stabilityAssist.checked=saved.assists.stability;
+      if(typeof saved.assists.hover==='boolean')hoverAssist.checked=saved.assists.hover;
+      if(typeof saved.assists.envelope==='boolean')envelopeAssist.checked=saved.assists.envelope;
+      if(typeof saved.assists.turn==='boolean')turnAssist.checked=saved.assists.turn;
+    }
+  }catch(err){
+    // Ignore malformed/blocked storage and continue with defaults.
+  }
+}
+
+loadSettings();
+updateAssistVisibility();
+updateBindUI();
+
+[assistMaster,stabilityAssist,hoverAssist,envelopeAssist,turnAssist].forEach(input=>{
+  input.addEventListener('change',()=>{
+    updateAssistVisibility();
+    saveSettings();
+  });
+});
+
+updateMassReadout();
 
 // Engine/thrust calibration remains based on the original 4,200 kg aircraft.
 // Player weight changes mass/inertia; it does NOT magically scale engine output.
@@ -1041,133 +1243,163 @@ function rotorSpeedFactor(horizontalSpeed){
 }
 
 function verticalController(dt,thrustRatio,rotorFactor=1){
-  const active=Math.abs(state.verticalInput)>.025;
+  const active=Math.abs(state.verticalInput)>.02;
   const verticalFactor=Math.max(.22,rotorUp.y);
-
-  // Collective needed to hold height at the current pitch/roll attitude.
   const mass=currentMass();
 
-  const hoverCollective=THREE.MathUtils.clamp(
-    (mass/BASE_MASS) /
-    (thrustRatio*verticalFactor*rotorFactor),
-    0,
-    1
-  );
+  // Available vertical rotor force at 100% collective.
+  const maxVerticalThrust=
+    BASE_MASS *
+    G *
+    thrustRatio *
+    rotorFactor *
+    verticalFactor;
+
+  const hoverCollective=
+    THREE.MathUtils.clamp(
+      (mass*G) /
+      Math.max(maxVerticalThrust,1),
+      0,
+      1
+    );
+
+  // These limits come from the current engine, mass and attitude.
+  // They are not fixed climb/descent acceleration caps.
+  const maxUpAccel=
+    Math.max(
+      0,
+      maxVerticalThrust/mass-G
+    );
+
+  const maxDownAccel=G;
 
   let targetCollective=hoverCollective;
 
   if(active){
-    // Pilot has full vertical authority while Shift/Ctrl is held.
-    if(state.verticalInput>0){
+    /*
+     * Manual vertical input is now a linear request around hover.
+     *
+     * +100% = full available collective
+     *    0% = current hover collective
+     * -100% = zero collective
+     *
+     * The 1-second input-bar ramp already provides the player's control feel,
+     * so there is no extra nonlinear .82 curve here.
+     */
+    if(state.verticalInput>=0){
       targetCollective=
         hoverCollective +
-        (1-hoverCollective)*state.verticalInput;
+        (1-hoverCollective) *
+        state.verticalInput;
     }else{
-      const downStrength=
-        Math.pow(
-          Math.abs(state.verticalInput),
-          .82
-        );
-
       targetCollective=
         hoverCollective *
-        (1-downStrength);
+        (1+state.verticalInput);
     }
 
     state.verticalWasActive=true;
-
-    // Do not let altitude hold fight the pilot while vertical input is active.
     state.holdAltitude=state.pos.y;
   }else{
     /*
-     * On release, do not target the exact release point.
-     * Project the hold point slightly along the current vertical momentum.
-     * This preserves inertia while still making the altitude-assist obvious.
+     * On release, estimate where the helicopter would naturally stop
+     * using its current vertical velocity and the physically available
+     * braking acceleration.
+     *
+     * This replaces the old fixed ±2.8 m/s vertical-speed target.
      */
     if(state.verticalWasActive){
-      const captureLead=
-        THREE.MathUtils.clamp(
-          state.vel.y*.65,
-          -8,
-          8
+      let brakingAccel;
+
+      if(state.vel.y>=0){
+        // Climbing: reducing collective can use gravity to arrest the climb.
+        brakingAccel=maxDownAccel;
+      }else{
+        // Descending: arresting the descent depends on actual thrust-to-weight.
+        brakingAccel=Math.max(maxUpAccel,.15);
+      }
+
+      const stoppingDistance=
+        (
+          state.vel.y *
+          Math.abs(state.vel.y)
+        ) /
+        (
+          2*brakingAccel
         );
 
       state.holdAltitude=
         state.pos.y +
-        captureLead;
+        stoppingDistance;
 
       state.verticalWasActive=false;
     }
 
-    let altitudeError=
+    const altitudeError=
       state.holdAltitude -
       state.pos.y;
 
-    if(Math.abs(altitudeError)<.12){
-      altitudeError=0;
-    }
+    /*
+     * Critically-damped altitude capture.
+     * The controller requests acceleration directly; its final authority is
+     * limited only by the aircraft's current physical up/down capability.
+     */
+    const HOLD_RESPONSE_TIME=1.55;
+    const omega=2.4/HOLD_RESPONSE_TIME;
 
-    // Altitude error requests a vertical speed.
-    const desiredVerticalSpeed=
-      THREE.MathUtils.clamp(
-        altitudeError*.55,
-        -2.8,
-        2.8
-      );
-
-    // Vertical-speed error then requests acceleration.
-    const speedError=
-      desiredVerticalSpeed -
+    let desiredAccel=
+      altitudeError *
+      omega *
+      omega -
+      2 *
+      omega *
       state.vel.y;
 
-    let assistAccel=
-      speedError*.92;
-
-    assistAccel=
+    desiredAccel=
       THREE.MathUtils.clamp(
-        assistAccel,
-        -2.8,
-        2.8
+        desiredAccel,
+        -maxDownAccel,
+        maxUpAccel
       );
 
     targetCollective=
       (
         mass *
-        (G+assistAccel)
+        (G+desiredAccel)
       ) /
-      (
-        BASE_MASS *
-        G *
-        thrustRatio *
-        verticalFactor *
-        rotorFactor
+      Math.max(
+        maxVerticalThrust,
+        1
       );
   }
 
-  targetCollective=THREE.MathUtils.clamp(
-    targetCollective,
-    0,
-    1
-  );
+  targetCollective=
+    THREE.MathUtils.clamp(
+      targetCollective,
+      0,
+      1
+    );
 
-  const reducingCollective=
-    targetCollective < state.collective;
+  /*
+   * The old controller had two extra response filters (8/10.5 and 9/11.5),
+   * on top of the player's 1-second vertical-input ramp.
+   * That made collective feel rubbery.
+   *
+   * Keep only a short rotor/collective response lag.
+   */
+  state.collective=targetCollective;
 
-  const commandRate=
-    reducingCollective ? 10.5 : 8.0;
-
-  const rotorRate=
-    state.collective < state.effectiveCollective
-      ? 11.5
-      : 9.0;
-
-  state.collective +=
-    (targetCollective-state.collective)*
-    (1-Math.exp(-dt*commandRate));
+  const COLLECTIVE_TAU=.12;
+  const follow=
+    1-Math.exp(
+      -dt/COLLECTIVE_TAU
+    );
 
   state.effectiveCollective +=
-    (state.collective-state.effectiveCollective)*
-    (1-Math.exp(-dt*rotorRate));
+    (
+      state.collective -
+      state.effectiveCollective
+    ) *
+    follow;
 }
 
 function updateCollectiveHUD(){
@@ -1797,10 +2029,9 @@ function updateCamera(dt){
       .addScaledVector(noseForward,2.25)
       .addScaledVector(bodyUp,.75);
 
-    camera.position.lerp(
-      targetPos,
-      1-Math.exp(-10*dt)
-    );
+    // First-person camera is rigidly attached to the airframe:
+    // no positional smoothing / no follow delay.
+    camera.position.copy(targetPos);
 
     const fpLook=targetPos.clone()
       .addScaledVector(noseForward,20);
