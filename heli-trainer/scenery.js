@@ -14,6 +14,10 @@ import {
   FARMSTEADS,
   ORCHARDS,
   STREET_LIGHT_ROUTES,
+  RIDGE_LINES,
+  TREE_LINES,
+  RURAL_HOUSES,
+  ROADSIDE_POST_ROUTES,
   FACTIONS
 } from './map-data.js';
 
@@ -3172,6 +3176,450 @@ function createStreetLights(){
   );
 }
 
+function createRidgeOutcrops(){
+  const placements=[];
+
+  RIDGE_LINES.forEach(
+    points=>{
+      samplePolyline(
+        points,
+        52
+      ).forEach(
+        p=>placements.push(p)
+      );
+    }
+  );
+
+  const rockGeo=
+    new THREE.DodecahedronGeometry(
+      1,
+      0
+    );
+
+  const rockMat=
+    new THREE.MeshStandardMaterial({
+      color:0x74716a,
+      roughness:1,
+      flatShading:true
+    });
+
+  const rocks=
+    new THREE.InstancedMesh(
+      rockGeo,
+      rockMat,
+      placements.length
+    );
+
+  rocks.castShadow=true;
+  rocks.receiveShadow=true;
+
+  const dummy=
+    new THREE.Object3D();
+
+  const rand=
+    seededRandom(
+      0x50f0c7
+    );
+
+  let count=0;
+
+  placements.forEach(
+    p=>{
+      const slope=
+        terrainSlopeAt(
+          p[0],
+          p[1],
+          48
+        );
+
+      if(
+        slope<.055 &&
+        rand()<.48
+      ){
+        return;
+      }
+
+      const y=
+        terrainHeight(
+          p[0],
+          p[1]
+        );
+
+      const scale=
+        5.2+
+        rand()*10.5;
+
+      dummy.position.set(
+        p[0]+(rand()-.5)*26,
+        y+scale*.16,
+        p[1]+(rand()-.5)*22
+      );
+
+      dummy.rotation.set(
+        (rand()-.5)*.35,
+        rand()*Math.PI*2,
+        (rand()-.5)*.35
+      );
+
+      dummy.scale.set(
+        scale*(1.2+rand()*.8),
+        scale*(.36+rand()*.32),
+        scale*(.72+rand()*.55)
+      );
+
+      dummy.updateMatrix();
+
+      rocks.setMatrixAt(
+        count++,
+        dummy.matrix
+      );
+    }
+  );
+
+  rocks.count=count;
+  rocks.instanceMatrix.needsUpdate=true;
+
+  ozetiScenery.add(rocks);
+}
+
+function createTreeLines(){
+  const placements=[];
+
+  TREE_LINES.forEach(
+    points=>{
+      samplePolyline(
+        points,
+        34
+      ).forEach(
+        p=>placements.push(p)
+      );
+    }
+  );
+
+  const trunkGeo=
+    new THREE.CylinderGeometry(
+      .65,
+      .9,
+      5.2,
+      6
+    );
+
+  trunkGeo.translate(
+    0,
+    2.6,
+    0
+  );
+
+  const crownGeo=
+    new THREE.ConeGeometry(
+      3.4,
+      10.5,
+      6
+    );
+
+  crownGeo.translate(
+    0,
+    7.6,
+    0
+  );
+
+  const trunks=
+    new THREE.InstancedMesh(
+      trunkGeo,
+      new THREE.MeshStandardMaterial({
+        color:0x574737,
+        roughness:1
+      }),
+      placements.length
+    );
+
+  const crowns=
+    new THREE.InstancedMesh(
+      crownGeo,
+      new THREE.MeshStandardMaterial({
+        color:0xffffff,
+        roughness:1
+      }),
+      placements.length
+    );
+
+  trunks.castShadow=true;
+  crowns.castShadow=true;
+  crowns.receiveShadow=true;
+
+  const dummy=
+    new THREE.Object3D();
+
+  const rand=
+    seededRandom(
+      0x7a11e50
+    );
+
+  let count=0;
+
+  placements.forEach(
+    p=>{
+      const x=
+        p[0]+
+        (rand()-.5)*18;
+
+      const z=
+        p[1]+
+        (rand()-.5)*18;
+
+      const y=
+        terrainHeight(
+          x,
+          z
+        );
+
+      const scale=
+        .68+
+        rand()*.62;
+
+      dummy.position.set(
+        x,
+        y,
+        z
+      );
+
+      dummy.rotation.set(
+        0,
+        rand()*Math.PI*2,
+        0
+      );
+
+      dummy.scale.set(
+        scale,
+        scale,
+        scale
+      );
+
+      dummy.updateMatrix();
+
+      trunks.setMatrixAt(
+        count,
+        dummy.matrix
+      );
+
+      crowns.setMatrixAt(
+        count,
+        dummy.matrix
+      );
+
+      crowns.setColorAt(
+        count,
+        new THREE.Color(
+          [
+            0x31513a,
+            0x395b3f,
+            0x426646,
+            0x2f4b37
+          ][
+            Math.floor(
+              rand()*4
+            )
+          ]
+        )
+      );
+
+      count++;
+    }
+  );
+
+  trunks.count=count;
+  crowns.count=count;
+
+  trunks.instanceMatrix.needsUpdate=true;
+  crowns.instanceMatrix.needsUpdate=true;
+
+  if(crowns.instanceColor){
+    crowns.instanceColor.needsUpdate=true;
+  }
+
+  ozetiScenery.add(
+    trunks,
+    crowns
+  );
+}
+
+function createRuralHouses(){
+  RURAL_HOUSES.forEach(
+    item=>{
+      const [
+        x,
+        z,
+        angle,
+        scale
+      ]=item;
+
+      createResidentialHouse(
+        x,
+        z,
+        {
+          scale,
+          wall:[
+            0xc6bba9,
+            0xbeb5a7,
+            0xd0c4b0
+          ][
+            Math.abs(
+              Math.round(x+z)
+            )%3
+          ],
+          roof:[
+            0x765148,
+            0x6b5047,
+            0x83584d
+          ][
+            Math.abs(
+              Math.round(x-z)
+            )%3
+          ],
+          angle
+        }
+      );
+    }
+  );
+}
+
+function createRoadsidePosts(){
+  const roadMap={
+    valley:PRIMARY_ROADS.valley,
+    crossTown:PRIMARY_ROADS.crossTown,
+    west:PRIMARY_ROADS.west
+  };
+
+  const placements=[];
+
+  ROADSIDE_POST_ROUTES.forEach(
+    name=>{
+      const points=
+        roadMap[name];
+
+      if(!points){
+        return;
+      }
+
+      const sampled=
+        samplePolyline(
+          points,
+          78
+        );
+
+      sampled.forEach(
+        (p,index)=>{
+          const prev=
+            sampled[
+              Math.max(
+                0,
+                index-1
+              )
+            ];
+
+          const next=
+            sampled[
+              Math.min(
+                sampled.length-1,
+                index+1
+              )
+            ];
+
+          let tx=
+            next[0]-prev[0];
+
+          let tz=
+            next[1]-prev[1];
+
+          const len=
+            Math.hypot(
+              tx,
+              tz
+            ) || 1;
+
+          tx/=len;
+          tz/=len;
+
+          const nx=-tz;
+          const nz=tx;
+
+          for(const side of [-1,1]){
+            placements.push([
+              p[0]+nx*20*side,
+              p[1]+nz*20*side
+            ]);
+          }
+        }
+      );
+    }
+  );
+
+  const postGeo=
+    new THREE.BoxGeometry(
+      .55,
+      2.1,
+      .55
+    );
+
+  postGeo.translate(
+    0,
+    1.05,
+    0
+  );
+
+  const postMat=
+    new THREE.MeshStandardMaterial({
+      color:0xd8d6ca,
+      roughness:.92
+    });
+
+  const posts=
+    new THREE.InstancedMesh(
+      postGeo,
+      postMat,
+      placements.length
+    );
+
+  const dummy=
+    new THREE.Object3D();
+
+  placements.forEach(
+    (p,index)=>{
+      dummy.position.set(
+        p[0],
+        terrainHeight(
+          p[0],
+          p[1]
+        ),
+        p[1]
+      );
+
+      dummy.rotation.set(
+        0,
+        0,
+        0
+      );
+
+      dummy.scale.set(
+        1,
+        1,
+        1
+      );
+
+      dummy.updateMatrix();
+
+      posts.setMatrixAt(
+        index,
+        dummy.matrix
+      );
+    }
+  );
+
+  posts.instanceMatrix.needsUpdate=true;
+
+  ozetiScenery.add(posts);
+}
+
 function addOzetiLandmarks(){
   clearOzetiScenery();
 
@@ -3324,6 +3772,10 @@ function addOzetiLandmarks(){
   createHedgerows();
   createOrchards();
   createStreetLights();
+  createRidgeOutcrops();
+  createTreeLines();
+  createRuralHouses();
+  createRoadsidePosts();
 
   createForestPatches();
 

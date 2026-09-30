@@ -670,6 +670,31 @@ export function createTerrainSystem({
             moisture*.24
           );
 
+          /*
+           * Highland exposure: upper ridges lose some saturation and gain
+           * cooler stone colour. This improves mountain silhouette and makes
+           * the ridge/outcrop scenery read as part of the terrain.
+           */
+          const highland=
+            THREE.MathUtils.smoothstep(
+              elevation,
+              .56,
+              .92
+            );
+
+          const exposed=
+            highland*
+            THREE.MathUtils.smoothstep(
+              slope,
+              .028,
+              .16
+            );
+
+          color.lerp(
+            highRock,
+            exposed*.30
+          );
+
           color.offsetHSL(
             variation*.004,
             variation*.045,
@@ -929,7 +954,7 @@ export function createTerrainSystem({
 
       if(statusEl){
         statusEl.textContent=
-          'Ozeti v49 · 農地＋鄉道＋河谷濕潤帶';
+          'Ozeti v50 · 山脊岩帶＋樹線＋鄉村細節';
       }
 
       return true;
