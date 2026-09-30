@@ -1,7 +1,8 @@
 import {
   TERRAIN_CONFIG,
   MAP_ASSETS,
-  FACTIONS
+  FACTIONS,
+  TRIBUTARY_GULLIES
 } from './map-data.js';
 
 import {
@@ -241,31 +242,30 @@ export function createTerrainSystem({
         )
       )*3.35;
 
-    const tributaries=[
-      [-2350,2150,-1900,mainRiverCenterZ(-1900)],
-      [1480,-2450,1600,mainRiverCenterZ(1600)],
-      [3000,2200,2650,mainRiverCenterZ(2650)]
-    ];
+    TRIBUTARY_GULLIES.forEach(
+      points=>{
+        for(let i=0;i<points.length-1;i++){
+          const a=points[i];
+          const b=points[i+1];
 
-    tributaries.forEach(
-      segment=>{
-        const d=
-          distanceToSegment2D(
-            x,
-            z,
-            segment[0],
-            segment[1],
-            segment[2],
-            segment[3]
-          );
+          const d=
+            distanceToSegment2D(
+              x,
+              z,
+              a[0],
+              a[1],
+              b[0],
+              b[1]
+            );
 
-        cut+=
-          Math.exp(
-            -Math.pow(
-              d/62,
-              2
-            )
-          )*1.15;
+          cut+=
+            Math.exp(
+              -Math.pow(
+                d/62,
+                2
+              )
+            )*.42;
+        }
       }
     );
 
@@ -640,6 +640,92 @@ export function createTerrainSystem({
             );
           }
 
+          /*
+           * River moisture band: greener floodplain close to the main valley,
+           * gradually fading into the surrounding dry grass / soil palette.
+           */
+          const riverDistance=
+            Math.abs(
+              p.z-
+              mainRiverCenterZ(
+                p.x
+              )
+            );
+
+          const moisture=
+            Math.exp(
+              -Math.pow(
+                riverDistance/430,
+                2
+              )
+            )*
+            (1-THREE.MathUtils.clamp(
+              slope/.20,
+              0,
+              1
+            ));
+
+          color.lerp(
+            lowGrass,
+            moisture*.24
+          );
+
+          /*
+           * Highland exposure: upper ridges lose some saturation and gain
+           * cooler stone colour. This improves mountain silhouette and makes
+           * the ridge/outcrop scenery read as part of the terrain.
+           */
+          const highland=
+            THREE.MathUtils.smoothstep(
+              elevation,
+              .56,
+              .92
+            );
+
+          const exposed=
+            highland*
+            THREE.MathUtils.smoothstep(
+              slope,
+              .028,
+              .16
+            );
+
+          color.lerp(
+            highRock,
+            exposed*.30
+          );
+
+          const aspect=
+            THREE.MathUtils.clamp(
+              normal.x*.62-
+              normal.z*.42,
+              -1,
+              1
+            );
+
+          const aspectStrength=
+            THREE.MathUtils.smoothstep(
+              slope,
+              .025,
+              .15
+            );
+
+          if(aspect>0){
+            color.lerp(
+              dryGrass,
+              aspect*
+              aspectStrength*
+              .13
+            );
+          }else{
+            color.lerp(
+              lowGrass,
+              -aspect*
+              aspectStrength*
+              .11
+            );
+          }
+
           color.offsetHSL(
             variation*.004,
             variation*.045,
@@ -899,7 +985,7 @@ export function createTerrainSystem({
 
       if(statusEl){
         statusEl.textContent=
-          'Ozeti v48 · 地圖模組化';
+          'Ozeti v51 · 支流地貌＋林緣＋河床細節';
       }
 
       return true;
