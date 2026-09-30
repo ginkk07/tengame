@@ -1,0 +1,36 @@
+{
+  "name": "Ozeti Terrain Reconstruction v1",
+  "type": "approximate_reconstruction",
+  "source_basis": {
+    "terrain_description": "broad open valley with rolling ground and ridgelines",
+    "published_contour_extent_m": [
+      8550.0,
+      7780.0
+    ],
+    "published_relief_m": 388.0
+  },
+  "mesh": {
+    "format": "glb",
+    "coordinate_system": "Y-up",
+    "width_m": 8550.0,
+    "depth_m": 7780.0,
+    "min_height_m": 0.0,
+    "max_height_m": 388.00000000000006,
+    "vertices": 59881,
+    "triangles": 118784,
+    "grid": [
+      257,
+      233
+    ]
+  },
+  "heightmap": {
+    "file": "ozeti-terrain-heightmap-v1.png",
+    "bit_depth": 16,
+    "width_px": 257,
+    "height_px": 233,
+    "black_height_m": 0.0,
+    "white_height_m": 388.0,
+    "orientation": "top row = negative Z edge of mesh"
+  },
+  "note": "This is a locally generated reconstruction for flight-sim prototyping, not an extracted or official WARDOGS terrain asset."
+}
