@@ -1,4 +1,5 @@
 import {
+  WORLD_CONFIG,
   TERRAIN_CONFIG,
   MAP_ASSETS,
   FACTIONS,
@@ -28,6 +29,38 @@ export function createTerrainSystem({
   const halfX=width*.5;
   const halfZ=depth*.5;
 
+  const terrainSourceCenter={
+    x:
+      (
+        TERRAIN_CONFIG.sourceBounds.minX+
+        TERRAIN_CONFIG.sourceBounds.maxX
+      )*.5,
+    y:
+      (
+        TERRAIN_CONFIG.sourceBounds.minY+
+        TERRAIN_CONFIG.sourceBounds.maxY
+      )*.5
+  };
+
+  /*
+   * Full Ozeti world origin is the center of tileBounds.
+   * This is where the cropped GLB belongs inside that complete world.
+   */
+  const worldOffset={
+    x:
+      terrainSourceCenter.x-
+      WORLD_CONFIG.centerX,
+    z:
+      WORLD_CONFIG.centerY-
+      terrainSourceCenter.y
+  };
+
+  const worldHalfX=
+    WORLD_CONFIG.width*.5;
+
+  const worldHalfZ=
+    WORLD_CONFIG.depth*.5;
+
   const data={
     ready:false,
     heights:new Float32Array(nx*nz),
@@ -35,6 +68,26 @@ export function createTerrainSystem({
   };
 
   data.heights.fill(NaN);
+
+  const worldFloor=
+    new THREE.Mesh(
+      new THREE.PlaneGeometry(
+        WORLD_CONFIG.width,
+        WORLD_CONFIG.depth,
+        1,
+        1
+      ),
+      new THREE.MeshStandardMaterial({
+        color:0x4d6747,
+        roughness:1,
+        metalness:0
+      })
+    );
+
+  worldFloor.rotation.x=-Math.PI/2;
+  worldFloor.position.y=-.35;
+  worldFloor.receiveShadow=true;
+  scene.add(worldFloor);
 
   const fallbackTerrain=
     new THREE.Mesh(
@@ -52,7 +105,11 @@ export function createTerrainSystem({
     );
 
   fallbackTerrain.rotation.x=-Math.PI/2;
-  fallbackTerrain.position.y=-2;
+  fallbackTerrain.position.set(
+    worldOffset.x,
+    -2,
+    worldOffset.z
+  );
   fallbackTerrain.receiveShadow=true;
   scene.add(fallbackTerrain);
 
@@ -64,17 +121,21 @@ export function createTerrainSystem({
       0x676e69
     );
 
-  fallbackGrid.position.y=-1.8;
+  fallbackGrid.position.set(
+    worldOffset.x,
+    -1.8,
+    worldOffset.z
+  );
   scene.add(fallbackGrid);
 
   const boundaryY=520;
 
   const boundaryPts=[
-    new THREE.Vector3(-halfX,boundaryY,-halfZ),
-    new THREE.Vector3( halfX,boundaryY,-halfZ),
-    new THREE.Vector3( halfX,boundaryY, halfZ),
-    new THREE.Vector3(-halfX,boundaryY, halfZ),
-    new THREE.Vector3(-halfX,boundaryY,-halfZ)
+    new THREE.Vector3(-worldHalfX,boundaryY,-worldHalfZ),
+    new THREE.Vector3( worldHalfX,boundaryY,-worldHalfZ),
+    new THREE.Vector3( worldHalfX,boundaryY, worldHalfZ),
+    new THREE.Vector3(-worldHalfX,boundaryY, worldHalfZ),
+    new THREE.Vector3(-worldHalfX,boundaryY,-worldHalfZ)
   ];
 
   const boundary=
@@ -93,6 +154,7 @@ export function createTerrainSystem({
 
 
   let tacticalColorSampler=null;
+  let groundOverlayTexture=null;
 
   async function loadTacticalColorSampler(){
     return new Promise(
@@ -230,7 +292,7 @@ export function createTerrainSystem({
         };
 
         image.onerror=()=>resolve(null);
-        image.src=MAP_ASSETS.tacticalMap;
+        image.src=MAP_ASSETS.groundOverlay;
       }
     );
   }
@@ -240,22 +302,33 @@ export function createTerrainSystem({
       return 0;
     }
 
+    const localX=
+      x-
+      worldOffset.x;
+
+    const localZ=
+      z-
+      worldOffset.z;
+
     if(
-      x<-halfX ||
-      x> halfX ||
-      z<-halfZ ||
-      z> halfZ
+      localX<-halfX ||
+      localX> halfX ||
+      localZ<-halfZ ||
+      localZ> halfZ
     ){
+      // The complete tile world exists outside the reconstructed GLB.
+      // Until a full elevation mesh is available, those outer regions use
+      // the correctly scaled flat world floor rather than stretching the crop.
       return 0;
     }
 
     const fx=
-      (x+halfX)/
+      (localX+halfX)/
       width*
       (nx-1);
 
     const fz=
-      (z+halfZ)/
+      (localZ+halfZ)/
       depth*
       (nz-1);
 
@@ -472,16 +545,29 @@ export function createTerrainSystem({
                 );
 
               return {
-                x:world.x,
-                z:world.z
+                x:
+                  world.x-
+                  worldOffset.x,
+                z:
+                  world.z-
+                  worldOffset.z
               };
             }
           );
 
-        const center=
+        const centerWorld=
           factionCenterWorld(
             faction.id
           );
+
+        const center={
+          x:
+            centerWorld.x-
+            worldOffset.x,
+          z:
+            centerWorld.z-
+            worldOffset.z
+        };
 
         let radius=0;
 
@@ -508,6 +594,109 @@ export function createTerrainSystem({
         };
       }
     );
+  }
+
+  function addGroundProjection(mesh){
+    if(
+      !groundOverlayTexture ||
+      mesh.userData?.ozetiGroundProjection
+    ){
+      return;
+    }
+
+    const geometry=
+      mesh.geometry;
+
+    const position=
+      geometry?.attributes?.position;
+
+    if(!position){
+      return;
+    }
+
+    const textureWidth=
+      groundOverlayTexture.image?.width ||
+      670;
+
+    const textureHeight=
+      groundOverlayTexture.image?.height ||
+      625;
+
+    const uv=
+      new Float32Array(
+        position.count*2
+      );
+
+    for(let i=0;i<position.count;i++){
+      const worldX=
+        position.getX(i)+
+        worldOffset.x;
+
+      const worldZ=
+        position.getZ(i)+
+        worldOffset.z;
+
+      const pixel=
+        worldToTacticalMapPixel(
+          worldX,
+          worldZ
+        );
+
+      const u=
+        THREE.MathUtils.clamp(
+          pixel.x/
+          textureWidth,
+          0,
+          1
+        );
+
+      const v=
+        THREE.MathUtils.clamp(
+          1-
+          pixel.y/
+          textureHeight,
+          0,
+          1
+        );
+
+      uv[i*2]=u;
+      uv[i*2+1]=v;
+    }
+
+    geometry.setAttribute(
+      'uv',
+      new THREE.BufferAttribute(
+        uv,
+        2
+      )
+    );
+
+    const overlay=
+      new THREE.Mesh(
+        geometry,
+        new THREE.MeshBasicMaterial({
+          map:groundOverlayTexture,
+          transparent:true,
+          opacity:1,
+          depthWrite:false,
+          side:THREE.DoubleSide,
+          polygonOffset:true,
+          polygonOffsetFactor:-2.5,
+          polygonOffsetUnits:-2.5
+        })
+      );
+
+    overlay.name=
+      'OzetiGroundProjection';
+
+    overlay.castShadow=false;
+    overlay.receiveShadow=false;
+    overlay.renderOrder=2;
+
+    mesh.add(overlay);
+
+    mesh.userData.ozetiGroundProjection=
+      overlay;
   }
 
   function enhanceTerrainMesh(root){
@@ -770,8 +959,10 @@ export function createTerrainSystem({
           if(
             tacticalColorSampler &&
             tacticalColorSampler.sample(
-              p.x,
-              p.z,
+              p.x+
+              worldOffset.x,
+              p.z+
+              worldOffset.z,
               mapTint
             )
           ){
@@ -780,16 +971,15 @@ export function createTerrainSystem({
              * preserving physically readable slope / elevation shading.
              */
             const tintStrength=
-              .22+
-              (1-slope)*.34+
-              (1-elevation)*.06;
+              .06+
+              (1-slope)*.08;
 
             color.lerp(
               mapTint,
               THREE.MathUtils.clamp(
                 tintStrength,
-                .18,
-                .56
+                .05,
+                .14
               )
             );
           }
@@ -902,10 +1092,34 @@ export function createTerrainSystem({
             );
           }
 
+          /*
+           * Directional terrain shading is intentionally stronger than the
+           * tactical-map tint. This keeps ridges, valleys and slopes readable
+           * even when the ground colour follows the 2D map.
+           */
+          const reliefLight=
+            THREE.MathUtils.clamp(
+              normal.y*.76+
+              normal.x*.20-
+              normal.z*.15,
+              .28,
+              1
+            );
+
+          const reliefOffset=
+            (reliefLight-.72)*
+            (.16+
+             THREE.MathUtils.smoothstep(
+               slope,
+               .015,
+               .18
+             )*.13);
+
           color.offsetHSL(
             variation*.004,
-            variation*.045,
-            variation*.055
+            variation*.035,
+            variation*.035+
+            reliefOffset
           );
 
           colors[i*3]=color.r;
@@ -933,6 +1147,10 @@ export function createTerrainSystem({
 
         obj.castShadow=true;
         obj.receiveShadow=true;
+
+        addGroundProjection(
+          obj
+        );
       }
     );
   }
@@ -955,7 +1173,10 @@ export function createTerrainSystem({
 
     root.traverse(
       obj=>{
-        if(!obj.isMesh){
+        if(
+          !obj.isMesh ||
+          obj.name==='OzetiGroundProjection'
+        ){
           return;
         }
 
@@ -981,13 +1202,21 @@ export function createTerrainSystem({
 
           const gx=
             Math.round(
-              (p.x+halfX)/
+              (
+                p.x-
+                worldOffset.x+
+                halfX
+              )/
               stepX
             );
 
           const gz=
             Math.round(
-              (p.z+halfZ)/
+              (
+                p.z-
+                worldOffset.z+
+                halfZ
+              )/
               stepZ
             );
 
@@ -1117,6 +1346,28 @@ export function createTerrainSystem({
       tacticalColorSampler=
         await loadTacticalColorSampler();
 
+      groundOverlayTexture=
+        await new THREE.TextureLoader().loadAsync(
+          MAP_ASSETS.groundOverlay
+        );
+
+      groundOverlayTexture.colorSpace=
+        THREE.SRGBColorSpace;
+
+      groundOverlayTexture.wrapS=
+        THREE.ClampToEdgeWrapping;
+
+      groundOverlayTexture.wrapT=
+        THREE.ClampToEdgeWrapping;
+
+      groundOverlayTexture.magFilter=
+        THREE.LinearFilter;
+
+      groundOverlayTexture.minFilter=
+        THREE.LinearMipmapLinearFilter;
+
+      groundOverlayTexture.anisotropy=4;
+
       const loaderModule=
         await import(
           'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js/+esm'
@@ -1135,6 +1386,12 @@ export function createTerrainSystem({
 
       root.name=
         'OzetiTerrain';
+
+      root.position.set(
+        worldOffset.x,
+        0,
+        worldOffset.z
+      );
 
       scene.add(root);
 
@@ -1164,7 +1421,7 @@ export function createTerrainSystem({
 
       if(statusEl){
         statusEl.textContent=
-          'Ozeti v52 · 地圖配色地表＋支流細節';
+          'Ozeti v55 · 戰術地圖投影地表＋精確道路紋理';
       }
 
       return true;
@@ -1191,12 +1448,20 @@ export function createTerrainSystem({
     load,
     height,
     bounds:{
+      halfX:worldHalfX,
+      halfZ:worldHalfZ,
+      width:WORLD_CONFIG.width,
+      depth:WORLD_CONFIG.depth
+    },
+    terrainCrop:{
       halfX,
       halfZ,
       width,
-      depth
+      depth,
+      worldOffset
     },
     boundary,
+    worldFloor,
     fallbackTerrain,
     fallbackGrid
   };
