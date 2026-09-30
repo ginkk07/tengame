@@ -60,16 +60,40 @@ export function createOzetiMap({
   async function load(){
     await terrain.load();
 
-    scenery=
-      buildOzetiScenery({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
+    if(statusEl){
+      statusEl.textContent=
+        'Ozeti v58 · 3D 場景建立中…';
+    }
 
-    factionLayer.rebuild();
+    try{
+      scenery=
+        buildOzetiScenery({
+          THREE,
+          scene,
+          terrainHeight:terrain.height
+        });
 
-    return true;
+      factionLayer.rebuild();
+
+      if(statusEl){
+        statusEl.textContent=
+          'Ozeti v58 · 3D 樹木／建築／橋樑已載入';
+      }
+
+      return true;
+    }catch(error){
+      console.error(
+        'Ozeti scenery build failed:',
+        error
+      );
+
+      if(statusEl){
+        statusEl.textContent=
+          'Ozeti v58 · 3D 場景建立失敗';
+      }
+
+      throw error;
+    }
   }
 
   return {
