@@ -1,12 +1,14 @@
 import {
   TERRAIN_CONFIG,
   MAP_ASSETS,
-  FACTIONS
+  FACTIONS,
+  TRIBUTARY_GULLIES
 } from './map-data.js';
 
 import {
   mapPointToWorld,
-  factionCenterWorld
+  factionCenterWorld,
+  worldToTacticalMapPixel
 } from './factions.js';
 
 export function createTerrainSystem({
@@ -88,6 +90,150 @@ export function createTerrainSystem({
     );
 
   scene.add(boundary);
+
+
+  let tacticalColorSampler=null;
+
+  async function loadTacticalColorSampler(){
+    return new Promise(
+      resolve=>{
+        const image=new Image();
+
+        image.onload=()=>{
+          const canvas=
+            document.createElement('canvas');
+
+          canvas.width=image.naturalWidth;
+          canvas.height=image.naturalHeight;
+
+          const context=
+            canvas.getContext(
+              '2d',
+              {
+                willReadFrequently:true
+              }
+            );
+
+          context.drawImage(
+            image,
+            0,
+            0
+          );
+
+          const pixels=
+            context.getImageData(
+              0,
+              0,
+              canvas.width,
+              canvas.height
+            ).data;
+
+          resolve({
+            width:canvas.width,
+            height:canvas.height,
+            sample(worldX,worldZ,target){
+              const pixel=
+                worldToTacticalMapPixel(
+                  worldX,
+                  worldZ
+                );
+
+              const px=
+                THREE.MathUtils.clamp(
+                  Math.round(
+                    pixel.x/
+                    670*
+                    canvas.width
+                  ),
+                  0,
+                  canvas.width-1
+                );
+
+              const py=
+                THREE.MathUtils.clamp(
+                  Math.round(
+                    pixel.y/
+                    625*
+                    canvas.height
+                  ),
+                  0,
+                  canvas.height-1
+                );
+
+              let r=0;
+              let g=0;
+              let b=0;
+              let count=0;
+
+              for(let oy=-1;oy<=1;oy++){
+                for(let ox=-1;ox<=1;ox++){
+                  const sx=
+                    THREE.MathUtils.clamp(
+                      px+ox,
+                      0,
+                      canvas.width-1
+                    );
+
+                  const sy=
+                    THREE.MathUtils.clamp(
+                      py+oy,
+                      0,
+                      canvas.height-1
+                    );
+
+                  const index=
+                    (sy*canvas.width+sx)*4;
+
+                  const alpha=
+                    pixels[index+3];
+
+                  if(alpha<12){
+                    continue;
+                  }
+
+                  r+=pixels[index];
+                  g+=pixels[index+1];
+                  b+=pixels[index+2];
+                  count++;
+                }
+              }
+
+              if(!count){
+                return false;
+              }
+
+              r/=count;
+              g/=count;
+              b/=count;
+
+              const max=Math.max(r,g,b);
+              const min=Math.min(r,g,b);
+              const luminance=(r+g+b)/765;
+
+              /*
+               * Ignore near-black labels/roads and near-white text overlays;
+               * use the painted land/water colours as the terrain tint source.
+               */
+              if(luminance<.08 || luminance>.95){
+                return false;
+              }
+
+              target.setRGB(
+                r/255,
+                g/255,
+                b/255
+              );
+
+              return true;
+            }
+          });
+        };
+
+        image.onerror=()=>resolve(null);
+        image.src=MAP_ASSETS.tacticalMap;
+      }
+    );
+  }
 
   function height(x,z){
     if(!data.ready){
@@ -241,31 +387,30 @@ export function createTerrainSystem({
         )
       )*3.35;
 
-    const tributaries=[
-      [-2350,2150,-1900,mainRiverCenterZ(-1900)],
-      [1480,-2450,1600,mainRiverCenterZ(1600)],
-      [3000,2200,2650,mainRiverCenterZ(2650)]
-    ];
+    TRIBUTARY_GULLIES.forEach(
+      points=>{
+        for(let i=0;i<points.length-1;i++){
+          const a=points[i];
+          const b=points[i+1];
 
-    tributaries.forEach(
-      segment=>{
-        const d=
-          distanceToSegment2D(
-            x,
-            z,
-            segment[0],
-            segment[1],
-            segment[2],
-            segment[3]
-          );
+          const d=
+            distanceToSegment2D(
+              x,
+              z,
+              a[0],
+              a[1],
+              b[0],
+              b[1]
+            );
 
-        cut+=
-          Math.exp(
-            -Math.pow(
-              d/62,
-              2
-            )
-          )*1.15;
+          cut+=
+            Math.exp(
+              -Math.pow(
+                d/62,
+                2
+              )
+            )*.42;
+        }
       }
     );
 
@@ -542,6 +687,9 @@ export function createTerrainSystem({
     const color=
       new THREE.Color();
 
+    const mapTint=
+      new THREE.Color();
+
     meshes.forEach(
       obj=>{
         const geometry=
@@ -615,6 +763,34 @@ export function createTerrainSystem({
             color.copy(soil).lerp(
               highRock,
               (elevation-.80)/.20
+            );
+          }
+
+
+          if(
+            tacticalColorSampler &&
+            tacticalColorSampler.sample(
+              p.x,
+              p.z,
+              mapTint
+            )
+          ){
+            /*
+             * Paint the ground closer to the tactical map look while still
+             * preserving physically readable slope / elevation shading.
+             */
+            const tintStrength=
+              .22+
+              (1-slope)*.34+
+              (1-elevation)*.06;
+
+            color.lerp(
+              mapTint,
+              THREE.MathUtils.clamp(
+                tintStrength,
+                .18,
+                .56
+              )
             );
           }
 
@@ -694,6 +870,37 @@ export function createTerrainSystem({
             highRock,
             exposed*.30
           );
+
+          const aspect=
+            THREE.MathUtils.clamp(
+              normal.x*.62-
+              normal.z*.42,
+              -1,
+              1
+            );
+
+          const aspectStrength=
+            THREE.MathUtils.smoothstep(
+              slope,
+              .025,
+              .15
+            );
+
+          if(aspect>0){
+            color.lerp(
+              dryGrass,
+              aspect*
+              aspectStrength*
+              .13
+            );
+          }else{
+            color.lerp(
+              lowGrass,
+              -aspect*
+              aspectStrength*
+              .11
+            );
+          }
 
           color.offsetHSL(
             variation*.004,
@@ -903,10 +1110,13 @@ export function createTerrainSystem({
   async function load(){
     if(statusEl){
       statusEl.textContent=
-        'Ozeti GLB 載入中…';
+        'Ozeti 地圖與配色載入中…';
     }
 
     try{
+      tacticalColorSampler=
+        await loadTacticalColorSampler();
+
       const loaderModule=
         await import(
           'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js/+esm'
@@ -954,7 +1164,7 @@ export function createTerrainSystem({
 
       if(statusEl){
         statusEl.textContent=
-          'Ozeti v50 · 山脊岩帶＋樹線＋鄉村細節';
+          'Ozeti v52 · 地圖配色地表＋支流細節';
       }
 
       return true;

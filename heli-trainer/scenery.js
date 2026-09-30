@@ -18,6 +18,8 @@ import {
   TREE_LINES,
   RURAL_HOUSES,
   ROADSIDE_POST_ROUTES,
+  TRIBUTARY_GULLIES,
+  FIELD_FENCES,
   FACTIONS
 } from './map-data.js';
 
@@ -3620,6 +3622,468 @@ function createRoadsidePosts(){
   ozetiScenery.add(posts);
 }
 
+function createDirtTrackRuts(){
+  RURAL_TRACKS.forEach(
+    points=>{
+      const sampled=
+        samplePolyline(
+          points,
+          24
+        );
+
+      const left=[];
+      const right=[];
+
+      sampled.forEach(
+        (p,index)=>{
+          const prev=
+            sampled[Math.max(0,index-1)];
+
+          const next=
+            sampled[Math.min(sampled.length-1,index+1)];
+
+          let tx=next[0]-prev[0];
+          let tz=next[1]-prev[1];
+
+          const len=Math.hypot(tx,tz)||1;
+
+          tx/=len;
+          tz/=len;
+
+          const nx=-tz;
+          const nz=tx;
+
+          left.push([
+            p[0]+nx*2.2,
+            p[1]+nz*2.2
+          ]);
+
+          right.push([
+            p[0]-nx*2.2,
+            p[1]-nz*2.2
+          ]);
+        }
+      );
+
+      [left,right].forEach(
+        rut=>{
+          ozetiScenery.add(
+            buildRibbon(
+              rut,
+              {
+                width:.75,
+                yOffset:.58,
+                color:0x5d513d,
+                roughness:1,
+                opacity:.72
+              }
+            )
+          );
+        }
+      );
+    }
+  );
+}
+
+function createForestEdgeScrub(){
+  const placements=[];
+  const rand=seededRandom(0x51ed9e);
+
+  FOREST_PATCHES.forEach(
+    patch=>{
+      const [cx,cz,rx,rz,count]=patch;
+      const edgeCount=
+        Math.max(
+          22,
+          Math.round(count*.38)
+        );
+
+      for(let i=0;i<edgeCount;i++){
+        const a=rand()*Math.PI*2;
+        const edge=.88+rand()*.22;
+
+        placements.push([
+          cx+Math.cos(a)*rx*edge,
+          cz+Math.sin(a)*rz*edge
+        ]);
+      }
+    }
+  );
+
+  const bushGeo=
+    new THREE.DodecahedronGeometry(1,0);
+
+  const bushes=
+    new THREE.InstancedMesh(
+      bushGeo,
+      new THREE.MeshStandardMaterial({
+        color:0x39563a,
+        roughness:1,
+        flatShading:true
+      }),
+      placements.length
+    );
+
+  bushes.castShadow=true;
+  bushes.receiveShadow=true;
+
+  const dummy=new THREE.Object3D();
+  let count=0;
+
+  placements.forEach(
+    p=>{
+      if(
+        Math.abs(p[0])>MAP_HALF_X-70 ||
+        Math.abs(p[1])>MAP_HALF_Z-70
+      ){
+        return;
+      }
+
+      const y=
+        terrainHeight(p[0],p[1]);
+
+      const s=
+        2.1+
+        rand()*3.4;
+
+      dummy.position.set(
+        p[0],
+        y+s*.42,
+        p[1]
+      );
+
+      dummy.rotation.set(
+        (rand()-.5)*.20,
+        rand()*Math.PI*2,
+        (rand()-.5)*.20
+      );
+
+      dummy.scale.set(
+        s*(.85+rand()*.35),
+        s*(.58+rand()*.34),
+        s*(.86+rand()*.38)
+      );
+
+      dummy.updateMatrix();
+
+      bushes.setMatrixAt(
+        count++,
+        dummy.matrix
+      );
+    }
+  );
+
+  bushes.count=count;
+  bushes.instanceMatrix.needsUpdate=true;
+
+  ozetiScenery.add(bushes);
+}
+
+function createTributaryVegetation(){
+  const shrubGeo=
+    new THREE.ConeGeometry(
+      1.35,
+      4.3,
+      5
+    );
+
+  shrubGeo.translate(
+    0,
+    2.15,
+    0
+  );
+
+  const placements=[];
+
+  TRIBUTARY_GULLIES.forEach(
+    points=>{
+      const sampled=
+        samplePolyline(
+          points,
+          72
+        );
+
+      sampled.forEach(
+        (p,index)=>{
+          const prev=
+            sampled[Math.max(0,index-1)];
+
+          const next=
+            sampled[Math.min(sampled.length-1,index+1)];
+
+          let tx=next[0]-prev[0];
+          let tz=next[1]-prev[1];
+
+          const len=Math.hypot(tx,tz)||1;
+
+          tx/=len;
+          tz/=len;
+
+          const nx=-tz;
+          const nz=tx;
+
+          placements.push([
+            p[0]+nx*22,
+            p[1]+nz*22
+          ]);
+
+          placements.push([
+            p[0]-nx*24,
+            p[1]-nz*24
+          ]);
+        }
+      );
+    }
+  );
+
+  const shrubs=
+    new THREE.InstancedMesh(
+      shrubGeo,
+      new THREE.MeshStandardMaterial({
+        color:0x395c40,
+        roughness:1
+      }),
+      placements.length
+    );
+
+  shrubs.castShadow=true;
+  shrubs.receiveShadow=true;
+
+  const dummy=new THREE.Object3D();
+  const rand=seededRandom(0x51a77e);
+
+  placements.forEach(
+    (p,index)=>{
+      const y=
+        terrainHeight(p[0],p[1]);
+
+      const s=.65+rand()*.95;
+
+      dummy.position.set(
+        p[0]+(rand()-.5)*10,
+        y,
+        p[1]+(rand()-.5)*10
+      );
+
+      dummy.rotation.set(
+        0,
+        rand()*Math.PI*2,
+        0
+      );
+
+      dummy.scale.set(
+        s,
+        s*(.8+rand()*.35),
+        s
+      );
+
+      dummy.updateMatrix();
+
+      shrubs.setMatrixAt(
+        index,
+        dummy.matrix
+      );
+    }
+  );
+
+  shrubs.instanceMatrix.needsUpdate=true;
+
+  ozetiScenery.add(shrubs);
+}
+
+function createRiverGravelBars(points,widths){
+  const group=new THREE.Group();
+
+  [4,8,12,17,21].forEach(
+    (index,barIndex)=>{
+      const p=points[index];
+      const prev=points[Math.max(0,index-1)];
+      const next=points[Math.min(points.length-1,index+1)];
+
+      let tx=next[0]-prev[0];
+      let tz=next[1]-prev[1];
+
+      const len=Math.hypot(tx,tz)||1;
+
+      tx/=len;
+      tz/=len;
+
+      const nx=-tz;
+      const nz=tx;
+
+      const width=widths[index];
+      const side=barIndex%2===0?1:-1;
+
+      const cx=
+        p[0]+
+        nx*
+        width*
+        .18*
+        side;
+
+      const cz=
+        p[1]+
+        nz*
+        width*
+        .18*
+        side;
+
+      const bar=
+        new THREE.Mesh(
+          new THREE.CapsuleGeometry(
+            Math.max(5,width*.10),
+            Math.max(28,width*.42),
+            4,
+            10
+          ),
+          new THREE.MeshStandardMaterial({
+            color:0x8b806c,
+            roughness:1
+          })
+        );
+
+      bar.rotation.z=Math.PI*.5;
+      bar.rotation.y=-Math.atan2(tz,tx);
+
+      bar.scale.set(
+        1,
+        .08,
+        .65
+      );
+
+      bar.position.set(
+        cx,
+        terrainHeight(cx,cz)+.32,
+        cz
+      );
+
+      bar.receiveShadow=true;
+      group.add(bar);
+    }
+  );
+
+  ozetiScenery.add(group);
+}
+
+function createFieldFences(){
+  const postGeo=
+    new THREE.BoxGeometry(
+      .34,
+      1.8,
+      .34
+    );
+
+  postGeo.translate(
+    0,
+    .9,
+    0
+  );
+
+  const placements=[];
+
+  FIELD_FENCES.forEach(
+    points=>{
+      samplePolyline(
+        points,
+        24
+      ).forEach(
+        p=>placements.push(p)
+      );
+    }
+  );
+
+  const posts=
+    new THREE.InstancedMesh(
+      postGeo,
+      new THREE.MeshStandardMaterial({
+        color:0x71634e,
+        roughness:1
+      }),
+      placements.length
+    );
+
+  const dummy=new THREE.Object3D();
+
+  placements.forEach(
+    (p,index)=>{
+      dummy.position.set(
+        p[0],
+        terrainHeight(p[0],p[1]),
+        p[1]
+      );
+
+      dummy.rotation.set(0,0,0);
+      dummy.scale.set(1,1,1);
+      dummy.updateMatrix();
+
+      posts.setMatrixAt(
+        index,
+        dummy.matrix
+      );
+    }
+  );
+
+  posts.instanceMatrix.needsUpdate=true;
+  ozetiScenery.add(posts);
+
+  FIELD_FENCES.forEach(
+    points=>{
+      const top=[];
+      const mid=[];
+
+      samplePolyline(
+        points,
+        18
+      ).forEach(
+        p=>{
+          const y=
+            terrainHeight(
+              p[0],
+              p[1]
+            );
+
+          top.push(
+            new THREE.Vector3(
+              p[0],
+              y+1.5,
+              p[1]
+            )
+          );
+
+          mid.push(
+            new THREE.Vector3(
+              p[0],
+              y+.85,
+              p[1]
+            )
+          );
+        }
+      );
+
+      const wireMat=
+        new THREE.LineBasicMaterial({
+          color:0x4d4940,
+          transparent:true,
+          opacity:.62
+        });
+
+      ozetiScenery.add(
+        new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(top),
+          wireMat
+        )
+      );
+
+      ozetiScenery.add(
+        new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(mid),
+          wireMat.clone()
+        )
+      );
+    }
+  );
+}
+
 function addOzetiLandmarks(){
   clearOzetiScenery();
 
@@ -3776,8 +4240,12 @@ function addOzetiLandmarks(){
   createTreeLines();
   createRuralHouses();
   createRoadsidePosts();
+  createDirtTrackRuts();
+  createFieldFences();
 
   createForestPatches();
+  createForestEdgeScrub();
+  createTributaryVegetation();
 
   createRiverBankVegetation(
     RIVER_PATH
@@ -3785,6 +4253,11 @@ function addOzetiLandmarks(){
 
   createRiverReeds(
     RIVER_PATH
+  );
+
+  createRiverGravelBars(
+    RIVER_PATH,
+    RIVER_WIDTHS
   );
 
   createGroundCover();
