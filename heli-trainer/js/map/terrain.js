@@ -1289,7 +1289,7 @@ export function createTerrainSystem({
 
       if(statusEl){
         statusEl.textContent=
-          'Ozeti v56 · 網站地形／道路／森林重建';
+          'Ozeti v57 · 3D森林＋建築群＋橋樑＋塔台';
       }
 
       return true;

@@ -4314,41 +4314,65 @@ function createReferenceForest(){
       worldToLocalPoint
     );
 
-  const treeGeo=
+  const crownGeo=
     new THREE.ConeGeometry(
-      4.3,
-      15,
-      5
+      4.8,
+      16,
+      6
     );
 
-  treeGeo.translate(
+  crownGeo.translate(
     0,
-    7.5,
+    8,
+    0
+  );
+
+  const upperCrownGeo=
+    new THREE.ConeGeometry(
+      3.5,
+      11,
+      6
+    );
+
+  upperCrownGeo.translate(
+    0,
+    15,
     0
   );
 
   const trunkGeo=
     new THREE.CylinderGeometry(
-      .7,
-      1.0,
-      5,
-      5
+      .72,
+      1.05,
+      6,
+      6
     );
 
   trunkGeo.translate(
     0,
-    2.5,
+    3,
     0
   );
 
-  const treesPerPoint=4;
+  const treesPerPoint=10;
+
   const countMax=
     points.length*
     treesPerPoint;
 
   const crowns=
     new THREE.InstancedMesh(
-      treeGeo,
+      crownGeo,
+      new THREE.MeshStandardMaterial({
+        color:0xffffff,
+        roughness:1
+      }),
+      countMax
+    );
+
+  const upperCrowns=
+    new THREE.InstancedMesh(
+      upperCrownGeo,
       new THREE.MeshStandardMaterial({
         color:0xffffff,
         roughness:1
@@ -4360,7 +4384,7 @@ function createReferenceForest(){
     new THREE.InstancedMesh(
       trunkGeo,
       new THREE.MeshStandardMaterial({
-        color:0x574637,
+        color:0x554432,
         roughness:1
       }),
       countMax
@@ -4368,6 +4392,10 @@ function createReferenceForest(){
 
   crowns.castShadow=true;
   crowns.receiveShadow=true;
+
+  upperCrowns.castShadow=true;
+  upperCrowns.receiveShadow=true;
+
   trunks.castShadow=true;
 
   const dummy=
@@ -4375,7 +4403,7 @@ function createReferenceForest(){
 
   const rand=
     seededRandom(
-      0x5602
+      0x5702
     );
 
   let index=0;
@@ -4390,7 +4418,7 @@ function createReferenceForest(){
 
         const radius=
           Math.sqrt(rand())*
-          26;
+          34;
 
         const x=
           point[0]+
@@ -4403,8 +4431,8 @@ function createReferenceForest(){
           radius;
 
         if(
-          Math.abs(x)>MAP_HALF_X-40 ||
-          Math.abs(z)>MAP_HALF_Z-40
+          Math.abs(x)>MAP_HALF_X-35 ||
+          Math.abs(z)>MAP_HALF_Z-35
         ){
           continue;
         }
@@ -4416,8 +4444,8 @@ function createReferenceForest(){
           );
 
         const scale=
-          .68+
-          rand()*.72;
+          .70+
+          rand()*.82;
 
         dummy.position.set(
           x,
@@ -4444,26 +4472,57 @@ function createReferenceForest(){
           dummy.matrix
         );
 
-        crowns.setColorAt(
-          index,
+        const crownColor=
           new THREE.Color(
             [
-              0x274b31,
-              0x315738,
-              0x3a6240,
-              0x21452c
+              0x24482d,
+              0x2b5132,
+              0x345b38,
+              0x3b633e,
+              0x1f4128
             ][
               Math.floor(
-                rand()*4
+                rand()*5
               )
             ]
-          )
+          );
+
+        crowns.setColorAt(
+          index,
+          crownColor
         );
 
         dummy.scale.set(
-          scale*.8,
+          scale*.82,
+          scale*.88,
+          scale*.82
+        );
+
+        dummy.updateMatrix();
+
+        upperCrowns.setMatrixAt(
+          index,
+          dummy.matrix
+        );
+
+        const upperColor=
+          crownColor.clone();
+
+        upperColor.offsetHSL(
+          0,
+          .02,
+          .025
+        );
+
+        upperCrowns.setColorAt(
+          index,
+          upperColor
+        );
+
+        dummy.scale.set(
+          scale*.78,
           scale,
-          scale*.8
+          scale*.78
         );
 
         dummy.updateMatrix();
@@ -4479,22 +4538,36 @@ function createReferenceForest(){
   );
 
   crowns.count=index;
+  upperCrowns.count=index;
   trunks.count=index;
 
   crowns.instanceMatrix.needsUpdate=true;
+  upperCrowns.instanceMatrix.needsUpdate=true;
   trunks.instanceMatrix.needsUpdate=true;
 
   if(crowns.instanceColor){
     crowns.instanceColor.needsUpdate=true;
   }
 
+  if(upperCrowns.instanceColor){
+    upperCrowns.instanceColor.needsUpdate=true;
+  }
+
   ozetiScenery.add(
     trunks,
-    crowns
+    crowns,
+    upperCrowns
   );
 }
 
 function createReferenceSettlements(){
+  const rand=
+    seededRandom(
+      0x5703
+    );
+
+  const buildingPlans=[];
+
   REFERENCE_SETTLEMENTS.forEach(
     item=>{
       const local=
@@ -4507,20 +4580,8 @@ function createReferenceSettlements(){
 
       const count=
         Math.round(
-          7+
-          scale*7
-        );
-
-      const rand=
-        seededRandom(
-          Math.abs(
-            Math.round(
-              item[0]*
-              7+
-              item[1]*
-              11
-            )
-          )
+          20+
+          scale*18
         );
 
       for(let i=0;i<count;i++){
@@ -4532,55 +4593,480 @@ function createReferenceSettlements(){
         const radius=
           Math.sqrt(rand())*
           (
-            62+
-            scale*70
+            82+
+            scale*92
           );
 
-        const x=
-          local[0]+
-          Math.cos(angle)*
-          radius;
-
-        const z=
-          local[1]+
-          Math.sin(angle)*
-          radius;
-
-        const w=
-          18+
-          rand()*22;
-
-        const d=
-          14+
-          rand()*18;
-
-        const h=
-          9+
-          rand()*17;
-
-        createTownBuilding(
-          x,
-          z,
-          {
-            w,
-            d,
-            h,
-            color:[
-              0x9d9b90,
-              0xaba69a,
-              0x8e9189,
-              0xb2aa9d
-            ][
-              Math.floor(
-                rand()*4
-              )
-            ],
-            angle:
-              rand()*
-              Math.PI
-          }
-        );
+        buildingPlans.push({
+          x:
+            local[0]+
+            Math.cos(angle)*
+            radius,
+          z:
+            local[1]+
+            Math.sin(angle)*
+            radius,
+          w:
+            11+
+            rand()*25,
+          d:
+            10+
+            rand()*20,
+          h:
+            7+
+            rand()*23,
+          angle:
+            rand()*
+            Math.PI,
+          color:[
+            0x918f87,
+            0xa19d91,
+            0xaaa497,
+            0x858a83,
+            0xb0a99b
+          ][
+            Math.floor(
+              rand()*5
+            )
+          ]
+        });
       }
+    }
+  );
+
+  const bodyGeo=
+    new THREE.BoxGeometry(
+      1,
+      1,
+      1
+    );
+
+  bodyGeo.translate(
+    0,
+    .5,
+    0
+  );
+
+  const roofGeo=
+    new THREE.BoxGeometry(
+      1,
+      1,
+      1
+    );
+
+  roofGeo.translate(
+    0,
+    .5,
+    0
+  );
+
+  const bodies=
+    new THREE.InstancedMesh(
+      bodyGeo,
+      new THREE.MeshStandardMaterial({
+        color:0xffffff,
+        roughness:.94
+      }),
+      buildingPlans.length
+    );
+
+  const roofs=
+    new THREE.InstancedMesh(
+      roofGeo,
+      new THREE.MeshStandardMaterial({
+        color:0xffffff,
+        roughness:.92
+      }),
+      buildingPlans.length
+    );
+
+  bodies.castShadow=true;
+  bodies.receiveShadow=true;
+  roofs.castShadow=true;
+  roofs.receiveShadow=true;
+
+  const dummy=
+    new THREE.Object3D();
+
+  buildingPlans.forEach(
+    (plan,index)=>{
+      const y=
+        terrainHeight(
+          plan.x,
+          plan.z
+        );
+
+      dummy.position.set(
+        plan.x,
+        y,
+        plan.z
+      );
+
+      dummy.rotation.set(
+        0,
+        plan.angle,
+        0
+      );
+
+      dummy.scale.set(
+        plan.w,
+        plan.h,
+        plan.d
+      );
+
+      dummy.updateMatrix();
+
+      bodies.setMatrixAt(
+        index,
+        dummy.matrix
+      );
+
+      bodies.setColorAt(
+        index,
+        new THREE.Color(
+          plan.color
+        )
+      );
+
+      dummy.position.y=
+        y+
+        plan.h;
+
+      dummy.scale.set(
+        plan.w*1.04,
+        .85+
+        plan.h*.035,
+        plan.d*1.04
+      );
+
+      dummy.updateMatrix();
+
+      roofs.setMatrixAt(
+        index,
+        dummy.matrix
+      );
+
+      roofs.setColorAt(
+        index,
+        new THREE.Color(
+          [
+            0x5f5f59,
+            0x6b655d,
+            0x5a615f,
+            0x75695f
+          ][
+            index%4
+          ]
+        )
+      );
+    }
+  );
+
+  bodies.instanceMatrix.needsUpdate=true;
+  roofs.instanceMatrix.needsUpdate=true;
+
+  if(bodies.instanceColor){
+    bodies.instanceColor.needsUpdate=true;
+  }
+
+  if(roofs.instanceColor){
+    roofs.instanceColor.needsUpdate=true;
+  }
+
+  ozetiScenery.add(
+    bodies,
+    roofs
+  );
+}
+
+function segmentIntersection2D(a,b,c,d){
+  const x1=a[0];
+  const z1=a[1];
+  const x2=b[0];
+  const z2=b[1];
+  const x3=c[0];
+  const z3=c[1];
+  const x4=d[0];
+  const z4=d[1];
+
+  const denominator=
+    (x1-x2)*
+    (z3-z4)-
+    (z1-z2)*
+    (x3-x4);
+
+  if(
+    Math.abs(
+      denominator
+    )<1e-7
+  ){
+    return null;
+  }
+
+  const t=
+    (
+      (x1-x3)*
+      (z3-z4)-
+      (z1-z3)*
+      (x3-x4)
+    )/
+    denominator;
+
+  const u=
+    -
+    (
+      (x1-x2)*
+      (z1-z3)-
+      (z1-z2)*
+      (x1-x3)
+    )/
+    denominator;
+
+  if(
+    t<0 ||
+    t>1 ||
+    u<0 ||
+    u>1
+  ){
+    return null;
+  }
+
+  return [
+    x1+
+    (x2-x1)*
+    t,
+
+    z1+
+    (z2-z1)*
+    t
+  ];
+}
+
+function createReferenceBridges(){
+  const roadSets=[
+    {
+      routes:REFERENCE_MAJOR_ROADS,
+      width:29
+    },
+    {
+      routes:REFERENCE_MINOR_ROADS,
+      width:17
+    }
+  ];
+
+  const bridgeCenters=[];
+
+  roadSets.forEach(
+    roadSet=>{
+      roadSet.routes.forEach(
+        routeWorld=>{
+          const route=
+            routeWorld.map(
+              worldToLocalPoint
+            );
+
+          for(let r=0;r<route.length-1;r++){
+            const a=route[r];
+            const b=route[r+1];
+
+            for(let j=0;j<RIVER_PATH.length-1;j++){
+              const hit=
+                segmentIntersection2D(
+                  a,
+                  b,
+                  RIVER_PATH[j],
+                  RIVER_PATH[j+1]
+                );
+
+              if(!hit){
+                continue;
+              }
+
+              const duplicate=
+                bridgeCenters.some(
+                  existing=>
+                    Math.hypot(
+                      hit[0]-existing[0],
+                      hit[1]-existing[1]
+                    )<125
+                );
+
+              if(duplicate){
+                continue;
+              }
+
+              const dx=
+                b[0]-a[0];
+
+              const dz=
+                b[1]-a[1];
+
+              const length=
+                Math.hypot(
+                  dx,
+                  dz
+                ) || 1;
+
+              const tx=dx/length;
+              const tz=dz/length;
+
+              const halfLength=
+                roadSet.width>20
+                  ? 62
+                  : 48;
+
+              ozetiScenery.add(
+                createBridge(
+                  [
+                    hit[0]-
+                    tx*
+                    halfLength,
+                    hit[1]-
+                    tz*
+                    halfLength
+                  ],
+                  [
+                    hit[0]+
+                    tx*
+                    halfLength,
+                    hit[1]+
+                    tz*
+                    halfLength
+                  ],
+                  roadSet.width
+                )
+              );
+
+              bridgeCenters.push(
+                hit
+              );
+            }
+          }
+        }
+      );
+    }
+  );
+}
+
+function createReferenceTowers(){
+  REFERENCE_TOWERS.forEach(
+    world=>{
+      const local=
+        worldToLocalPoint(
+          world
+        );
+
+      const x=local[0];
+      const z=local[1];
+      const y=
+        terrainHeight(
+          x,
+          z
+        );
+
+      const group=
+        new THREE.Group();
+
+      const steelMat=
+        new THREE.MeshStandardMaterial({
+          color:0x5d6260,
+          roughness:.78,
+          metalness:.18
+        });
+
+      const platformMat=
+        new THREE.MeshStandardMaterial({
+          color:0x747873,
+          roughness:.85
+        });
+
+      const legOffsets=[
+        [-3,-3],
+        [3,-3],
+        [3,3],
+        [-3,3]
+      ];
+
+      legOffsets.forEach(
+        offset=>{
+          const leg=
+            new THREE.Mesh(
+              new THREE.CylinderGeometry(
+                .32,
+                .42,
+                34,
+                6
+              ),
+              steelMat
+            );
+
+          leg.position.set(
+            offset[0],
+            17,
+            offset[1]
+          );
+
+          leg.rotation.z=
+            offset[0]*
+            -.006;
+
+          leg.rotation.x=
+            offset[1]*
+            .006;
+
+          group.add(leg);
+        }
+      );
+
+      for(let level=6;level<=30;level+=6){
+        const platform=
+          new THREE.Mesh(
+            new THREE.BoxGeometry(
+              8.2,
+              .45,
+              8.2
+            ),
+            platformMat
+          );
+
+        platform.position.y=
+          level;
+
+        group.add(platform);
+      }
+
+      const antenna=
+        new THREE.Mesh(
+          new THREE.CylinderGeometry(
+            .18,
+            .28,
+            12,
+            6
+          ),
+          steelMat
+        );
+
+      antenna.position.y=40;
+      group.add(antenna);
+
+      group.position.set(
+        x,
+        y,
+        z
+      );
+
+      group.traverse(
+        obj=>{
+          if(obj.isMesh){
+            obj.castShadow=true;
+            obj.receiveShadow=true;
+          }
+        }
+      );
+
+      ozetiScenery.add(
+        group
+      );
     }
   );
 }
@@ -4596,8 +5082,10 @@ function addOzetiLandmarks(){
    * omitted because they made the scene diverge from the map reference.
    */
   createReferenceRoadNetwork();
+  createReferenceBridges();
   createReferenceForest();
   createReferenceSettlements();
+  createReferenceTowers();
 
   ozetiScenery.add(
     buildRiverSystem(
