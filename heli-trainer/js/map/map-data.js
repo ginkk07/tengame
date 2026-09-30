@@ -1,10 +1,32 @@
+export const WORLD_CONFIG={
+  // Public Ozeti tileBounds: X -0.03..163.81, Y -0.01..163.83.
+  // coordinateMetersPerUnit = 100, so the complete tile world is 16,384 m.
+  minX:-3,
+  maxX:16381,
+  minY:-1,
+  maxY:16383,
+  width:16384,
+  depth:16384,
+  centerX:8189,
+  centerY:8191,
+  metersPerWorldUnit:1
+};
+
 export const TERRAIN_CONFIG={
+  // The reconstructed GLB is the playable/searchable terrain crop,
+  // not the complete 16.384 km tile world.
   width:8550,
   depth:7780,
   nx:257,
   nz:233,
   verticalScale:1.18,
-  reliefMeters:388
+  reliefMeters:388,
+  sourceBounds:{
+    minX:5758,
+    maxX:14307,
+    minY:2181,
+    maxY:9956
+  }
 };
 
 export const MAP_ASSETS={
@@ -13,10 +35,19 @@ export const MAP_ASSETS={
 };
 
 export const OZETI_MAP_BOUNDS={
+  // Playable/searchable coordinate extent in metres.
   minX:5758,
   maxX:14307,
   minY:2181,
   maxY:9956
+};
+
+export const OZETI_TILE_BOUNDS={
+  // Complete tactical tile extent in metres.
+  minX:WORLD_CONFIG.minX,
+  maxX:WORLD_CONFIG.maxX,
+  minY:WORLD_CONFIG.minY,
+  maxY:WORLD_CONFIG.maxY
 };
 
 export const FACTIONS={

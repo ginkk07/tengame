@@ -1,4 +1,5 @@
 import {
+  WORLD_CONFIG,
   TERRAIN_CONFIG,
   MAP_ASSETS,
   FACTIONS,
@@ -28,6 +29,38 @@ export function createTerrainSystem({
   const halfX=width*.5;
   const halfZ=depth*.5;
 
+  const terrainSourceCenter={
+    x:
+      (
+        TERRAIN_CONFIG.sourceBounds.minX+
+        TERRAIN_CONFIG.sourceBounds.maxX
+      )*.5,
+    y:
+      (
+        TERRAIN_CONFIG.sourceBounds.minY+
+        TERRAIN_CONFIG.sourceBounds.maxY
+      )*.5
+  };
+
+  /*
+   * Full Ozeti world origin is the center of tileBounds.
+   * This is where the cropped GLB belongs inside that complete world.
+   */
+  const worldOffset={
+    x:
+      terrainSourceCenter.x-
+      WORLD_CONFIG.centerX,
+    z:
+      WORLD_CONFIG.centerY-
+      terrainSourceCenter.y
+  };
+
+  const worldHalfX=
+    WORLD_CONFIG.width*.5;
+
+  const worldHalfZ=
+    WORLD_CONFIG.depth*.5;
+
   const data={
     ready:false,
     heights:new Float32Array(nx*nz),
@@ -35,6 +68,26 @@ export function createTerrainSystem({
   };
 
   data.heights.fill(NaN);
+
+  const worldFloor=
+    new THREE.Mesh(
+      new THREE.PlaneGeometry(
+        WORLD_CONFIG.width,
+        WORLD_CONFIG.depth,
+        1,
+        1
+      ),
+      new THREE.MeshStandardMaterial({
+        color:0x4d6747,
+        roughness:1,
+        metalness:0
+      })
+    );
+
+  worldFloor.rotation.x=-Math.PI/2;
+  worldFloor.position.y=-.35;
+  worldFloor.receiveShadow=true;
+  scene.add(worldFloor);
 
   const fallbackTerrain=
     new THREE.Mesh(
@@ -52,7 +105,11 @@ export function createTerrainSystem({
     );
 
   fallbackTerrain.rotation.x=-Math.PI/2;
-  fallbackTerrain.position.y=-2;
+  fallbackTerrain.position.set(
+    worldOffset.x,
+    -2,
+    worldOffset.z
+  );
   fallbackTerrain.receiveShadow=true;
   scene.add(fallbackTerrain);
 
@@ -64,17 +121,21 @@ export function createTerrainSystem({
       0x676e69
     );
 
-  fallbackGrid.position.y=-1.8;
+  fallbackGrid.position.set(
+    worldOffset.x,
+    -1.8,
+    worldOffset.z
+  );
   scene.add(fallbackGrid);
 
   const boundaryY=520;
 
   const boundaryPts=[
-    new THREE.Vector3(-halfX,boundaryY,-halfZ),
-    new THREE.Vector3( halfX,boundaryY,-halfZ),
-    new THREE.Vector3( halfX,boundaryY, halfZ),
-    new THREE.Vector3(-halfX,boundaryY, halfZ),
-    new THREE.Vector3(-halfX,boundaryY,-halfZ)
+    new THREE.Vector3(-worldHalfX,boundaryY,-worldHalfZ),
+    new THREE.Vector3( worldHalfX,boundaryY,-worldHalfZ),
+    new THREE.Vector3( worldHalfX,boundaryY, worldHalfZ),
+    new THREE.Vector3(-worldHalfX,boundaryY, worldHalfZ),
+    new THREE.Vector3(-worldHalfX,boundaryY,-worldHalfZ)
   ];
 
   const boundary=
@@ -240,22 +301,33 @@ export function createTerrainSystem({
       return 0;
     }
 
+    const localX=
+      x-
+      worldOffset.x;
+
+    const localZ=
+      z-
+      worldOffset.z;
+
     if(
-      x<-halfX ||
-      x> halfX ||
-      z<-halfZ ||
-      z> halfZ
+      localX<-halfX ||
+      localX> halfX ||
+      localZ<-halfZ ||
+      localZ> halfZ
     ){
+      // The complete tile world exists outside the reconstructed GLB.
+      // Until a full elevation mesh is available, those outer regions use
+      // the correctly scaled flat world floor rather than stretching the crop.
       return 0;
     }
 
     const fx=
-      (x+halfX)/
+      (localX+halfX)/
       width*
       (nx-1);
 
     const fz=
-      (z+halfZ)/
+      (localZ+halfZ)/
       depth*
       (nz-1);
 
@@ -472,16 +544,29 @@ export function createTerrainSystem({
                 );
 
               return {
-                x:world.x,
-                z:world.z
+                x:
+                  world.x-
+                  worldOffset.x,
+                z:
+                  world.z-
+                  worldOffset.z
               };
             }
           );
 
-        const center=
+        const centerWorld=
           factionCenterWorld(
             faction.id
           );
+
+        const center={
+          x:
+            centerWorld.x-
+            worldOffset.x,
+          z:
+            centerWorld.z-
+            worldOffset.z
+        };
 
         let radius=0;
 
@@ -770,8 +855,10 @@ export function createTerrainSystem({
           if(
             tacticalColorSampler &&
             tacticalColorSampler.sample(
-              p.x,
-              p.z,
+              p.x+
+              worldOffset.x,
+              p.z+
+              worldOffset.z,
               mapTint
             )
           ){
@@ -1005,13 +1092,21 @@ export function createTerrainSystem({
 
           const gx=
             Math.round(
-              (p.x+halfX)/
+              (
+                p.x-
+                worldOffset.x+
+                halfX
+              )/
               stepX
             );
 
           const gz=
             Math.round(
-              (p.z+halfZ)/
+              (
+                p.z-
+                worldOffset.z+
+                halfZ
+              )/
               stepZ
             );
 
@@ -1160,6 +1255,12 @@ export function createTerrainSystem({
       root.name=
         'OzetiTerrain';
 
+      root.position.set(
+        worldOffset.x,
+        0,
+        worldOffset.z
+      );
+
       scene.add(root);
 
       data.root=root;
@@ -1188,7 +1289,7 @@ export function createTerrainSystem({
 
       if(statusEl){
         statusEl.textContent=
-          'Ozeti v53 · 道路高對比＋地形明暗強化';
+          'Ozeti v54 · 16.384km 統一比例座標';
       }
 
       return true;
@@ -1215,12 +1316,20 @@ export function createTerrainSystem({
     load,
     height,
     bounds:{
+      halfX:worldHalfX,
+      halfZ:worldHalfZ,
+      width:WORLD_CONFIG.width,
+      depth:WORLD_CONFIG.depth
+    },
+    terrainCrop:{
       halfX,
       halfZ,
       width,
-      depth
+      depth,
+      worldOffset
     },
     boundary,
+    worldFloor,
     fallbackTerrain,
     fallbackGrid
   };

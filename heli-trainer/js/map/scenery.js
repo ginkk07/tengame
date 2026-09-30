@@ -1,4 +1,5 @@
 import {
+  WORLD_CONFIG,
   TERRAIN_CONFIG,
   RIVER_PATH,
   RIVER_WIDTHS,
@@ -30,7 +31,7 @@ import {
 export function buildOzetiScenery({
   THREE,
   scene,
-  terrainHeight
+  terrainHeight:terrainHeightWorld
 }){
   const MAP_HALF_X=
     TERRAIN_CONFIG.width*.5;
@@ -38,8 +39,48 @@ export function buildOzetiScenery({
   const MAP_HALF_Z=
     TERRAIN_CONFIG.depth*.5;
 
+  const sourceCenterX=
+    (
+      TERRAIN_CONFIG.sourceBounds.minX+
+      TERRAIN_CONFIG.sourceBounds.maxX
+    )*.5;
+
+  const sourceCenterY=
+    (
+      TERRAIN_CONFIG.sourceBounds.minY+
+      TERRAIN_CONFIG.sourceBounds.maxY
+    )*.5;
+
+  const worldOffset={
+    x:
+      sourceCenterX-
+      WORLD_CONFIG.centerX,
+    z:
+      WORLD_CONFIG.centerY-
+      sourceCenterY
+  };
+
+  /*
+   * Scenery data remains crop-local so it stays easy to edit.
+   * The group offset places it in the correct location inside the full map.
+   */
+  function terrainHeight(x,z){
+    return terrainHeightWorld(
+      x+
+      worldOffset.x,
+      z+
+      worldOffset.z
+    );
+  }
+
   const ozetiScenery=
     new THREE.Group();
+
+  ozetiScenery.position.set(
+    worldOffset.x,
+    0,
+    worldOffset.z
+  );
 
   scene.add(ozetiScenery);
 
@@ -2090,8 +2131,16 @@ function createGroundCover(){
             );
 
           return Math.hypot(
-            x-center.x,
-            z-center.z
+            x-
+            (
+              center.x-
+              worldOffset.x
+            ),
+            z-
+            (
+              center.z-
+              worldOffset.z
+            )
           )<330;
         }
       );
@@ -2412,8 +2461,16 @@ function createTerrainSurfaceDetails(){
             );
 
           return Math.hypot(
-            x-center.x,
-            z-center.z
+            x-
+            (
+              center.x-
+              worldOffset.x
+            ),
+            z-
+            (
+              center.z-
+              worldOffset.z
+            )
           )<360;
         }
       );

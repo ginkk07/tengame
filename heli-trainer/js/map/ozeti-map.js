@@ -1,5 +1,5 @@
 import {
-  TERRAIN_CONFIG
+  WORLD_CONFIG
 } from './map-data.js';
 
 import {
@@ -82,10 +82,10 @@ export function createOzetiMap({
     updateMapMarker:tactical.updateMarker,
     isMapOpen:tactical.isOpen,
     bounds:{
-      halfX:TERRAIN_CONFIG.width*.5,
-      halfZ:TERRAIN_CONFIG.depth*.5,
-      width:TERRAIN_CONFIG.width,
-      depth:TERRAIN_CONFIG.depth
+      halfX:WORLD_CONFIG.width*.5,
+      halfZ:WORLD_CONFIG.depth*.5,
+      width:WORLD_CONFIG.width,
+      depth:WORLD_CONFIG.depth
     },
     get scenery(){
       return scenery;

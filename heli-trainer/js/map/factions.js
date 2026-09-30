@@ -1,11 +1,11 @@
 import {
   FACTIONS,
-  OZETI_MAP_BOUNDS
+  WORLD_CONFIG
 } from './map-data.js';
 
 const MAP_CENTER={
-  x:(OZETI_MAP_BOUNDS.minX+OZETI_MAP_BOUNDS.maxX)*.5,
-  y:(OZETI_MAP_BOUNDS.minY+OZETI_MAP_BOUNDS.maxY)*.5
+  x:WORLD_CONFIG.centerX,
+  y:WORLD_CONFIG.centerY
 };
 
 export function mapPointToWorld(mapX,mapY){
