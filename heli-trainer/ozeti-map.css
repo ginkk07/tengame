@@ -1,0 +1,98 @@
+#mapOverlay{
+  position:absolute;
+  inset:0;
+  z-index:50;
+  display:grid;
+  place-items:center;
+  padding:22px;
+  background:rgba(6,10,13,.88);
+  backdrop-filter:blur(3px);
+  pointer-events:auto;
+}
+#mapOverlay[hidden]{display:none}
+.map-shell{
+  width:min(94%,920px);
+  max-height:94%;
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  border:1px solid #5b6971;
+  border-radius:10px;
+  background:#11181c;
+  overflow:hidden;
+  box-shadow:0 12px 40px rgba(0,0,0,.45);
+}
+.map-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 12px;
+  border-bottom:1px solid #465159;
+  background:#171f24;
+}
+.map-title{
+  min-width:0;
+  font-size:13px;
+  letter-spacing:.08em;
+  font-weight:700;
+}
+.map-sub{
+  color:#9eabb2;
+  font-size:11px;
+  font-weight:400;
+  letter-spacing:0;
+  margin-left:8px;
+}
+#mapClose{
+  flex:0 0 auto;
+  min-height:30px;
+  padding:3px 10px;
+}
+.map-stage{
+  position:relative;
+  min-height:0;
+  background:#1a2226;
+}
+#tacticalMapSvg{
+  display:block;
+  width:100%;
+  height:auto;
+  max-height:74vh;
+  background:#20272b;
+  touch-action:manipulation;
+}
+.faction-zone{
+  cursor:pointer;
+  transition:fill-opacity .12s ease,stroke-width .12s ease;
+  vector-effect:non-scaling-stroke;
+}
+.faction-zone:hover,
+.faction-zone:focus{
+  fill-opacity:.18;
+  stroke-width:4;
+  outline:none;
+}
+#playerMapMarker{pointer-events:none}
+.map-actions{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+  padding:10px 12px 12px;
+  border-top:1px solid #465159;
+}
+.faction-jump{
+  min-width:0;
+  font-size:12px;
+  font-weight:700;
+}
+.faction-jump[data-faction="lonestar"]{border-color:#5fa8d3}
+.faction-jump[data-faction="valkyra"]{border-color:#d86666}
+.faction-jump[data-faction="manticore"]{border-color:#82c596}
+@media(max-width:820px){
+  #mapOverlay{padding:8px}
+  .map-shell{width:100%;max-height:none}
+  .map-head{padding:8px 10px}
+  #tacticalMapSvg{max-height:none}
+  .map-actions{grid-template-columns:1fr;gap:6px}
+}
