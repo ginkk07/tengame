@@ -85,6 +85,115 @@
   }
 
   #loading{position:absolute;inset:0;display:grid;place-items:center;color:white}
+  #mapOverlay{
+    position:absolute;
+    inset:0;
+    z-index:50;
+    display:grid;
+    place-items:center;
+    padding:22px;
+    background:rgba(6,10,13,.88);
+    backdrop-filter:blur(3px);
+    pointer-events:auto;
+  }
+  #mapOverlay[hidden]{display:none}
+  .map-shell{
+    width:min(94%,920px);
+    max-height:94%;
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+    border:1px solid #5b6971;
+    border-radius:10px;
+    background:#11181c;
+    overflow:hidden;
+    box-shadow:0 12px 40px rgba(0,0,0,.45);
+  }
+  .map-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:10px 12px;
+    border-bottom:1px solid #465159;
+    background:#171f24;
+  }
+  .map-title{
+    min-width:0;
+    font-size:13px;
+    letter-spacing:.08em;
+    font-weight:700;
+  }
+  .map-sub{
+    color:#9eabb2;
+    font-size:11px;
+    font-weight:400;
+    letter-spacing:0;
+    margin-left:8px;
+  }
+  #mapClose{
+    flex:0 0 auto;
+    min-height:30px;
+    padding:3px 10px;
+  }
+  .map-stage{
+    position:relative;
+    min-height:0;
+    background:#1a2226;
+  }
+  #tacticalMapSvg{
+    display:block;
+    width:100%;
+    height:auto;
+    max-height:74vh;
+    background:#20272b;
+    touch-action:manipulation;
+  }
+  .faction-zone{
+    cursor:pointer;
+    transition:fill-opacity .12s ease,stroke-width .12s ease;
+    vector-effect:non-scaling-stroke;
+  }
+  .faction-zone:hover,
+  .faction-zone:focus{
+    fill-opacity:.30;
+    stroke-width:5;
+    outline:none;
+  }
+  .faction-label{
+    pointer-events:none;
+    font-family:Arial,"Noto Sans TC",sans-serif;
+    font-weight:700;
+    paint-order:stroke;
+    stroke:rgba(0,0,0,.75);
+    stroke-width:26px;
+    stroke-linejoin:round;
+  }
+  #playerMapMarker{
+    pointer-events:none;
+  }
+  .map-actions{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    padding:10px 12px 12px;
+    border-top:1px solid #465159;
+  }
+  .faction-jump{
+    min-width:0;
+    font-size:12px;
+    font-weight:700;
+  }
+  .faction-jump[data-faction="lonestar"]{border-color:#5fa8d3}
+  .faction-jump[data-faction="valkyra"]{border-color:#d86666}
+  .faction-jump[data-faction="manticore"]{border-color:#82c596}
+  @media(max-width:820px){
+    #mapOverlay{padding:8px}
+    .map-shell{width:100%;max-height:none}
+    .map-head{padding:8px 10px}
+    #tacticalMapSvg{max-height:none}
+    .map-actions{grid-template-columns:1fr;gap:6px}
+  }
   .section{margin-bottom:16px}
   @media(max-width:820px){
     #app{grid-template-columns:1fr;grid-template-rows:minmax(420px,65vh) auto;height:auto}
@@ -109,6 +218,108 @@
       </div>
 
       <div id="speedReadout">0 km/h</div>
+    </div>
+
+    <div id="mapOverlay" hidden aria-hidden="true">
+      <div class="map-shell" role="dialog" aria-modal="true" aria-label="Ozeti 戰術地圖">
+        <div class="map-head">
+          <div class="map-title">
+            OZETI 戰術地圖
+            <span class="map-sub">點擊陣營區塊移動至中心 · M 開啟 / 關閉</span>
+          </div>
+          <button id="mapClose" type="button">關閉 M</button>
+        </div>
+
+        <div class="map-stage">
+          <svg id="tacticalMapSvg"
+               viewBox="5758 2181 8549 7775"
+               preserveAspectRatio="xMidYMid meet"
+               role="img"
+               aria-label="Ozeti 三陣營出生區地圖">
+            <g transform="translate(0 12137) scale(1 -1)" opacity=".88">
+              <image href="./assets/maps/ozeti-terrain-preview-v1.png"
+                     x="5758" y="2181"
+                     width="8549" height="7775"
+                     preserveAspectRatio="none"></image>
+            </g>
+
+            <rect x="5758" y="2181" width="8549" height="7775"
+                  fill="rgba(12,18,22,.10)"
+                  stroke="rgba(220,230,235,.28)"
+                  stroke-width="18"
+                  vector-effect="non-scaling-stroke"></rect>
+
+            <g id="factionMapZones">
+              <polygon class="faction-zone"
+                       tabindex="0"
+                       data-faction="lonestar"
+                       points="8152,3403 8633,3403 8633,2921 8153,2922"
+                       fill="#5fa8d3"
+                       fill-opacity=".20"
+                       stroke="#5fa8d3"
+                       stroke-width="3"
+                       stroke-dasharray="24 16"></polygon>
+              <text class="faction-label"
+                    x="8393" y="3162"
+                    text-anchor="middle"
+                    dominant-baseline="middle"
+                    font-size="150"
+                    fill="#9bd6f3">LONESTAR</text>
+
+              <polygon class="faction-zone"
+                       tabindex="0"
+                       data-faction="valkyra"
+                       points="13398,6851 13858,6992 13999,6532 13539,6391"
+                       fill="#d86666"
+                       fill-opacity=".20"
+                       stroke="#d86666"
+                       stroke-width="3"
+                       stroke-dasharray="24 16"></polygon>
+              <text class="faction-label"
+                    x="13699" y="6692"
+                    text-anchor="middle"
+                    dominant-baseline="middle"
+                    font-size="150"
+                    fill="#f2a2a2">VALKYRA</text>
+
+              <polygon class="faction-zone"
+                       tabindex="0"
+                       data-faction="manticore"
+                       points="6922,9085 7309,8798 7022,8412 6636,8699"
+                       fill="#82c596"
+                       fill-opacity=".20"
+                       stroke="#82c596"
+                       stroke-width="3"
+                       stroke-dasharray="24 16"></polygon>
+              <text class="faction-label"
+                    x="6972" y="8749"
+                    text-anchor="middle"
+                    dominant-baseline="middle"
+                    font-size="150"
+                    fill="#b7e6c5">MANTICORE</text>
+            </g>
+
+            <g id="playerMapMarker" transform="translate(8393 3162)">
+              <circle cx="0" cy="0" r="90"
+                      fill="rgba(10,15,18,.85)"
+                      stroke="#ffffff"
+                      stroke-width="3"
+                      vector-effect="non-scaling-stroke"></circle>
+              <path d="M 0 -130 L 72 82 L 0 48 L -72 82 Z"
+                    fill="#ffffff"
+                    stroke="#141a1e"
+                    stroke-width="2"
+                    vector-effect="non-scaling-stroke"></path>
+            </g>
+          </svg>
+        </div>
+
+        <div class="map-actions">
+          <button class="faction-jump" type="button" data-faction="lonestar">藍色 · LONESTAR</button>
+          <button class="faction-jump" type="button" data-faction="valkyra">紅色 · VALKYRA</button>
+          <button class="faction-jump" type="button" data-faction="manticore">綠色 · MANTICORE</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -181,6 +392,7 @@
       <div class="bindrow"><span>上升</span><button class="bind" data-action="collectiveUp">L SHIFT</button></div>
       <div class="bindrow"><span>下降</span><button class="bind" data-action="collectiveDown">L CTRL</button></div>
       <div class="bindrow"><span>切換視角</span><button id="cameraToggleKey" type="button">C</button></div>
+      <div class="bindrow"><span>戰術地圖</span><button id="mapToggleKey" type="button">M</button></div>
     </div>
 
     <div class="section">
@@ -206,7 +418,7 @@
       <button id="reset">重置</button>
       <button id="pause">暫停</button>
     </div>
-    <div class="version-label">VERSION v41</div>
+    <div class="version-label">VERSION v42</div>
   </aside>
 </div>
 
@@ -287,6 +499,332 @@ const TERRAIN_NZ=233;
 
 const MAP_HALF_X=TERRAIN_WIDTH*.5;
 const MAP_HALF_Z=TERRAIN_DEPTH*.5;
+
+/*
+ * Ozeti faction spawn polygons from the public wardogs-calculator Ozeti map.
+ * Map coordinates are meter-scaled (e.g. 8393 => 83.93 game coordinate).
+ */
+const OZETI_MAP_BOUNDS={
+  minX:5758,
+  maxX:14307,
+  minY:2181,
+  maxY:9956
+};
+
+const OZETI_MAP_CENTER={
+  x:(OZETI_MAP_BOUNDS.minX+OZETI_MAP_BOUNDS.maxX)*.5,
+  y:(OZETI_MAP_BOUNDS.minY+OZETI_MAP_BOUNDS.maxY)*.5
+};
+
+const FACTIONS={
+  lonestar:{
+    id:'lonestar',
+    name:'LONESTAR',
+    color:0x5fa8d3,
+    css:'#5fa8d3',
+    points:[
+      [8152,3403],
+      [8633,3403],
+      [8633,2921],
+      [8153,2922]
+    ]
+  },
+  valkyra:{
+    id:'valkyra',
+    name:'VALKYRA',
+    color:0xd86666,
+    css:'#d86666',
+    points:[
+      [13398,6851],
+      [13858,6992],
+      [13999,6532],
+      [13539,6391]
+    ]
+  },
+  manticore:{
+    id:'manticore',
+    name:'MANTICORE',
+    color:0x82c596,
+    css:'#82c596',
+    points:[
+      [6922,9085],
+      [7309,8798],
+      [7022,8412],
+      [6636,8699]
+    ]
+  }
+};
+
+function mapPointToWorld(mapX,mapY){
+  return {
+    x:mapX-OZETI_MAP_CENTER.x,
+    z:OZETI_MAP_CENTER.y-mapY
+  };
+}
+
+function worldPointToMap(x,z){
+  return {
+    x:OZETI_MAP_CENTER.x+x,
+    y:OZETI_MAP_CENTER.y-z
+  };
+}
+
+function factionCenterWorld(id){
+  const faction=FACTIONS[id];
+
+  let sx=0;
+  let sy=0;
+
+  faction.points.forEach(
+    point=>{
+      sx+=point[0];
+      sy+=point[1];
+    }
+  );
+
+  const centerMapX=
+    sx/faction.points.length;
+
+  const centerMapY=
+    sy/faction.points.length;
+
+  return mapPointToWorld(
+    centerMapX,
+    centerMapY
+  );
+}
+
+const factionWorldGroup=
+  new THREE.Group();
+
+scene.add(factionWorldGroup);
+
+function makeFactionLabelSprite(faction){
+  const canvas=
+    document.createElement('canvas');
+
+  canvas.width=512;
+  canvas.height=128;
+
+  const ctx=
+    canvas.getContext('2d');
+
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  ctx.fillStyle=
+    'rgba(8,12,15,.78)';
+
+  ctx.fillRect(
+    18,
+    24,
+    476,
+    82
+  );
+
+  ctx.strokeStyle=
+    faction.css;
+
+  ctx.lineWidth=6;
+
+  ctx.strokeRect(
+    18,
+    24,
+    476,
+    82
+  );
+
+  ctx.font=
+    '700 42px Arial';
+
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillStyle='#ffffff';
+
+  ctx.fillText(
+    faction.name,
+    256,
+    66
+  );
+
+  const texture=
+    new THREE.CanvasTexture(
+      canvas
+    );
+
+  texture.colorSpace=
+    THREE.SRGBColorSpace;
+
+  const sprite=
+    new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map:texture,
+        transparent:true,
+        depthWrite:false
+      })
+    );
+
+  sprite.scale.set(
+    155,
+    39,
+    1
+  );
+
+  return sprite;
+}
+
+function clearFactionWorldZones(){
+  while(factionWorldGroup.children.length){
+    const child=
+      factionWorldGroup.children[
+        factionWorldGroup.children.length-1
+      ];
+
+    factionWorldGroup.remove(child);
+
+    child.traverse?.(
+      obj=>{
+        if(obj.geometry){
+          obj.geometry.dispose?.();
+        }
+
+        if(obj.material){
+          if(Array.isArray(obj.material)){
+            obj.material.forEach(
+              material=>{
+                material.map?.dispose?.();
+                material.dispose?.();
+              }
+            );
+          }else{
+            obj.material.map?.dispose?.();
+            obj.material.dispose?.();
+          }
+        }
+      }
+    );
+  }
+}
+
+function addFactionWorldZones(){
+  clearFactionWorldZones();
+
+  Object.values(FACTIONS).forEach(
+    faction=>{
+      const verts=[];
+
+      faction.points.forEach(
+        point=>{
+          const world=
+            mapPointToWorld(
+              point[0],
+              point[1]
+            );
+
+          verts.push(
+            world.x,
+            terrainHeight(
+              world.x,
+              world.z
+            )+2.6,
+            world.z
+          );
+        }
+      );
+
+      const geometry=
+        new THREE.BufferGeometry();
+
+      geometry.setAttribute(
+        'position',
+        new THREE.Float32BufferAttribute(
+          verts,
+          3
+        )
+      );
+
+      geometry.setIndex([
+        0,1,2,
+        0,2,3
+      ]);
+
+      geometry.computeVertexNormals();
+
+      const fill=
+        new THREE.Mesh(
+          geometry,
+          new THREE.MeshBasicMaterial({
+            color:faction.color,
+            transparent:true,
+            opacity:.18,
+            side:THREE.DoubleSide,
+            depthWrite:false
+          })
+        );
+
+      factionWorldGroup.add(fill);
+
+      const outlinePoints=
+        faction.points.map(
+          point=>{
+            const world=
+              mapPointToWorld(
+                point[0],
+                point[1]
+              );
+
+            return new THREE.Vector3(
+              world.x,
+              terrainHeight(
+                world.x,
+                world.z
+              )+3.4,
+              world.z
+            );
+          }
+        );
+
+      const outline=
+        new THREE.LineLoop(
+          new THREE.BufferGeometry().setFromPoints(
+            outlinePoints
+          ),
+          new THREE.LineBasicMaterial({
+            color:faction.color,
+            transparent:true,
+            opacity:.95
+          })
+        );
+
+      factionWorldGroup.add(outline);
+
+      const center=
+        factionCenterWorld(
+          faction.id
+        );
+
+      const label=
+        makeFactionLabelSprite(
+          faction
+        );
+
+      label.position.set(
+        center.x,
+        terrainHeight(
+          center.x,
+          center.z
+        )+56,
+        center.z
+      );
+
+      factionWorldGroup.add(label);
+    }
+  );
+}
 
 const TERRAIN_MODEL_URL=
   './assets/maps/ozeti-terrain-reconstruction-v1.glb';
@@ -687,10 +1225,11 @@ async function loadOzetiTerrain(){
     fallbackGrid.visible=false;
 
     addOzetiLandmarks();
+    addFactionWorldZones();
 
     if(terrainStatusVal){
       terrainStatusVal.textContent=
-        'Ozeti v41 · 城鎮配置＋植被農地';
+        'Ozeti v42 · 三陣營＋戰術地圖';
     }
 
     /*
@@ -3063,6 +3602,175 @@ const state={
   pitchWasActive:false
 };
 
+let mapOpen=false;
+
+const mapOverlay=
+  document.getElementById('mapOverlay');
+
+const playerMapMarker=
+  document.getElementById('playerMapMarker');
+
+function setMapOpen(open){
+  mapOpen=Boolean(open);
+
+  mapOverlay.hidden=
+    !mapOpen;
+
+  mapOverlay.setAttribute(
+    'aria-hidden',
+    String(!mapOpen)
+  );
+
+  pressed?.clear?.();
+
+  if(mapOpen){
+    document.getElementById(
+      'mapClose'
+    ).focus();
+  }else{
+    root.focus();
+  }
+}
+
+function toggleMap(){
+  setMapOpen(
+    !mapOpen
+  );
+}
+
+function moveToFaction(id){
+  const faction=
+    FACTIONS[id];
+
+  if(!faction){
+    return;
+  }
+
+  const center=
+    factionCenterWorld(id);
+
+  const y=
+    terrainHeight(
+      center.x,
+      center.z
+    )+42;
+
+  state.pos.set(
+    center.x,
+    y,
+    center.z
+  );
+
+  state.vel.set(
+    0,
+    0,
+    0
+  );
+
+  state.pitch=0;
+  state.roll=0;
+  state.verticalInput=0;
+
+  state.pitchCommand=0;
+  state.rollCommand=0;
+  state.yawCommand=0;
+
+  state.pitchRate=0;
+  state.rollRate=0;
+  state.yawRateBody=0;
+
+  state.rotorPitch=0;
+  state.rotorRoll=0;
+
+  state.collective=.65;
+  state.effectiveCollective=.65;
+  state.holdAltitude=y;
+
+  state.pitchTrim=0;
+  state.pitchWasActive=false;
+  state.verticalWasActive=false;
+
+  heli.position.copy(
+    state.pos
+  );
+
+  orient();
+
+  setMapOpen(false);
+}
+
+function updateMapMarker(){
+  if(!playerMapMarker){
+    return;
+  }
+
+  const map=
+    worldPointToMap(
+      state.pos.x,
+      state.pos.z
+    );
+
+  const degrees=
+    state.yaw*
+    180/
+    Math.PI;
+
+  playerMapMarker.setAttribute(
+    'transform',
+    `translate(${map.x.toFixed(1)} ${map.y.toFixed(1)}) rotate(${degrees.toFixed(2)})`
+  );
+}
+
+document.querySelectorAll(
+  '[data-faction]'
+).forEach(
+  element=>{
+    const activate=()=>{
+      moveToFaction(
+        element.dataset.faction
+      );
+    };
+
+    element.addEventListener(
+      'click',
+      activate
+    );
+
+    if(
+      element.classList.contains(
+        'faction-zone'
+      )
+    ){
+      element.addEventListener(
+        'keydown',
+        event=>{
+          if(
+            event.code==='Enter' ||
+            event.code==='Space'
+          ){
+            event.preventDefault();
+            activate();
+          }
+        }
+      );
+    }
+  }
+);
+
+document.getElementById(
+  'mapClose'
+).addEventListener(
+  'click',
+  ()=>setMapOpen(false)
+);
+
+document.getElementById(
+  'mapToggleKey'
+).addEventListener(
+  'click',
+  toggleMap
+);
+
 const STORAGE_KEY='wardogsHelicopterTrainerSettingsV2';
 
 const DEFAULT_BINDINGS={
@@ -3113,6 +3821,17 @@ root.addEventListener('keydown',e=>{
     e.preventDefault();
     state.firstPerson=!state.firstPerson;
     document.getElementById('cameraModeVal').textContent=state.firstPerson?'機頭第一人稱':'第三人稱';
+    return;
+  }
+  if(!rebinding && e.code==='KeyM' && !e.repeat){
+    e.preventDefault();
+    toggleMap();
+    return;
+  }
+
+  if(!rebinding && e.code==='Escape' && mapOpen && !e.repeat){
+    e.preventDefault();
+    setMapOpen(false);
     return;
   }
   if(rebinding){
@@ -3901,7 +4620,7 @@ function updateRotorThrustDirection(){
 }
 
 function update(dt){
-  if(state.paused)return;
+  if(state.paused||mapOpen)return;
 
   const pitchRaw=(held('pitchBack')?1:0)-(held('pitchForward')?1:0);
   const rollRaw=(held('rollRight')?1:0)-(held('rollLeft')?1:0);
@@ -4213,9 +4932,22 @@ function updateHUD(){
 }
 
 function reset(){
-  const startX=0;
-  const startZ=320;
-  const startY=terrainHeight(startX,startZ)+42;
+  const lonestar=
+    factionCenterWorld(
+      'lonestar'
+    );
+
+  const startX=
+    lonestar.x;
+
+  const startZ=
+    lonestar.z;
+
+  const startY=
+    terrainHeight(
+      startX,
+      startZ
+    )+42;
 
   state.pos.set(
     startX,
@@ -4243,6 +4975,7 @@ function reset(){
   state.pitchTrim=0;
   state.pitchWasActive=false;
   state.firstPerson=false;
+  setMapOpen(false);
   document.getElementById('cameraModeVal').textContent='第三人稱';
   updateHelicopterVisibility();
   orient();
@@ -4275,6 +5008,7 @@ function frame(now){
   update(dt);
   updateCamera(dt);
   updateHUD();
+  updateMapMarker();
   renderer.render(scene,camera);
   requestAnimationFrame(frame);
 }
