@@ -89,6 +89,14 @@ export function buildOzetiScenery({
 
   scene.add(ozetiScenery);
 
+  const sceneryStats={
+    trees:0,
+    buildings:0,
+    baseBuildings:0,
+    bridges:0,
+    towers:0
+  };
+
 function clearOzetiScenery(){
   while(ozetiScenery.children.length){
     const child=ozetiScenery.children[ozetiScenery.children.length-1];
@@ -4359,7 +4367,7 @@ function createReferenceForest(){
     0
   );
 
-  const treesPerPoint=10;
+  const treesPerPoint=7;
 
   const countMax=
     points.length*
@@ -4545,6 +4553,12 @@ function createReferenceForest(){
   crowns.count=index;
   upperCrowns.count=index;
   trunks.count=index;
+
+  sceneryStats.trees=index;
+
+  crowns.computeBoundingSphere();
+  upperCrowns.computeBoundingSphere();
+  trunks.computeBoundingSphere();
 
   crowns.instanceMatrix.needsUpdate=true;
   upperCrowns.instanceMatrix.needsUpdate=true;
@@ -4767,6 +4781,12 @@ function createReferenceSettlements(){
     }
   );
 
+  sceneryStats.buildings=
+    buildingPlans.length;
+
+  bodies.computeBoundingSphere();
+  roofs.computeBoundingSphere();
+
   bodies.instanceMatrix.needsUpdate=true;
   roofs.instanceMatrix.needsUpdate=true;
 
@@ -4945,6 +4965,8 @@ function createReferenceBridges(){
               bridgeCenters.push(
                 hit
               );
+
+              sceneryStats.bridges++;
             }
           }
         }
@@ -5072,6 +5094,290 @@ function createReferenceTowers(){
       ozetiScenery.add(
         group
       );
+
+      sceneryStats.towers++;
+    }
+  );
+}
+
+function createFactionBaseCompounds(){
+  Object.values(
+    FACTIONS
+  ).forEach(
+    (faction,factionIndex)=>{
+      const centerWorld=
+        factionCenterWorld(
+          faction.id
+        );
+
+      const center=
+        worldToLocalPoint([
+          centerWorld.x,
+          centerWorld.z
+        ]);
+
+      const baseX=center[0];
+      const baseZ=center[1];
+
+      const baseY=
+        terrainHeight(
+          baseX,
+          baseZ
+        );
+
+      const group=
+        new THREE.Group();
+
+      /*
+       * Large neutral concrete platform. This makes it immediately obvious
+       * at the Lonestar spawn that the 3D scenery layer is present.
+       */
+      const pad=
+        new THREE.Mesh(
+          new THREE.BoxGeometry(
+            150,
+            2.2,
+            118
+          ),
+          new THREE.MeshStandardMaterial({
+            color:0x6f746f,
+            roughness:.95,
+            metalness:0
+          })
+        );
+
+      pad.position.y=1.1;
+      pad.receiveShadow=true;
+      group.add(pad);
+
+      const bodyMaterial=
+        new THREE.MeshStandardMaterial({
+          color:[
+            0x8c938d,
+            0x8f8b82,
+            0x858d91
+          ][factionIndex%3],
+          roughness:.9
+        });
+
+      const roofMaterial=
+        new THREE.MeshStandardMaterial({
+          color:0x555b5b,
+          roughness:.85
+        });
+
+      const plans=[
+        [-42,-25,38,18,12],
+        [ 38,-22,44,22,14],
+        [-34, 27,28,18,10],
+        [ 27, 29,34,20,11],
+        [  0,  0,24,20,16]
+      ];
+
+      plans.forEach(
+        plan=>{
+          const [
+            x,
+            z,
+            width,
+            depth,
+            height
+          ]=plan;
+
+          const body=
+            new THREE.Mesh(
+              new THREE.BoxGeometry(
+                width,
+                height,
+                depth
+              ),
+              bodyMaterial
+            );
+
+          body.position.set(
+            x,
+            2.2+
+            height*.5,
+            z
+          );
+
+          body.castShadow=true;
+          body.receiveShadow=true;
+
+          const roof=
+            new THREE.Mesh(
+              new THREE.BoxGeometry(
+                width*1.04,
+                1.2,
+                depth*1.04
+              ),
+              roofMaterial
+            );
+
+          roof.position.set(
+            x,
+            2.2+
+            height+
+            .6,
+            z
+          );
+
+          roof.castShadow=true;
+          roof.receiveShadow=true;
+
+          group.add(
+            body,
+            roof
+          );
+
+          sceneryStats.baseBuildings++;
+        }
+      );
+
+      /*
+       * Two small watch towers on each base.
+       */
+      [
+        [-61,-43],
+        [ 61, 43]
+      ].forEach(
+        position=>{
+          const tower=
+            new THREE.Group();
+
+          const legMaterial=
+            new THREE.MeshStandardMaterial({
+              color:0x555d5b,
+              roughness:.82,
+              metalness:.12
+            });
+
+          [
+            [-2,-2],
+            [ 2,-2],
+            [ 2, 2],
+            [-2, 2]
+          ].forEach(
+            leg=>{
+              const mesh=
+                new THREE.Mesh(
+                  new THREE.CylinderGeometry(
+                    .22,
+                    .32,
+                    16,
+                    5
+                  ),
+                  legMaterial
+                );
+
+              mesh.position.set(
+                leg[0],
+                8,
+                leg[1]
+              );
+
+              mesh.castShadow=true;
+              tower.add(mesh);
+            }
+          );
+
+          const deck=
+            new THREE.Mesh(
+              new THREE.BoxGeometry(
+                7,
+                .8,
+                7
+              ),
+              roofMaterial
+            );
+
+          deck.position.y=16;
+          deck.castShadow=true;
+          tower.add(deck);
+
+          tower.position.set(
+            position[0],
+            2.2,
+            position[1]
+          );
+
+          group.add(tower);
+        }
+      );
+
+      /*
+       * Perimeter barriers make the compound readable from the air.
+       */
+      const barrierMaterial=
+        new THREE.MeshStandardMaterial({
+          color:0x77776f,
+          roughness:1
+        });
+
+      [
+        [0,-62,154,2,3],
+        [0, 62,154,2,3],
+        [-79,0,2,122,3],
+        [ 79,0,2,122,3]
+      ].forEach(
+        wall=>{
+          const mesh=
+            new THREE.Mesh(
+              new THREE.BoxGeometry(
+                wall[2],
+                wall[4],
+                wall[3]
+              ),
+              barrierMaterial
+            );
+
+          mesh.position.set(
+            wall[0],
+            2.2+
+            wall[4]*.5,
+            wall[1]
+          );
+
+          mesh.castShadow=true;
+          mesh.receiveShadow=true;
+          group.add(mesh);
+        }
+      );
+
+      /*
+       * A short local access road helps visually connect the base to terrain.
+       */
+      const accessRoad=
+        new THREE.Mesh(
+          new THREE.BoxGeometry(
+            14,
+            .8,
+            95
+          ),
+          new THREE.MeshStandardMaterial({
+            color:0x555b58,
+            roughness:.96
+          })
+        );
+
+      accessRoad.position.set(
+        0,
+        .42,
+        104
+      );
+
+      accessRoad.receiveShadow=true;
+      group.add(accessRoad);
+
+      group.position.set(
+        baseX,
+        baseY,
+        baseZ
+      );
+
+      ozetiScenery.add(
+        group
+      );
     }
   );
 }
@@ -5086,6 +5392,7 @@ function addOzetiLandmarks(){
    * Older invented farms, stadium, orchards and rural props are intentionally
    * omitted because they made the scene diverge from the map reference.
    */
+  createFactionBaseCompounds();
   createReferenceRoadNetwork();
   createReferenceBridges();
   createReferenceForest();
@@ -5117,6 +5424,7 @@ function addOzetiLandmarks(){
 
   return {
     group:ozetiScenery,
-    clear:clearOzetiScenery
+    clear:clearOzetiScenery,
+    stats:sceneryStats
   };
 }
