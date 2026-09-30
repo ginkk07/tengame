@@ -137,7 +137,7 @@
       <div class="row"><span>Pitch 輔助</span><strong>放手姿態保持</strong></div>
       <div class="row"><span>基準引擎重量</span><strong>4200 kg</strong></div>
       <div class="row"><span>目前重量</span><strong id="massReadout">4200 kg</strong></div>
-      <div class="row"><span>場地</span><strong>16.4 km 網格訓練場</strong></div>
+      <div class="row"><span>場地</span><strong id="terrainStatusVal">Ozeti 地形載入中…</strong></div>
     </div>
 
     <div class="section">
@@ -206,7 +206,7 @@
       <button id="reset">重置</button>
       <button id="pause">暫停</button>
     </div>
-    <div class="version-label">VERSION v37</div>
+    <div class="version-label">VERSION v38</div>
   </aside>
 </div>
 
@@ -270,525 +270,492 @@ sun.position.set(40,70,30);
 scene.add(sun);
 
 /*
- * Bakurani first-pass flight world
- * --------------------------------
- * Scale: 16.4 km x 16.4 km.
+ * OZETI LOCAL TERRAIN ASSET
+ * -------------------------
+ * Visual terrain:
+ *   ./assets/maps/ozeti-terrain-reconstruction-v1.glb
  *
- * The public map confirms the world scale and that Bakurani is dominated by
- * hillsides, settlements, industrial areas, roads and open/wooded terrain.
- * This browser version recreates that structure procedurally for flight
- * training. It is not an extracted game heightmap.
+ * Collision sampling is rebuilt from the GLB's own vertex positions, so the
+ * visible ground and terrainHeight() share the same local asset.
+ *
+ * No Ozeti terrain data is fetched from N4 / WARDOGS at runtime.
  */
-const MAP_SIZE=16400;
-const MAP_HALF=MAP_SIZE/2;
+const TERRAIN_WIDTH=8550;
+const TERRAIN_DEPTH=7780;
+const TERRAIN_NX=257;
+const TERRAIN_NZ=233;
 
-function terrainHeight(x,z){
-  // Flat training surface for clearer altitude/depth perception.
-  return 0;
-}
+const MAP_HALF_X=TERRAIN_WIDTH*.5;
+const MAP_HALF_Z=TERRAIN_DEPTH*.5;
 
-const terrainGeo=
-  new THREE.PlaneGeometry(
-    MAP_SIZE,
-    MAP_SIZE,
-    1,
-    1
+const TERRAIN_MODEL_URL=
+  './assets/maps/ozeti-terrain-reconstruction-v1.glb';
+
+const terrainStatusVal=
+  document.getElementById('terrainStatusVal');
+
+const terrainData={
+  ready:false,
+  heights:new Float32Array(
+    TERRAIN_NX*TERRAIN_NZ
+  ),
+  root:null
+};
+
+terrainData.heights.fill(NaN);
+
+/*
+ * Temporary surface while the GLB is loading.
+ * It disappears as soon as the actual terrain is ready.
+ */
+const fallbackTerrain=
+  new THREE.Mesh(
+    new THREE.PlaneGeometry(
+      TERRAIN_WIDTH,
+      TERRAIN_DEPTH,
+      1,
+      1
+    ),
+    new THREE.MeshStandardMaterial({
+      color:0x555d58,
+      roughness:1,
+      metalness:0
+    })
   );
 
-terrainGeo.rotateX(-Math.PI/2);
+fallbackTerrain.rotation.x=-Math.PI/2;
+fallbackTerrain.position.y=-2;
+fallbackTerrain.receiveShadow=true;
+scene.add(fallbackTerrain);
 
-const terrain=new THREE.Mesh(
-  terrainGeo,
-  new THREE.MeshStandardMaterial({
-    color:0x5b625d,
-    roughness:1,
-    metalness:0
-  })
-);
+const fallbackGrid=
+  new THREE.GridHelper(
+    Math.min(
+      TERRAIN_WIDTH,
+      TERRAIN_DEPTH
+    ),
+    78,
+    0x8f9691,
+    0x676e69
+  );
 
-terrain.receiveShadow=true;
-scene.add(terrain);
+fallbackGrid.position.y=-1.8;
+scene.add(fallbackGrid);
 
-// Fine grid: 100 m spacing across the full 16.4 km map.
-const fineGrid=new THREE.GridHelper(
-  MAP_SIZE,
-  164,
-  0x9da39f,
-  0x777d79
-);
-fineGrid.position.y=.08;
-scene.add(fineGrid);
+/*
+ * Bilinear collision-height lookup.
+ * This samples the height grid reconstructed directly from the loaded GLB.
+ */
+function terrainHeight(x,z){
+  if(!terrainData.ready){
+    return 0;
+  }
 
-// Major grid: 1 km spacing for fast height/speed reference.
-const majorGrid=new THREE.GridHelper(
-  MAP_SIZE,
-  16,
-  0xc8cdca,
-  0xa8aeaa
-);
-majorGrid.position.y=.12;
-scene.add(majorGrid);
+  if(
+    x<-MAP_HALF_X ||
+    x> MAP_HALF_X ||
+    z<-MAP_HALF_Z ||
+    z> MAP_HALF_Z
+  ){
+    return 0;
+  }
 
-// 16.4 km world boundary.
+  const fx=
+    (x+MAP_HALF_X)/
+    TERRAIN_WIDTH*
+    (TERRAIN_NX-1);
+
+  const fz=
+    (z+MAP_HALF_Z)/
+    TERRAIN_DEPTH*
+    (TERRAIN_NZ-1);
+
+  const x0=
+    THREE.MathUtils.clamp(
+      Math.floor(fx),
+      0,
+      TERRAIN_NX-1
+    );
+
+  const z0=
+    THREE.MathUtils.clamp(
+      Math.floor(fz),
+      0,
+      TERRAIN_NZ-1
+    );
+
+  const x1=
+    Math.min(
+      x0+1,
+      TERRAIN_NX-1
+    );
+
+  const z1=
+    Math.min(
+      z0+1,
+      TERRAIN_NZ-1
+    );
+
+  const tx=fx-x0;
+  const tz=fz-z0;
+
+  const i00=z0*TERRAIN_NX+x0;
+  const i10=z0*TERRAIN_NX+x1;
+  const i01=z1*TERRAIN_NX+x0;
+  const i11=z1*TERRAIN_NX+x1;
+
+  const h00=terrainData.heights[i00];
+  const h10=terrainData.heights[i10];
+  const h01=terrainData.heights[i01];
+  const h11=terrainData.heights[i11];
+
+  if(
+    !Number.isFinite(h00) ||
+    !Number.isFinite(h10) ||
+    !Number.isFinite(h01) ||
+    !Number.isFinite(h11)
+  ){
+    return 0;
+  }
+
+  const h0=
+    THREE.MathUtils.lerp(
+      h00,
+      h10,
+      tx
+    );
+
+  const h1=
+    THREE.MathUtils.lerp(
+      h01,
+      h11,
+      tx
+    );
+
+  return THREE.MathUtils.lerp(
+    h0,
+    h1,
+    tz
+  );
+}
+
+/*
+ * The exported GLB is a 257 × 233 regular terrain grid.
+ * We do not depend on vertex ordering: every GLB vertex is mapped back to its
+ * X/Z grid cell, then used as the collision height for that cell.
+ */
+function buildTerrainHeightField(root){
+  terrainData.heights.fill(NaN);
+
+  const stepX=
+    TERRAIN_WIDTH/
+    (TERRAIN_NX-1);
+
+  const stepZ=
+    TERRAIN_DEPTH/
+    (TERRAIN_NZ-1);
+
+  const p=
+    new THREE.Vector3();
+
+  root.updateMatrixWorld(true);
+
+  root.traverse(obj=>{
+    if(!obj.isMesh){
+      return;
+    }
+
+    obj.castShadow=false;
+    obj.receiveShadow=true;
+
+    const materials=
+      Array.isArray(obj.material)
+        ? obj.material
+        : [obj.material];
+
+    materials.forEach(material=>{
+      if(!material)return;
+
+      if('roughness' in material){
+        material.roughness=.98;
+      }
+
+      if('metalness' in material){
+        material.metalness=0;
+      }
+
+      material.side=THREE.DoubleSide;
+      material.needsUpdate=true;
+    });
+
+    const position=
+      obj.geometry?.attributes?.position;
+
+    if(!position){
+      return;
+    }
+
+    for(let i=0;i<position.count;i++){
+      p.fromBufferAttribute(
+        position,
+        i
+      );
+
+      p.applyMatrix4(
+        obj.matrixWorld
+      );
+
+      const gx=
+        Math.round(
+          (p.x+MAP_HALF_X)/
+          stepX
+        );
+
+      const gz=
+        Math.round(
+          (p.z+MAP_HALF_Z)/
+          stepZ
+        );
+
+      if(
+        gx<0 ||
+        gx>=TERRAIN_NX ||
+        gz<0 ||
+        gz>=TERRAIN_NZ
+      ){
+        continue;
+      }
+
+      const index=
+        gz*TERRAIN_NX+gx;
+
+      const old=
+        terrainData.heights[index];
+
+      if(
+        !Number.isFinite(old) ||
+        p.y>old
+      ){
+        terrainData.heights[index]=p.y;
+      }
+    }
+  });
+
+  /*
+   * The GLB should fill every grid cell. A few missing cells can still be
+   * repaired from neighbours rather than creating collision holes.
+   */
+  for(let pass=0;pass<12;pass++){
+    let changed=0;
+
+    for(let z=0;z<TERRAIN_NZ;z++){
+      for(let x=0;x<TERRAIN_NX;x++){
+        const index=
+          z*TERRAIN_NX+x;
+
+        if(
+          Number.isFinite(
+            terrainData.heights[index]
+          )
+        ){
+          continue;
+        }
+
+        let total=0;
+        let count=0;
+
+        if(x>0){
+          const h=
+            terrainData.heights[index-1];
+
+          if(Number.isFinite(h)){
+            total+=h;
+            count++;
+          }
+        }
+
+        if(x<TERRAIN_NX-1){
+          const h=
+            terrainData.heights[index+1];
+
+          if(Number.isFinite(h)){
+            total+=h;
+            count++;
+          }
+        }
+
+        if(z>0){
+          const h=
+            terrainData.heights[
+              index-TERRAIN_NX
+            ];
+
+          if(Number.isFinite(h)){
+            total+=h;
+            count++;
+          }
+        }
+
+        if(z<TERRAIN_NZ-1){
+          const h=
+            terrainData.heights[
+              index+TERRAIN_NX
+            ];
+
+          if(Number.isFinite(h)){
+            total+=h;
+            count++;
+          }
+        }
+
+        if(count){
+          terrainData.heights[index]=
+            total/count;
+
+          changed++;
+        }
+      }
+    }
+
+    if(!changed){
+      break;
+    }
+  }
+
+  let valid=0;
+
+  for(const h of terrainData.heights){
+    if(Number.isFinite(h)){
+      valid++;
+    }
+  }
+
+  return {
+    valid,
+    total:terrainData.heights.length
+  };
+}
+
+async function loadOzetiTerrain(){
+  if(terrainStatusVal){
+    terrainStatusVal.textContent=
+      'Ozeti GLB 載入中…';
+  }
+
+  try{
+    const loaderModule=
+      await import(
+        'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js/+esm'
+      );
+
+    const loader=
+      new loaderModule.GLTFLoader();
+
+    const gltf=
+      await loader.loadAsync(
+        TERRAIN_MODEL_URL
+      );
+
+    const root=
+      gltf.scene;
+
+    root.name=
+      'OzetiTerrain';
+
+    scene.add(root);
+
+    terrainData.root=root;
+
+    const field=
+      buildTerrainHeightField(root);
+
+    if(
+      field.valid<
+      field.total*.98
+    ){
+      throw new Error(
+        '高度網格不完整 '+
+        field.valid+
+        '/'+
+        field.total
+      );
+    }
+
+    terrainData.ready=true;
+
+    fallbackTerrain.visible=false;
+    fallbackGrid.visible=false;
+
+    if(terrainStatusVal){
+      terrainStatusVal.textContent=
+        'Ozeti GLB 8.55 × 7.78 km';
+    }
+
+    /*
+     * The initial reset ran before the GLB was ready.
+     * Reset again so the helicopter starts 42 m above the real local terrain.
+     */
+    reset();
+  }catch(error){
+    console.error(
+      'Ozeti terrain load failed:',
+      error
+    );
+
+    fallbackTerrain.visible=true;
+    fallbackGrid.visible=true;
+
+    if(terrainStatusVal){
+      terrainStatusVal.textContent=
+        'Ozeti 地形載入失敗';
+    }
+  }
+}
+
 const boundaryY=520;
+
 const boundaryPts=[
-  new THREE.Vector3(-MAP_HALF,boundaryY,-MAP_HALF),
-  new THREE.Vector3(MAP_HALF,boundaryY,-MAP_HALF),
-  new THREE.Vector3(MAP_HALF,boundaryY,MAP_HALF),
-  new THREE.Vector3(-MAP_HALF,boundaryY,MAP_HALF),
-  new THREE.Vector3(-MAP_HALF,boundaryY,-MAP_HALF)
+  new THREE.Vector3(
+    -MAP_HALF_X,
+    boundaryY,
+    -MAP_HALF_Z
+  ),
+  new THREE.Vector3(
+    MAP_HALF_X,
+    boundaryY,
+    -MAP_HALF_Z
+  ),
+  new THREE.Vector3(
+    MAP_HALF_X,
+    boundaryY,
+    MAP_HALF_Z
+  ),
+  new THREE.Vector3(
+    -MAP_HALF_X,
+    boundaryY,
+    MAP_HALF_Z
+  ),
+  new THREE.Vector3(
+    -MAP_HALF_X,
+    boundaryY,
+    -MAP_HALF_Z
+  )
 ];
 
-const boundaryGeo=
-  new THREE.BufferGeometry().setFromPoints(boundaryPts);
-
-const boundary=
+scene.add(
   new THREE.Line(
-    boundaryGeo,
+    new THREE.BufferGeometry().setFromPoints(
+      boundaryPts
+    ),
     new THREE.LineBasicMaterial({
       color:0xa4a99f,
       transparent:true,
-      opacity:.28
+      opacity:.24
     })
-  );
-
-scene.add(boundary);
-
-function createRoad(points,width=24,color=0x88734a){
-  const sampled=[];
-
-  for(let s=0;s<points.length-1;s++){
-    const a=points[s];
-    const b=points[s+1];
-
-    const dist=Math.hypot(
-      b[0]-a[0],
-      b[1]-a[1]
-    );
-
-    const steps=Math.max(
-      2,
-      Math.ceil(dist/110)
-    );
-
-    for(let i=0;i<steps;i++){
-      const t=i/steps;
-      sampled.push([
-        THREE.MathUtils.lerp(a[0],b[0],t),
-        THREE.MathUtils.lerp(a[1],b[1],t)
-      ]);
-    }
-  }
-
-  sampled.push(points[points.length-1]);
-
-  const verts=[];
-  const indices=[];
-
-  for(let i=0;i<sampled.length;i++){
-    const p=sampled[i];
-    const prev=sampled[Math.max(0,i-1)];
-    const next=sampled[Math.min(sampled.length-1,i+1)];
-
-    let tx=next[0]-prev[0];
-    let tz=next[1]-prev[1];
-    const len=Math.hypot(tx,tz)||1;
-
-    tx/=len;
-    tz/=len;
-
-    const nx=-tz;
-    const nz=tx;
-
-    const lx=p[0]+nx*width*.5;
-    const lz=p[1]+nz*width*.5;
-    const rx=p[0]-nx*width*.5;
-    const rz=p[1]-nz*width*.5;
-
-    verts.push(
-      lx,terrainHeight(lx,lz)+.8,lz,
-      rx,terrainHeight(rx,rz)+.8,rz
-    );
-
-    if(i<sampled.length-1){
-      const k=i*2;
-      indices.push(
-        k,k+2,k+1,
-        k+1,k+2,k+3
-      );
-    }
-  }
-
-  const geo=new THREE.BufferGeometry();
-  geo.setAttribute(
-    'position',
-    new THREE.Float32BufferAttribute(
-      verts,
-      3
-    )
-  );
-  geo.setIndex(indices);
-  geo.computeVertexNormals();
-
-  const road=new THREE.Mesh(
-    geo,
-    new THREE.MeshStandardMaterial({
-      color,
-      roughness:1,
-      polygonOffset:true,
-      polygonOffsetFactor:-1
-    })
-  );
-
-  scene.add(road);
-  return road;
-}
-
-// Main road skeleton. Asphalt is muted gold; local/dirt roads are brown-orange.
-[
-  [[-7600,-900],[-5200,-650],[-3100,-200],[-900,250],[1500,250],[3900,-250],[6900,-900]],
-  [[-5600,5600],[-4200,3700],[-2850,1800],[-900,250],[600,-1700],[1600,-3900],[2400,-7000]],
-  [[-6900,3300],[-4800,2500],[-2800,1650],[-700,900],[1900,1150],[4300,2400],[6800,3500]],
-  [[-5200,-5200],[-3300,-3500],[-1500,-2100],[600,-1700],[3000,-2300],[5900,-4300]],
-  [[-1300,7000],[-900,4800],[-400,2700],[-700,900],[-900,250],[-1200,-2300],[-700,-6000]]
-].forEach(p=>createRoad(p,30,0x8f7b50));
-
-[
-  [[-5000,2500],[-4200,1200],[-3100,-200]],
-  [[1500,250],[2200,1600],[4300,2400]],
-  [[600,-1700],[-700,-3000],[-3300,-3500]],
-  [[3000,-2300],[4200,-900],[3900,-250]],
-  [[1900,1150],[1800,3000],[900,4800]]
-].forEach(p=>createRoad(p,18,0x9a6842));
-
-// Settlement / industrial placement is intentionally low-poly for browser performance.
-function createHouse(x,z,scale=1,roofColor=0x91483f,wallColor=0xd0c6b5){
-  const house=new THREE.Group();
-
-  const h=terrainHeight(x,z);
-
-  const body=new THREE.Mesh(
-    new THREE.BoxGeometry(
-      18*scale,
-      8*scale,
-      13*scale
-    ),
-    new THREE.MeshStandardMaterial({
-      color:wallColor,
-      roughness:.96
-    })
-  );
-
-  body.position.y=4*scale;
-  house.add(body);
-
-  const roof=new THREE.Mesh(
-    new THREE.ConeGeometry(
-      12*scale,
-      5*scale,
-      4
-    ),
-    new THREE.MeshStandardMaterial({
-      color:roofColor,
-      roughness:.92
-    })
-  );
-
-  roof.rotation.y=Math.PI*.25;
-  roof.position.y=10.5*scale;
-  house.add(roof);
-
-  house.position.set(x,h,z);
-  scene.add(house);
-}
-
-const settlementCenters=[
-  [-4900,2500],
-  [-3300,-3500],
-  [-2750,1650],
-  [-700,900],
-  [900,4800],
-  [1900,1150],
-  [3000,-2300],
-  [4300,2400],
-  [5300,-4300],
-  [6550,3450]
-];
-
-const housePattern=[
-  [-92,-54,.9],[-58,20,1],[-20,-38,.85],[18,35,1.1],
-  [58,-18,.92],[95,46,.82],[-112,72,.8],[125,-70,.9],
-  [-35,95,.86],[42,-105,.95],[105,105,.8],[-130,-105,.82]
-];
-
-settlementCenters.forEach((c,ci)=>{
-  housePattern.forEach((p,pi)=>{
-    createHouse(
-      c[0]+p[0],
-      c[1]+p[1],
-      p[2],
-      [0x91483f,0x7f4439,0x6f4b38][(ci+pi)%3],
-      [0xd0c6b5,0xc7bdad,0xd9d0c0][(ci+pi)%3]
-    );
-  });
-});
-
-function createIndustrialCluster(cx,cz,index){
-  const mat=new THREE.MeshStandardMaterial({
-    color:[
-      0x7f8582,
-      0x727a7e,
-      0x8a8175
-    ][index%3],
-    roughness:.9
-  });
-
-  const pattern=[
-    [-55,-42,72,30,22],
-    [35,-38,54,26,18],
-    [-24,35,88,32,16],
-    [72,44,38,24,28],
-    [-88,52,34,24,18]
-  ];
-
-  pattern.forEach(([dx,dz,w,d,h])=>{
-    const x=cx+dx;
-    const z=cz+dz;
-
-    const box=new THREE.Mesh(
-      new THREE.BoxGeometry(w,h,d),
-      mat
-    );
-
-    box.position.set(
-      x,
-      terrainHeight(x,z)+h*.5,
-      z
-    );
-
-    scene.add(box);
-  });
-}
-
-[
-  [-6100,-1100],
-  [-4100,900],
-  [-1500,-2100],
-  [700,-1700],
-  [2250,3250],
-  [3900,-250],
-  [5550,950],
-  [6500,-2850]
-].forEach((p,i)=>createIndustrialCluster(p[0],p[1],i));
-
-// Sparse forest masses provide speed/altitude reference without rendering tens of thousands of trees.
-const treeGeo=new THREE.ConeGeometry(7,24,5);
-const treeMat=new THREE.MeshStandardMaterial({
-  color:0x38593d,
-  roughness:1
-});
-
-const treeCount=520;
-const trees=new THREE.InstancedMesh(
-  treeGeo,
-  treeMat,
-  treeCount
+  )
 );
 
-const forestCenters=[
-  [-5850,4700,1250],
-  [-5400,-3800,1100],
-  [-2500,5200,900],
-  [-1000,-5200,1250],
-  [2600,5100,1100],
-  [4650,-5200,1050],
-  [5900,2200,900],
-  [3000,-400,700]
-];
-
-let seed=1337;
-function rand(){
-  seed=(seed*1664525+1013904223)>>>0;
-  return seed/4294967296;
-}
-
-const dummy=new THREE.Object3D();
-
-for(let i=0;i<treeCount;i++){
-  const f=
-    forestCenters[
-      i%forestCenters.length
-    ];
-
-  const angle=rand()*Math.PI*2;
-  const radius=Math.sqrt(rand())*f[2];
-
-  const x=f[0]+Math.cos(angle)*radius;
-  const z=f[1]+Math.sin(angle)*radius;
-
-  const scale=.65+rand()*.9;
-
-  dummy.position.set(
-    x,
-    terrainHeight(x,z)+12*scale,
-    z
-  );
-
-  dummy.scale.set(
-    scale,
-    scale,
-    scale
-  );
-
-  dummy.rotation.y=rand()*Math.PI*2;
-  dummy.updateMatrix();
-
-  trees.setMatrixAt(
-    i,
-    dummy.matrix
-  );
-}
-
-scene.add(trees);
-
-// Training tower retained near map centre for orbit practice.
-const trainingTowerX=0;
-const trainingTowerZ=0;
-const trainingTowerGround=
-  terrainHeight(
-    trainingTowerX,
-    trainingTowerZ
-  );
-
-const tower=new THREE.Mesh(
-  new THREE.CylinderGeometry(
-    4,
-    4,
-    45,
-    48
-  ),
-  new THREE.MeshStandardMaterial({
-    color:0x686d70,
-    roughness:.9
-  })
-);
-
-tower.position.set(
-  trainingTowerX,
-  trainingTowerGround+22.5,
-  trainingTowerZ
-);
-
-scene.add(tower);
-
-const red=
-  new THREE.MeshBasicMaterial({
-    color:0xe13d3d
-  });
-
-for(let i=1;i<=15;i++){
-  const t=new THREE.Mesh(
-    new THREE.TorusGeometry(
-      4.04,
-      .075,
-      8,
-      64
-    ),
-    red
-  );
-
-  t.rotation.x=Math.PI/2;
-
-  t.position.set(
-    trainingTowerX,
-    trainingTowerGround+i*3,
-    trainingTowerZ
-  );
-
-  scene.add(t);
-}
-
-// Five simplified drill/tower references distributed across the world.
-[
-  [-3100,-200],
-  [-700,900],
-  [1900,1150],
-  [3900,-250],
-  [3000,-2300]
-].forEach(([x,z])=>{
-  const h=terrainHeight(x,z);
-
-  const mast=new THREE.Mesh(
-    new THREE.CylinderGeometry(
-      7,
-      9,
-      34,
-      8
-    ),
-    new THREE.MeshStandardMaterial({
-      color:0x555a5b,
-      roughness:.8
-    })
-  );
-
-  mast.position.set(
-    x,
-    h+17,
-    z
-  );
-
-  scene.add(mast);
-
-  const beacon=new THREE.Mesh(
-    new THREE.SphereGeometry(
-      3.5,
-      10,
-      8
-    ),
-    new THREE.MeshBasicMaterial({
-      color:0xffc66c
-    })
-  );
-
-  beacon.position.set(
-    x,
-    h+37,
-    z
-  );
-
-  scene.add(beacon);
-});
-
-// Three faction-base references near the world perimeter.
-[
-  [-6900,-5600,0x6ca5d9],
-  [6800,-5200,0xd86f6f],
-  [200,6900,0x88c477]
-].forEach(([x,z,color])=>{
-  const h=terrainHeight(x,z);
-
-  const base=new THREE.Mesh(
-    new THREE.CylinderGeometry(
-      120,
-      120,
-      2,
-      48
-    ),
-    new THREE.MeshBasicMaterial({
-      color,
-      transparent:true,
-      opacity:.28
-    })
-  );
-
-  base.position.set(
-    x,
-    h+1.2,
-    z
-  );
-
-  scene.add(base);
-});
+loadOzetiTerrain();
 
 // helicopter model remains visible; only the center HUD/crosshair was removed
 const heli=new THREE.Group();
@@ -1980,22 +1947,23 @@ function update(dt){
     }
   }
 
-  // Keep the training aircraft inside the 16.4 km world.
-  const edge=MAP_HALF-25;
+  // Keep the aircraft inside the actual Ozeti reconstruction footprint.
+  const edgeX=MAP_HALF_X-25;
+  const edgeZ=MAP_HALF_Z-25;
 
-  if(state.pos.x>edge){
-    state.pos.x=edge;
+  if(state.pos.x>edgeX){
+    state.pos.x=edgeX;
     if(state.vel.x>0)state.vel.x=0;
-  }else if(state.pos.x<-edge){
-    state.pos.x=-edge;
+  }else if(state.pos.x<-edgeX){
+    state.pos.x=-edgeX;
     if(state.vel.x<0)state.vel.x=0;
   }
 
-  if(state.pos.z>edge){
-    state.pos.z=edge;
+  if(state.pos.z>edgeZ){
+    state.pos.z=edgeZ;
     if(state.vel.z>0)state.vel.z=0;
-  }else if(state.pos.z<-edge){
-    state.pos.z=-edge;
+  }else if(state.pos.z<-edgeZ){
+    state.pos.z=-edgeZ;
     if(state.vel.z<0)state.vel.z=0;
   }
 
