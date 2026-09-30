@@ -780,16 +780,16 @@ export function createTerrainSystem({
              * preserving physically readable slope / elevation shading.
              */
             const tintStrength=
-              .22+
-              (1-slope)*.34+
-              (1-elevation)*.06;
+              .16+
+              (1-slope)*.24+
+              (1-elevation)*.04;
 
             color.lerp(
               mapTint,
               THREE.MathUtils.clamp(
                 tintStrength,
-                .18,
-                .56
+                .14,
+                .42
               )
             );
           }
@@ -902,10 +902,34 @@ export function createTerrainSystem({
             );
           }
 
+          /*
+           * Directional terrain shading is intentionally stronger than the
+           * tactical-map tint. This keeps ridges, valleys and slopes readable
+           * even when the ground colour follows the 2D map.
+           */
+          const reliefLight=
+            THREE.MathUtils.clamp(
+              normal.y*.76+
+              normal.x*.20-
+              normal.z*.15,
+              .28,
+              1
+            );
+
+          const reliefOffset=
+            (reliefLight-.72)*
+            (.16+
+             THREE.MathUtils.smoothstep(
+               slope,
+               .015,
+               .18
+             )*.13);
+
           color.offsetHSL(
             variation*.004,
-            variation*.045,
-            variation*.055
+            variation*.035,
+            variation*.035+
+            reliefOffset
           );
 
           colors[i*3]=color.r;
@@ -1164,7 +1188,7 @@ export function createTerrainSystem({
 
       if(statusEl){
         statusEl.textContent=
-          'Ozeti v52 · 地圖配色地表＋支流細節';
+          'Ozeti v53 · 道路高對比＋地形明暗強化';
       }
 
       return true;

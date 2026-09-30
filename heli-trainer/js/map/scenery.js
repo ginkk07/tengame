@@ -279,6 +279,75 @@ function buildDashedCenterLine(points,{
   return line;
 }
 
+function buildRoadEdgeLine(points,offset,{
+  width=.9,
+  color=0xe2ddc9,
+  yOffset=.72,
+  opacity=.86
+}={}){
+  const sampled=
+    samplePolyline(
+      points,
+      26
+    );
+
+  const shifted=[];
+
+  sampled.forEach(
+    (p,index)=>{
+      const prev=
+        sampled[
+          Math.max(
+            0,
+            index-1
+          )
+        ];
+
+      const next=
+        sampled[
+          Math.min(
+            sampled.length-1,
+            index+1
+          )
+        ];
+
+      let tx=
+        next[0]-prev[0];
+
+      let tz=
+        next[1]-prev[1];
+
+      const len=
+        Math.hypot(
+          tx,
+          tz
+        ) || 1;
+
+      tx/=len;
+      tz/=len;
+
+      const nx=-tz;
+      const nz=tx;
+
+      shifted.push([
+        p[0]+nx*offset,
+        p[1]+nz*offset
+      ]);
+    }
+  );
+
+  return buildRibbon(
+    shifted,
+    {
+      width,
+      yOffset,
+      color,
+      roughness:.94,
+      opacity
+    }
+  );
+}
+
 function buildVariableRibbon(points,widths,{
   yOffset=.5,
   color=0x7a6b58,
@@ -400,19 +469,35 @@ function buildVariableRibbon(points,widths,{
 }
 
 function buildRoad(points,width=28,{
-  asphalt=0x686965,
-  shoulder=0x8e846e,
-  centerLine=true
+  asphalt=0x545954,
+  shoulder=0xb09b74,
+  centerLine=true,
+  edgeLines=true
 }={}){
   const group=
     new THREE.Group();
+
+  /*
+   * Broad warm roadbed creates a visible cut through green terrain.
+   * The inner asphalt stays darker, giving a clear road/terrain boundary.
+   */
+  const roadbed=
+    buildRibbon(
+      points,
+      {
+        width:width+18,
+        yOffset:.28,
+        color:0x8f7f63,
+        roughness:1
+      }
+    );
 
   const shoulderMesh=
     buildRibbon(
       points,
       {
-        width:width+8,
-        yOffset:.34,
+        width:width+10,
+        yOffset:.40,
         color:shoulder,
         roughness:1
       }
@@ -423,26 +508,55 @@ function buildRoad(points,width=28,{
       points,
       {
         width,
-        yOffset:.48,
+        yOffset:.58,
         color:asphalt,
-        roughness:.96
+        roughness:.94
       }
     );
 
   group.add(
+    roadbed,
     shoulderMesh,
     roadMesh
   );
+
+  if(edgeLines && width>=20){
+    const offset=
+      width*.5-1.25;
+
+    group.add(
+      buildRoadEdgeLine(
+        points,
+        offset,
+        {
+          color:0xe9e5d8,
+          width:.82,
+          yOffset:.74,
+          opacity:.88
+        }
+      ),
+      buildRoadEdgeLine(
+        points,
+        -offset,
+        {
+          color:0xe9e5d8,
+          width:.82,
+          yOffset:.74,
+          opacity:.88
+        }
+      )
+    );
+  }
 
   if(centerLine && width>=20){
     group.add(
       buildDashedCenterLine(
         points,
         {
-          color:0xd8cf9f,
-          dashSize:11,
-          gapSize:8,
-          yOffset:.66
+          color:0xf1cf69,
+          dashSize:12,
+          gapSize:9,
+          yOffset:.76
         }
       )
     );
@@ -4171,9 +4285,10 @@ function addOzetiLandmarks(){
           points,
           17,
           {
-            asphalt:0x716d62,
-            shoulder:0x887d69,
-            centerLine:false
+            asphalt:0x716a5b,
+            shoulder:0xa58e67,
+            centerLine:false,
+            edgeLines:false
           }
         )
       );
@@ -4218,9 +4333,10 @@ function addOzetiLandmarks(){
           points,
           8,
           {
-            asphalt:0x7d7057,
-            shoulder:0x8e8166,
-            centerLine:false
+            asphalt:0x8f7a59,
+            shoulder:0xb09a74,
+            centerLine:false,
+            edgeLines:false
           }
         )
       );
