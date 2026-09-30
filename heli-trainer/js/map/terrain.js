@@ -746,22 +746,22 @@ export function createTerrainSystem({
     );
 
     const lowGrass=
-      new THREE.Color(0x476a42);
+      new THREE.Color(0x5f873f);
 
     const grass=
-      new THREE.Color(0x5f7b4b);
+      new THREE.Color(0x74944a);
 
     const dryGrass=
-      new THREE.Color(0x7b8257);
+      new THREE.Color(0x858456);
 
     const soil=
-      new THREE.Color(0x7f7256);
+      new THREE.Color(0x896d4e);
 
     const rock=
-      new THREE.Color(0x696b67);
+      new THREE.Color(0x67685f);
 
     const highRock=
-      new THREE.Color(0x858078);
+      new THREE.Color(0x887a68);
 
     const p=
       new THREE.Vector3();
@@ -1289,7 +1289,7 @@ export function createTerrainSystem({
 
       if(statusEl){
         statusEl.textContent=
-          'Ozeti v54 · 16.384km 統一比例座標';
+          'Ozeti v56 · 網站地形／道路／森林重建';
       }
 
       return true;

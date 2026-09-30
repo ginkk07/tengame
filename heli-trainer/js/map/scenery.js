@@ -4255,8 +4255,349 @@ function createFieldFences(){
   );
 }
 
+function worldToLocalPoint(point){
+  return [
+    point[0]-
+    worldOffset.x,
+    point[1]-
+    worldOffset.z
+  ];
+}
+
+function createReferenceRoadNetwork(){
+  REFERENCE_MAJOR_ROADS.forEach(
+    route=>{
+      const local=
+        route.map(
+          worldToLocalPoint
+        );
+
+      ozetiScenery.add(
+        buildRoad(
+          local,
+          28,
+          {
+            asphalt:0x5e625c,
+            shoulder:0x9b8b6d,
+            centerLine:true
+          }
+        )
+      );
+    }
+  );
+
+  REFERENCE_MINOR_ROADS.forEach(
+    route=>{
+      const local=
+        route.map(
+          worldToLocalPoint
+        );
+
+      ozetiScenery.add(
+        buildRoad(
+          local,
+          13,
+          {
+            asphalt:0x777064,
+            shoulder:0x917f61,
+            centerLine:false
+          }
+        )
+      );
+    }
+  );
+}
+
+function createReferenceForest(){
+  const points=
+    REFERENCE_FOREST_POINTS.map(
+      worldToLocalPoint
+    );
+
+  const treeGeo=
+    new THREE.ConeGeometry(
+      4.3,
+      15,
+      5
+    );
+
+  treeGeo.translate(
+    0,
+    7.5,
+    0
+  );
+
+  const trunkGeo=
+    new THREE.CylinderGeometry(
+      .7,
+      1.0,
+      5,
+      5
+    );
+
+  trunkGeo.translate(
+    0,
+    2.5,
+    0
+  );
+
+  const treesPerPoint=4;
+  const countMax=
+    points.length*
+    treesPerPoint;
+
+  const crowns=
+    new THREE.InstancedMesh(
+      treeGeo,
+      new THREE.MeshStandardMaterial({
+        color:0xffffff,
+        roughness:1
+      }),
+      countMax
+    );
+
+  const trunks=
+    new THREE.InstancedMesh(
+      trunkGeo,
+      new THREE.MeshStandardMaterial({
+        color:0x574637,
+        roughness:1
+      }),
+      countMax
+    );
+
+  crowns.castShadow=true;
+  crowns.receiveShadow=true;
+  trunks.castShadow=true;
+
+  const dummy=
+    new THREE.Object3D();
+
+  const rand=
+    seededRandom(
+      0x5602
+    );
+
+  let index=0;
+
+  points.forEach(
+    point=>{
+      for(let k=0;k<treesPerPoint;k++){
+        const angle=
+          rand()*
+          Math.PI*
+          2;
+
+        const radius=
+          Math.sqrt(rand())*
+          26;
+
+        const x=
+          point[0]+
+          Math.cos(angle)*
+          radius;
+
+        const z=
+          point[1]+
+          Math.sin(angle)*
+          radius;
+
+        if(
+          Math.abs(x)>MAP_HALF_X-40 ||
+          Math.abs(z)>MAP_HALF_Z-40
+        ){
+          continue;
+        }
+
+        const y=
+          terrainHeight(
+            x,
+            z
+          );
+
+        const scale=
+          .68+
+          rand()*.72;
+
+        dummy.position.set(
+          x,
+          y,
+          z
+        );
+
+        dummy.rotation.set(
+          0,
+          rand()*Math.PI*2,
+          0
+        );
+
+        dummy.scale.set(
+          scale,
+          scale,
+          scale
+        );
+
+        dummy.updateMatrix();
+
+        crowns.setMatrixAt(
+          index,
+          dummy.matrix
+        );
+
+        crowns.setColorAt(
+          index,
+          new THREE.Color(
+            [
+              0x274b31,
+              0x315738,
+              0x3a6240,
+              0x21452c
+            ][
+              Math.floor(
+                rand()*4
+              )
+            ]
+          )
+        );
+
+        dummy.scale.set(
+          scale*.8,
+          scale,
+          scale*.8
+        );
+
+        dummy.updateMatrix();
+
+        trunks.setMatrixAt(
+          index,
+          dummy.matrix
+        );
+
+        index++;
+      }
+    }
+  );
+
+  crowns.count=index;
+  trunks.count=index;
+
+  crowns.instanceMatrix.needsUpdate=true;
+  trunks.instanceMatrix.needsUpdate=true;
+
+  if(crowns.instanceColor){
+    crowns.instanceColor.needsUpdate=true;
+  }
+
+  ozetiScenery.add(
+    trunks,
+    crowns
+  );
+}
+
+function createReferenceSettlements(){
+  REFERENCE_SETTLEMENTS.forEach(
+    item=>{
+      const local=
+        worldToLocalPoint(
+          item
+        );
+
+      const scale=
+        item[2];
+
+      const count=
+        Math.round(
+          7+
+          scale*7
+        );
+
+      const rand=
+        seededRandom(
+          Math.abs(
+            Math.round(
+              item[0]*
+              7+
+              item[1]*
+              11
+            )
+          )
+        );
+
+      for(let i=0;i<count;i++){
+        const angle=
+          rand()*
+          Math.PI*
+          2;
+
+        const radius=
+          Math.sqrt(rand())*
+          (
+            62+
+            scale*70
+          );
+
+        const x=
+          local[0]+
+          Math.cos(angle)*
+          radius;
+
+        const z=
+          local[1]+
+          Math.sin(angle)*
+          radius;
+
+        const w=
+          18+
+          rand()*22;
+
+        const d=
+          14+
+          rand()*18;
+
+        const h=
+          9+
+          rand()*17;
+
+        createTownBuilding(
+          x,
+          z,
+          {
+            w,
+            d,
+            h,
+            color:[
+              0x9d9b90,
+              0xaba69a,
+              0x8e9189,
+              0xb2aa9d
+            ][
+              Math.floor(
+                rand()*4
+              )
+            ],
+            angle:
+              rand()*
+              Math.PI
+          }
+        );
+      }
+    }
+  );
+}
+
 function addOzetiLandmarks(){
   clearOzetiScenery();
+
+  /*
+   * v56 reconstruction priority:
+   * website road layout -> website forest layout -> central settlements ->
+   * river / terrain supporting details.
+   * Older invented farms, stadium, orchards and rural props are intentionally
+   * omitted because they made the scene diverge from the map reference.
+   */
+  createReferenceRoadNetwork();
+  createReferenceForest();
+  createReferenceSettlements();
 
   ozetiScenery.add(
     buildRiverSystem(
@@ -4264,161 +4605,6 @@ function addOzetiLandmarks(){
       RIVER_WIDTHS
     )
   );
-
-  createTownCenter(
-    ...LANDMARKS.townCenter
-  );
-
-  LANDMARKS.residential.forEach(
-    item=>createResidentialCluster(
-      ...item
-    )
-  );
-
-  createStadium(
-    ...LANDMARKS.stadium
-  );
-
-  createParkingLot(
-    ...LANDMARKS.stadiumParking
-  );
-
-  createChurchArea(
-    ...LANDMARKS.church
-  );
-
-  LANDMARKS.industrial.forEach(
-    item=>createIndustrialCluster(
-      ...item
-    )
-  );
-
-  LANDMARKS.industrialParking.forEach(
-    item=>createParkingLot(
-      ...item
-    )
-  );
-
-  ozetiScenery.add(
-    buildRoad(
-      PRIMARY_ROADS.valley,
-      31,
-      {
-        asphalt:0x61635f,
-        shoulder:0x8d816c,
-        centerLine:true
-      }
-    )
-  );
-
-  ozetiScenery.add(
-    buildRoad(
-      PRIMARY_ROADS.crossTown,
-      29,
-      {
-        asphalt:0x62645f,
-        shoulder:0x8d816c,
-        centerLine:true
-      }
-    )
-  );
-
-  ozetiScenery.add(
-    buildRoad(
-      PRIMARY_ROADS.west,
-      25,
-      {
-        asphalt:0x696963,
-        shoulder:0x887b66,
-        centerLine:true
-      }
-    )
-  );
-
-  SECONDARY_ROADS.forEach(
-    points=>{
-      ozetiScenery.add(
-        buildRoad(
-          points,
-          17,
-          {
-            asphalt:0x716a5b,
-            shoulder:0xa58e67,
-            centerLine:false,
-            edgeLines:false
-          }
-        )
-      );
-    }
-  );
-
-  BRIDGES.forEach(
-    bridge=>{
-      ozetiScenery.add(
-        createBridge(
-          bridge.a,
-          bridge.b,
-          bridge.width
-        )
-      );
-    }
-  );
-
-  FIELDS.forEach(
-    field=>{
-      createTerrainPatch(
-        field[0],
-        field[1],
-        field[2],
-        field[3],
-        {
-          angle:field[4],
-          color:field[5],
-          segments:9,
-          yOffset:.06
-        }
-      );
-
-      createFieldFurrows(field);
-    }
-  );
-
-  RURAL_TRACKS.forEach(
-    points=>{
-      ozetiScenery.add(
-        buildRoad(
-          points,
-          8,
-          {
-            asphalt:0x8f7a59,
-            shoulder:0xb09a74,
-            centerLine:false,
-            edgeLines:false
-          }
-        )
-      );
-    }
-  );
-
-  FARMSTEADS.forEach(
-    item=>createFarmstead(
-      ...item
-    )
-  );
-
-  createHedgerows();
-  createOrchards();
-  createStreetLights();
-  createRidgeOutcrops();
-  createTreeLines();
-  createRuralHouses();
-  createRoadsidePosts();
-  createDirtTrackRuts();
-  createFieldFences();
-
-  createForestPatches();
-  createForestEdgeScrub();
-  createTributaryVegetation();
 
   createRiverBankVegetation(
     RIVER_PATH
@@ -4428,17 +4614,8 @@ function addOzetiLandmarks(){
     RIVER_PATH
   );
 
-  createRiverGravelBars(
-    RIVER_PATH,
-    RIVER_WIDTHS
-  );
-
   createGroundCover();
   createTerrainSurfaceDetails();
-
-  createUtilityLine(
-    UTILITY_LINE
-  );
 }
 
 
