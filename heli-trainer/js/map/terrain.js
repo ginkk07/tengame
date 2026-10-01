@@ -43,8 +43,8 @@ export function createTerrainSystem({
   };
 
   /*
-   * Full Ozeti world origin is the center of tileBounds.
-   * This is where the cropped GLB belongs inside that complete world.
+   * Website view() fits map.bounds. WORLD_CONFIG and sourceBounds now
+   * describe the same playable extent, so worldOffset must resolve to zero.
    */
   const worldOffset={
     x:
@@ -315,9 +315,6 @@ export function createTerrainSystem({
       localZ<-halfZ ||
       localZ> halfZ
     ){
-      // The complete tile world exists outside the reconstructed GLB.
-      // Until a full elevation mesh is available, those outer regions use
-      // the correctly scaled flat world floor rather than stretching the crop.
       return 0;
     }
 
@@ -1289,7 +1286,7 @@ export function createTerrainSystem({
 
       if(statusEl){
         statusEl.textContent=
-          'Ozeti v60 · 地形已載入，準備建立3D場景';
+          'Ozeti v65 · 地形已載入，準備建立3D場景';
       }
 
       return true;

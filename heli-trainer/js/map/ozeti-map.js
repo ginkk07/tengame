@@ -7,8 +7,24 @@ import {
 } from './terrain.js';
 
 import {
-  buildOzetiScenery
-} from './scenery.js';
+  createCoordinateCalibrationLayer
+} from './calibration.js';
+
+import {
+  createRoadReferenceLayer
+} from './roads.js';
+
+import {
+  createTowerReferenceLayer
+} from './structures.js';
+
+import {
+  createForestReferenceLayer
+} from './vegetation.js';
+
+import {
+  createBuildingReferenceLayer
+} from './buildings.js';
 
 import {
   createFactionWorldLayer,
@@ -56,59 +72,65 @@ export function createOzetiMap({
     });
 
   let scenery=null;
+  let calibration=null;
+  let roads=null;
+  let structures=null;
+  let vegetation=null;
+  let buildings=null;
 
   async function load(){
     await terrain.load();
 
+    factionLayer.rebuild();
+
+    calibration=
+      createCoordinateCalibrationLayer({
+        THREE,
+        scene,
+        terrainHeight:terrain.height
+      });
+
+    roads=
+      createRoadReferenceLayer({
+        THREE,
+        scene,
+        terrainHeight:terrain.height
+      });
+
+    structures=
+      createTowerReferenceLayer({
+        THREE,
+        scene,
+        terrainHeight:terrain.height
+      });
+
+    vegetation=
+      createForestReferenceLayer({
+        THREE,
+        scene,
+        terrainHeight:terrain.height
+      });
+
+    buildings=
+      createBuildingReferenceLayer({
+        THREE,
+        scene,
+        terrainHeight:terrain.height
+      });
+
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v60 · 3D 場景建立中…';
+        'Ozeti v65 · 道路 '+
+        roads.routeCount+
+        ' / Tower '+
+        structures.towerCount+
+        ' / 樹 '+
+        vegetation.treeCount+
+        ' / 建築 '+
+        buildings.buildingCount;
     }
 
-    try{
-      scenery=
-        buildOzetiScenery({
-          THREE,
-          scene,
-          terrainHeight:terrain.height
-        });
-
-      factionLayer.rebuild();
-
-      if(statusEl){
-        const stats=
-          scenery.stats || {};
-
-        statusEl.textContent=
-          'Ozeti v60 · '+
-          '樹 '+
-          (stats.trees || 0)+
-          ' / 建築 '+
-          (
-            (stats.buildings || 0)+
-            (stats.baseBuildings || 0)
-          )+
-          ' / 橋 '+
-          (stats.bridges || 0)+
-          ' / 塔 '+
-          (stats.towers || 0)+
-          ' · MAP座標';
-      }
-
-      return true;
-    }catch(error){
-      console.error(
-        'Ozeti scenery build failed:',
-        error
-      );
-
-      if(statusEl){
-        statusEl.textContent=
-          'Ozeti v60 · 3D 場景建立失敗';
-      }
-
-      throw error;
-    }
+    return true;
   }
 
   return {
@@ -128,6 +150,21 @@ export function createOzetiMap({
     },
     get scenery(){
       return scenery;
+    },
+    get calibration(){
+      return calibration;
+    },
+    get roads(){
+      return roads;
+    },
+    get structures(){
+      return structures;
+    },
+    get vegetation(){
+      return vegetation;
+    },
+    get buildings(){
+      return buildings;
     },
     terrain,
     factionLayer
