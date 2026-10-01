@@ -21,16 +21,18 @@ import {
   ROADSIDE_POST_ROUTES,
   TRIBUTARY_GULLIES,
   FIELD_FENCES,
-  REFERENCE_MAJOR_ROADS,
-  REFERENCE_MINOR_ROADS,
-  REFERENCE_FOREST_POINTS,
-  REFERENCE_SETTLEMENTS,
-  REFERENCE_TOWERS,
+  MAPMODEL_MAJOR_ROADS,
+  MAPMODEL_MINOR_ROADS,
+  MAPMODEL_FOREST,
+  MAPMODEL_BUILDINGS,
+  MAPMODEL_BRIDGES,
+  MAPMODEL_TOWERS,
   FACTIONS
 } from './map-data.js';
 
 import {
-  factionCenterWorld
+  factionCenterWorld,
+  mapPointToWorld
 } from './factions.js';
 
 export function buildOzetiScenery({
@@ -4268,21 +4270,27 @@ function createFieldFences(){
   );
 }
 
-function worldToLocalPoint(point){
+function mapToLocalPoint(point){
+  const world=
+    mapPointToWorld(
+      point[0],
+      point[1]
+    );
+
   return [
-    point[0]-
+    world.x-
     worldOffset.x,
-    point[1]-
+    world.z-
     worldOffset.z
   ];
 }
 
 function createReferenceRoadNetwork(){
-  REFERENCE_MAJOR_ROADS.forEach(
+  MAPMODEL_MAJOR_ROADS.forEach(
     route=>{
       const local=
         route.map(
-          worldToLocalPoint
+          mapToLocalPoint
         );
 
       ozetiScenery.add(
@@ -4299,11 +4307,11 @@ function createReferenceRoadNetwork(){
     }
   );
 
-  REFERENCE_MINOR_ROADS.forEach(
+  MAPMODEL_MINOR_ROADS.forEach(
     route=>{
       const local=
         route.map(
-          worldToLocalPoint
+          mapToLocalPoint
         );
 
       ozetiScenery.add(
@@ -4322,93 +4330,65 @@ function createReferenceRoadNetwork(){
 }
 
 function createReferenceForest(){
-  const points=
-    REFERENCE_FOREST_POINTS.map(
-      worldToLocalPoint
+  const anchors=
+    MAPMODEL_FOREST.map(
+      mapToLocalPoint
     );
 
   const crownGeo=
     new THREE.ConeGeometry(
-      4.8,
-      16,
+      4.4,
+      15,
       6
     );
 
   crownGeo.translate(
     0,
-    8,
-    0
-  );
-
-  const upperCrownGeo=
-    new THREE.ConeGeometry(
-      3.5,
-      11,
-      6
-    );
-
-  upperCrownGeo.translate(
-    0,
-    15,
+    7.5,
     0
   );
 
   const trunkGeo=
     new THREE.CylinderGeometry(
-      .72,
-      1.05,
-      6,
+      .65,
+      .95,
+      5.5,
       6
     );
 
   trunkGeo.translate(
     0,
-    3,
+    2.75,
     0
   );
 
-  const treesPerPoint=7;
-
-  const countMax=
-    points.length*
-    treesPerPoint;
+  const treesPerAnchor=3;
+  const maxCount=
+    anchors.length*
+    treesPerAnchor;
 
   const crowns=
     new THREE.InstancedMesh(
       crownGeo,
       new THREE.MeshStandardMaterial({
-        color:0xffffff,
+        color:0x315637,
         roughness:1
       }),
-      countMax
-    );
-
-  const upperCrowns=
-    new THREE.InstancedMesh(
-      upperCrownGeo,
-      new THREE.MeshStandardMaterial({
-        color:0xffffff,
-        roughness:1
-      }),
-      countMax
+      maxCount
     );
 
   const trunks=
     new THREE.InstancedMesh(
       trunkGeo,
       new THREE.MeshStandardMaterial({
-        color:0x554432,
+        color:0x554636,
         roughness:1
       }),
-      countMax
+      maxCount
     );
 
   crowns.castShadow=true;
   crowns.receiveShadow=true;
-
-  upperCrowns.castShadow=true;
-  upperCrowns.receiveShadow=true;
-
   trunks.castShadow=true;
 
   const dummy=
@@ -4416,39 +4396,39 @@ function createReferenceForest(){
 
   const rand=
     seededRandom(
-      0x5702
+      0x6002
     );
 
   let index=0;
 
-  points.forEach(
-    point=>{
-      for(let k=0;k<treesPerPoint;k++){
+  anchors.forEach(
+    anchor=>{
+      for(let i=0;i<treesPerAnchor;i++){
+        /*
+         * Only a very small local scatter is used to turn one map vegetation
+         * sample into a tree group. The group itself stays locked to the map
+         * coordinate instead of being generated around an unrelated center.
+         */
         const angle=
           rand()*
           Math.PI*
           2;
 
         const radius=
-          Math.sqrt(rand())*
-          34;
+          i===0
+            ? 0
+            : 4+
+              rand()*9;
 
         const x=
-          point[0]+
+          anchor[0]+
           Math.cos(angle)*
           radius;
 
         const z=
-          point[1]+
+          anchor[1]+
           Math.sin(angle)*
           radius;
-
-        if(
-          Math.abs(x)>MAP_HALF_X-35 ||
-          Math.abs(z)>MAP_HALF_Z-35
-        ){
-          continue;
-        }
 
         const y=
           terrainHeight(
@@ -4457,8 +4437,8 @@ function createReferenceForest(){
           );
 
         const scale=
-          .70+
-          rand()*.82;
+          .78+
+          rand()*.48;
 
         dummy.position.set(
           x,
@@ -4485,53 +4465,6 @@ function createReferenceForest(){
           dummy.matrix
         );
 
-        const crownColor=
-          new THREE.Color(
-            [
-              0x24482d,
-              0x2b5132,
-              0x345b38,
-              0x3b633e,
-              0x1f4128
-            ][
-              Math.floor(
-                rand()*5
-              )
-            ]
-          );
-
-        crowns.setColorAt(
-          index,
-          crownColor
-        );
-
-        dummy.scale.set(
-          scale*.82,
-          scale*.88,
-          scale*.82
-        );
-
-        dummy.updateMatrix();
-
-        upperCrowns.setMatrixAt(
-          index,
-          dummy.matrix
-        );
-
-        const upperColor=
-          crownColor.clone();
-
-        upperColor.offsetHSL(
-          0,
-          .02,
-          .025
-        );
-
-        upperCrowns.setColorAt(
-          index,
-          upperColor
-        );
-
         dummy.scale.set(
           scale*.78,
           scale,
@@ -4551,108 +4484,23 @@ function createReferenceForest(){
   );
 
   crowns.count=index;
-  upperCrowns.count=index;
   trunks.count=index;
 
-  sceneryStats.trees=index;
-
   crowns.computeBoundingSphere();
-  upperCrowns.computeBoundingSphere();
   trunks.computeBoundingSphere();
 
   crowns.instanceMatrix.needsUpdate=true;
-  upperCrowns.instanceMatrix.needsUpdate=true;
   trunks.instanceMatrix.needsUpdate=true;
 
-  if(crowns.instanceColor){
-    crowns.instanceColor.needsUpdate=true;
-  }
-
-  if(upperCrowns.instanceColor){
-    upperCrowns.instanceColor.needsUpdate=true;
-  }
+  sceneryStats.trees=index;
 
   ozetiScenery.add(
     trunks,
-    crowns,
-    upperCrowns
+    crowns
   );
 }
 
 function createReferenceSettlements(){
-  const rand=
-    seededRandom(
-      0x5703
-    );
-
-  const buildingPlans=[];
-
-  REFERENCE_SETTLEMENTS.forEach(
-    item=>{
-      const local=
-        worldToLocalPoint(
-          item
-        );
-
-      const scale=
-        item[2];
-
-      const count=
-        Math.round(
-          20+
-          scale*18
-        );
-
-      for(let i=0;i<count;i++){
-        const angle=
-          rand()*
-          Math.PI*
-          2;
-
-        const radius=
-          Math.sqrt(rand())*
-          (
-            82+
-            scale*92
-          );
-
-        buildingPlans.push({
-          x:
-            local[0]+
-            Math.cos(angle)*
-            radius,
-          z:
-            local[1]+
-            Math.sin(angle)*
-            radius,
-          w:
-            11+
-            rand()*25,
-          d:
-            10+
-            rand()*20,
-          h:
-            7+
-            rand()*23,
-          angle:
-            rand()*
-            Math.PI,
-          color:[
-            0x918f87,
-            0xa19d91,
-            0xaaa497,
-            0x858a83,
-            0xb0a99b
-          ][
-            Math.floor(
-              rand()*5
-            )
-          ]
-        });
-      }
-    }
-  );
-
   const bodyGeo=
     new THREE.BoxGeometry(
       1,
@@ -4683,20 +4531,20 @@ function createReferenceSettlements(){
     new THREE.InstancedMesh(
       bodyGeo,
       new THREE.MeshStandardMaterial({
-        color:0xffffff,
+        color:0x9a9990,
         roughness:.94
       }),
-      buildingPlans.length
+      MAPMODEL_BUILDINGS.length
     );
 
   const roofs=
     new THREE.InstancedMesh(
       roofGeo,
       new THREE.MeshStandardMaterial({
-        color:0xffffff,
-        roughness:.92
+        color:0x62625d,
+        roughness:.9
       }),
-      buildingPlans.length
+      MAPMODEL_BUILDINGS.length
     );
 
   bodies.castShadow=true;
@@ -4707,30 +4555,56 @@ function createReferenceSettlements(){
   const dummy=
     new THREE.Object3D();
 
-  buildingPlans.forEach(
-    (plan,index)=>{
-      const y=
-        terrainHeight(
-          plan.x,
-          plan.z
+  MAPMODEL_BUILDINGS.forEach(
+    (mapPoint,index)=>{
+      const local=
+        mapToLocalPoint(
+          mapPoint
         );
 
+      const x=local[0];
+      const z=local[1];
+
+      const y=
+        terrainHeight(
+          x,
+          z
+        );
+
+      const width=
+        12+
+        (index%5)*2.4;
+
+      const depth=
+        10+
+        (index%4)*2.1;
+
+      const height=
+        7+
+        (index%6)*1.6;
+
+      const angle=
+        (
+          (index%7)-
+          3
+        )*.08;
+
       dummy.position.set(
-        plan.x,
+        x,
         y,
-        plan.z
+        z
       );
 
       dummy.rotation.set(
         0,
-        plan.angle,
+        angle,
         0
       );
 
       dummy.scale.set(
-        plan.w,
-        plan.h,
-        plan.d
+        width,
+        height,
+        depth
       );
 
       dummy.updateMatrix();
@@ -4740,22 +4614,14 @@ function createReferenceSettlements(){
         dummy.matrix
       );
 
-      bodies.setColorAt(
-        index,
-        new THREE.Color(
-          plan.color
-        )
-      );
-
       dummy.position.y=
         y+
-        plan.h;
+        height;
 
       dummy.scale.set(
-        plan.w*1.04,
-        .85+
-        plan.h*.035,
-        plan.d*1.04
+        width*1.04,
+        .75,
+        depth*1.04
       );
 
       dummy.updateMatrix();
@@ -4764,25 +4630,8 @@ function createReferenceSettlements(){
         index,
         dummy.matrix
       );
-
-      roofs.setColorAt(
-        index,
-        new THREE.Color(
-          [
-            0x5f5f59,
-            0x6b655d,
-            0x5a615f,
-            0x75695f
-          ][
-            index%4
-          ]
-        )
-      );
     }
   );
-
-  sceneryStats.buildings=
-    buildingPlans.length;
 
   bodies.computeBoundingSphere();
   roofs.computeBoundingSphere();
@@ -4790,13 +4639,8 @@ function createReferenceSettlements(){
   bodies.instanceMatrix.needsUpdate=true;
   roofs.instanceMatrix.needsUpdate=true;
 
-  if(bodies.instanceColor){
-    bodies.instanceColor.needsUpdate=true;
-  }
-
-  if(roofs.instanceColor){
-    roofs.instanceColor.needsUpdate=true;
-  }
+  sceneryStats.buildings=
+    MAPMODEL_BUILDINGS.length;
 
   ozetiScenery.add(
     bodies,
@@ -4868,123 +4712,65 @@ function segmentIntersection2D(a,b,c,d){
 }
 
 function createReferenceBridges(){
-  const roadSets=[
-    {
-      routes:REFERENCE_MAJOR_ROADS,
-      width:29
-    },
-    {
-      routes:REFERENCE_MINOR_ROADS,
-      width:17
-    }
-  ];
+  MAPMODEL_BRIDGES.forEach(
+    bridge=>{
+      const center=
+        mapToLocalPoint([
+          bridge.x,
+          bridge.y
+        ]);
 
-  const bridgeCenters=[];
+      const angle=
+        THREE.MathUtils.degToRad(
+          bridge.heading
+        );
 
-  roadSets.forEach(
-    roadSet=>{
-      roadSet.routes.forEach(
-        routeWorld=>{
-          const route=
-            routeWorld.map(
-              worldToLocalPoint
-            );
+      const tx=
+        Math.cos(angle);
 
-          for(let r=0;r<route.length-1;r++){
-            const a=route[r];
-            const b=route[r+1];
+      const tz=
+        Math.sin(angle);
 
-            for(let j=0;j<RIVER_PATH.length-1;j++){
-              const hit=
-                segmentIntersection2D(
-                  a,
-                  b,
-                  RIVER_PATH[j],
-                  RIVER_PATH[j+1]
-                );
+      const halfLength=54;
 
-              if(!hit){
-                continue;
-              }
-
-              const duplicate=
-                bridgeCenters.some(
-                  existing=>
-                    Math.hypot(
-                      hit[0]-existing[0],
-                      hit[1]-existing[1]
-                    )<125
-                );
-
-              if(duplicate){
-                continue;
-              }
-
-              const dx=
-                b[0]-a[0];
-
-              const dz=
-                b[1]-a[1];
-
-              const length=
-                Math.hypot(
-                  dx,
-                  dz
-                ) || 1;
-
-              const tx=dx/length;
-              const tz=dz/length;
-
-              const halfLength=
-                roadSet.width>20
-                  ? 62
-                  : 48;
-
-              ozetiScenery.add(
-                createBridge(
-                  [
-                    hit[0]-
-                    tx*
-                    halfLength,
-                    hit[1]-
-                    tz*
-                    halfLength
-                  ],
-                  [
-                    hit[0]+
-                    tx*
-                    halfLength,
-                    hit[1]+
-                    tz*
-                    halfLength
-                  ],
-                  roadSet.width
-                )
-              );
-
-              bridgeCenters.push(
-                hit
-              );
-
-              sceneryStats.bridges++;
-            }
-          }
-        }
+      ozetiScenery.add(
+        createBridge(
+          [
+            center[0]-
+            tx*
+            halfLength,
+            center[1]-
+            tz*
+            halfLength
+          ],
+          [
+            center[0]+
+            tx*
+            halfLength,
+            center[1]+
+            tz*
+            halfLength
+          ],
+          27
+        )
       );
+
+      sceneryStats.bridges++;
     }
   );
 }
 
 function createReferenceTowers(){
-  REFERENCE_TOWERS.forEach(
-    world=>{
+  MAPMODEL_TOWERS.forEach(
+    mapPoint=>{
       const local=
-        worldToLocalPoint(
-          world
+        mapToLocalPoint(
+          mapPoint
         );
 
       const x=local[0];
       const z=local[1];
+
       const y=
         terrainHeight(
           x,
@@ -5007,14 +4793,12 @@ function createReferenceTowers(){
           roughness:.85
         });
 
-      const legOffsets=[
+      [
         [-3,-3],
         [3,-3],
         [3,3],
         [-3,3]
-      ];
-
-      legOffsets.forEach(
+      ].forEach(
         offset=>{
           const leg=
             new THREE.Mesh(
@@ -5032,14 +4816,6 @@ function createReferenceTowers(){
             17,
             offset[1]
           );
-
-          leg.rotation.z=
-            offset[0]*
-            -.006;
-
-          leg.rotation.x=
-            offset[1]*
-            .006;
 
           group.add(leg);
         }
@@ -5100,299 +4876,14 @@ function createReferenceTowers(){
   );
 }
 
-function createFactionBaseCompounds(){
-  Object.values(
-    FACTIONS
-  ).forEach(
-    (faction,factionIndex)=>{
-      const centerWorld=
-        factionCenterWorld(
-          faction.id
-        );
-
-      const center=
-        worldToLocalPoint([
-          centerWorld.x,
-          centerWorld.z
-        ]);
-
-      const baseX=center[0];
-      const baseZ=center[1];
-
-      const baseY=
-        terrainHeight(
-          baseX,
-          baseZ
-        );
-
-      const group=
-        new THREE.Group();
-
-      /*
-       * Large neutral concrete platform. This makes it immediately obvious
-       * at the Lonestar spawn that the 3D scenery layer is present.
-       */
-      const pad=
-        new THREE.Mesh(
-          new THREE.BoxGeometry(
-            150,
-            2.2,
-            118
-          ),
-          new THREE.MeshStandardMaterial({
-            color:0x6f746f,
-            roughness:.95,
-            metalness:0
-          })
-        );
-
-      pad.position.y=1.1;
-      pad.receiveShadow=true;
-      group.add(pad);
-
-      const bodyMaterial=
-        new THREE.MeshStandardMaterial({
-          color:[
-            0x8c938d,
-            0x8f8b82,
-            0x858d91
-          ][factionIndex%3],
-          roughness:.9
-        });
-
-      const roofMaterial=
-        new THREE.MeshStandardMaterial({
-          color:0x555b5b,
-          roughness:.85
-        });
-
-      const plans=[
-        [-42,-25,38,18,12],
-        [ 38,-22,44,22,14],
-        [-34, 27,28,18,10],
-        [ 27, 29,34,20,11],
-        [  0,  0,24,20,16]
-      ];
-
-      plans.forEach(
-        plan=>{
-          const [
-            x,
-            z,
-            width,
-            depth,
-            height
-          ]=plan;
-
-          const body=
-            new THREE.Mesh(
-              new THREE.BoxGeometry(
-                width,
-                height,
-                depth
-              ),
-              bodyMaterial
-            );
-
-          body.position.set(
-            x,
-            2.2+
-            height*.5,
-            z
-          );
-
-          body.castShadow=true;
-          body.receiveShadow=true;
-
-          const roof=
-            new THREE.Mesh(
-              new THREE.BoxGeometry(
-                width*1.04,
-                1.2,
-                depth*1.04
-              ),
-              roofMaterial
-            );
-
-          roof.position.set(
-            x,
-            2.2+
-            height+
-            .6,
-            z
-          );
-
-          roof.castShadow=true;
-          roof.receiveShadow=true;
-
-          group.add(
-            body,
-            roof
-          );
-
-          sceneryStats.baseBuildings++;
-        }
-      );
-
-      /*
-       * Two small watch towers on each base.
-       */
-      [
-        [-61,-43],
-        [ 61, 43]
-      ].forEach(
-        position=>{
-          const tower=
-            new THREE.Group();
-
-          const legMaterial=
-            new THREE.MeshStandardMaterial({
-              color:0x555d5b,
-              roughness:.82,
-              metalness:.12
-            });
-
-          [
-            [-2,-2],
-            [ 2,-2],
-            [ 2, 2],
-            [-2, 2]
-          ].forEach(
-            leg=>{
-              const mesh=
-                new THREE.Mesh(
-                  new THREE.CylinderGeometry(
-                    .22,
-                    .32,
-                    16,
-                    5
-                  ),
-                  legMaterial
-                );
-
-              mesh.position.set(
-                leg[0],
-                8,
-                leg[1]
-              );
-
-              mesh.castShadow=true;
-              tower.add(mesh);
-            }
-          );
-
-          const deck=
-            new THREE.Mesh(
-              new THREE.BoxGeometry(
-                7,
-                .8,
-                7
-              ),
-              roofMaterial
-            );
-
-          deck.position.y=16;
-          deck.castShadow=true;
-          tower.add(deck);
-
-          tower.position.set(
-            position[0],
-            2.2,
-            position[1]
-          );
-
-          group.add(tower);
-        }
-      );
-
-      /*
-       * Perimeter barriers make the compound readable from the air.
-       */
-      const barrierMaterial=
-        new THREE.MeshStandardMaterial({
-          color:0x77776f,
-          roughness:1
-        });
-
-      [
-        [0,-62,154,2,3],
-        [0, 62,154,2,3],
-        [-79,0,2,122,3],
-        [ 79,0,2,122,3]
-      ].forEach(
-        wall=>{
-          const mesh=
-            new THREE.Mesh(
-              new THREE.BoxGeometry(
-                wall[2],
-                wall[4],
-                wall[3]
-              ),
-              barrierMaterial
-            );
-
-          mesh.position.set(
-            wall[0],
-            2.2+
-            wall[4]*.5,
-            wall[1]
-          );
-
-          mesh.castShadow=true;
-          mesh.receiveShadow=true;
-          group.add(mesh);
-        }
-      );
-
-      /*
-       * A short local access road helps visually connect the base to terrain.
-       */
-      const accessRoad=
-        new THREE.Mesh(
-          new THREE.BoxGeometry(
-            14,
-            .8,
-            95
-          ),
-          new THREE.MeshStandardMaterial({
-            color:0x555b58,
-            roughness:.96
-          })
-        );
-
-      accessRoad.position.set(
-        0,
-        .42,
-        104
-      );
-
-      accessRoad.receiveShadow=true;
-      group.add(accessRoad);
-
-      group.position.set(
-        baseX,
-        baseY,
-        baseZ
-      );
-
-      ozetiScenery.add(
-        group
-      );
-    }
-  );
-}
-
 function addOzetiLandmarks(){
   clearOzetiScenery();
 
   /*
    * v56 reconstruction priority:
-   * website road layout -> website forest layout -> central settlements ->
-   * river / terrain supporting details.
-   * Older invented farms, stadium, orchards and rural props are intentionally
-   * omitted because they made the scene diverge from the map reference.
+   * All reconstructed models in this block are locked to absolute Ozeti
+   * map coordinates. Nothing is positioned around the helicopter spawn.
    */
-  createFactionBaseCompounds();
   createReferenceRoadNetwork();
   createReferenceBridges();
   createReferenceForest();

@@ -62,7 +62,7 @@ export function createOzetiMap({
 
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v59 · 3D 場景建立中…';
+        'Ozeti v60 · 3D 場景建立中…';
     }
 
     try{
@@ -80,7 +80,7 @@ export function createOzetiMap({
           scenery.stats || {};
 
         statusEl.textContent=
-          'Ozeti v59 · '+
+          'Ozeti v60 · '+
           '樹 '+
           (stats.trees || 0)+
           ' / 建築 '+
@@ -91,7 +91,8 @@ export function createOzetiMap({
           ' / 橋 '+
           (stats.bridges || 0)+
           ' / 塔 '+
-          (stats.towers || 0);
+          (stats.towers || 0)+
+          ' · MAP座標';
       }
 
       return true;
@@ -103,7 +104,7 @@ export function createOzetiMap({
 
       if(statusEl){
         statusEl.textContent=
-          'Ozeti v59 · 3D 場景建立失敗';
+          'Ozeti v60 · 3D 場景建立失敗';
       }
 
       throw error;
