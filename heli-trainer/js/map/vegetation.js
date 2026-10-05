@@ -1,5 +1,6 @@
 import {
-  FOREST_REFERENCE_POINTS
+  FOREST_REFERENCE_POINTS,
+  LANDMARK_REFERENCE_POINTS
 } from './map-data.js';
 
 import {
@@ -19,63 +20,155 @@ export function createForestReferenceLayer({
 
   scene.add(group);
 
+  const clearings=
+    LANDMARK_REFERENCE_POINTS.filter(
+      item=>
+        [
+          'stadium',
+          'pool',
+          'church',
+          'lumberyard',
+          'apartments',
+          'shops_1',
+          'shops_2',
+          'industrial'
+        ].includes(
+          item.id
+        )
+    );
+
+  function insideClearing(point){
+    return clearings.some(
+      item=>
+        Math.hypot(
+          point[0]-
+          item.x,
+          point[1]-
+          item.y
+        )<
+        item.clearRadius
+    );
+  }
+
+  const points=
+    FOREST_REFERENCE_POINTS.filter(
+      point=>
+        !insideClearing(
+          point
+        )
+    );
+
   const trunkGeometry=
     new THREE.CylinderGeometry(
-      .55,
-      .9,
-      5.5,
+      .48,
+      .82,
+      5.0,
       6
     );
 
   trunkGeometry.translate(
     0,
-    2.75,
+    2.5,
     0
   );
 
-  const lowerCrownGeometry=
-    new THREE.ConeGeometry(
-      4.4,
-      12,
-      7
+  const broadGeometry=
+    new THREE.IcosahedronGeometry(
+      4.5,
+      1
     );
 
-  lowerCrownGeometry.translate(
+  broadGeometry.scale(
+    1.0,
+    .92,
+    .95
+  );
+
+  broadGeometry.translate(
     0,
-    8.0,
+    10.2,
     0
   );
 
-  const upperCrownGeometry=
-    new THREE.ConeGeometry(
+  const broadUpperGeometry=
+    new THREE.IcosahedronGeometry(
       3.2,
-      10,
+      1
+    );
+
+  broadUpperGeometry.scale(
+    .90,
+    .95,
+    .90
+  );
+
+  broadUpperGeometry.translate(
+    1.1,
+    13.2,
+    -.6
+  );
+
+  const coniferLowerGeometry=
+    new THREE.ConeGeometry(
+      4.0,
+      10.0,
       7
     );
 
-  upperCrownGeometry.translate(
+  coniferLowerGeometry.translate(
     0,
-    14.0,
+    8.1,
+    0
+  );
+
+  const coniferUpperGeometry=
+    new THREE.ConeGeometry(
+      3.0,
+      9.0,
+      7
+    );
+
+  coniferUpperGeometry.translate(
+    0,
+    13.2,
+    0
+  );
+
+  const shrubGeometry=
+    new THREE.IcosahedronGeometry(
+      2.6,
+      0
+    );
+
+  shrubGeometry.scale(
+    1.35,
+    .55,
+    1.15
+  );
+
+  shrubGeometry.translate(
+    0,
+    1.7,
     0
   );
 
   const maxCount=
-    FOREST_REFERENCE_POINTS.length*
+    points.length*
     2;
 
   const trunks=
     new THREE.InstancedMesh(
       trunkGeometry,
       new THREE.MeshStandardMaterial({
-        color:0x554839,
+        color:0x514537,
         roughness:1
       }),
       maxCount
     );
 
-  const lowerCrowns=
+  const broad=
     new THREE.InstancedMesh(
-      lowerCrownGeometry,
+      broadGeometry,
       new THREE.MeshStandardMaterial({
         color:0xffffff,
         roughness:1
@@ -83,9 +176,9 @@ export function createForestReferenceLayer({
       maxCount
     );
 
-  const upperCrowns=
+  const broadUpper=
     new THREE.InstancedMesh(
-      upperCrownGeometry,
+      broadUpperGeometry,
       new THREE.MeshStandardMaterial({
         color:0xffffff,
         roughness:1
@@ -93,19 +186,62 @@ export function createForestReferenceLayer({
       maxCount
     );
 
-  trunks.castShadow=true;
+  const coniferLower=
+    new THREE.InstancedMesh(
+      coniferLowerGeometry,
+      new THREE.MeshStandardMaterial({
+        color:0xffffff,
+        roughness:1
+      }),
+      maxCount
+    );
 
-  lowerCrowns.castShadow=true;
-  lowerCrowns.receiveShadow=true;
+  const coniferUpper=
+    new THREE.InstancedMesh(
+      coniferUpperGeometry,
+      new THREE.MeshStandardMaterial({
+        color:0xffffff,
+        roughness:1
+      }),
+      maxCount
+    );
 
-  upperCrowns.castShadow=true;
-  upperCrowns.receiveShadow=true;
+  const shrubs=
+    new THREE.InstancedMesh(
+      shrubGeometry,
+      new THREE.MeshStandardMaterial({
+        color:0xffffff,
+        roughness:1
+      }),
+      maxCount
+    );
+
+  const leafColors=[
+    new THREE.Color(0x1f4027),
+    new THREE.Color(0x274a2d),
+    new THREE.Color(0x315334),
+    new THREE.Color(0x3a5c38),
+    new THREE.Color(0x24482b)
+  ];
+
+  const coniferColors=[
+    new THREE.Color(0x183a26),
+    new THREE.Color(0x1e432a),
+    new THREE.Color(0x254b2e),
+    new THREE.Color(0x2c5133)
+  ];
+
+  const shrubColors=[
+    new THREE.Color(0x36563a),
+    new THREE.Color(0x405f3e),
+    new THREE.Color(0x2f4d34)
+  ];
 
   const dummy=
     new THREE.Object3D();
 
   function hash01(value){
-    const x=
+    const result=
       Math.sin(
         value*
         12.9898+
@@ -113,26 +249,18 @@ export function createForestReferenceLayer({
       )*
       43758.5453;
 
-    return x-
-      Math.floor(x);
+    return result-
+      Math.floor(
+        result
+      );
   }
 
-  const colors=[
-    0x23452b,
-    0x2a5030,
-    0x315936,
-    0x3a613d,
-    0x1f4027
-  ].map(
-    value=>
-      new THREE.Color(
-        value
-      )
-  );
+  let trunkCount=0;
+  let broadCount=0;
+  let coniferCount=0;
+  let shrubCount=0;
 
-  let instanceIndex=0;
-
-  FOREST_REFERENCE_POINTS.forEach(
+  points.forEach(
     (point,index)=>{
       const world=
         mapPointToWorld(
@@ -140,15 +268,10 @@ export function createForestReferenceLayer({
           point[1]
         );
 
-      /*
-       * One map sample becomes one main tree plus an occasional nearby tree.
-       * The scatter radius stays under ~12 m, so woodland location still
-       * follows the tactical map rather than becoming an invented forest patch.
-       */
       const count=
         hash01(
-          index+11
-        )>.34
+          index+7
+        )>.42
           ? 2
           : 1;
 
@@ -156,8 +279,8 @@ export function createForestReferenceLayer({
         const angle=
           hash01(
             index*17+
-            n*31+
-            5
+            n*13+
+            4
           )*
           Math.PI*
           2;
@@ -165,12 +288,12 @@ export function createForestReferenceLayer({
         const radius=
           n===0
             ? 0
-            : 4+
+            : 3.5+
               hash01(
-                index*23+
-                n*47
+                index*31+
+                n*19
               )*
-              8;
+              8.5;
 
         const x=
           world.x+
@@ -189,13 +312,12 @@ export function createForestReferenceLayer({
           );
 
         const scale=
-          .72+
+          .70+
           hash01(
-            index*29+
-            n*13+
-            9
+            index*23+
+            n*29
           )*
-          .65;
+          .62;
 
         dummy.position.set(
           x,
@@ -207,7 +329,7 @@ export function createForestReferenceLayer({
           0,
           hash01(
             index*37+
-            n*19
+            n*11
           )*
           Math.PI*
           2,
@@ -223,100 +345,240 @@ export function createForestReferenceLayer({
         dummy.updateMatrix();
 
         trunks.setMatrixAt(
-          instanceIndex,
+          trunkCount,
           dummy.matrix
         );
 
-        lowerCrowns.setMatrixAt(
-          instanceIndex,
-          dummy.matrix
-        );
+        trunkCount++;
 
-        lowerCrowns.setColorAt(
-          instanceIndex,
-          colors[
-            Math.floor(
-              hash01(
-                index*41+
-                n*7
-              )*
-              colors.length
-            )%
-            colors.length
-          ]
-        );
+        const isConifer=
+          hash01(
+            index*43+
+            n*5
+          )<
+          .34;
 
-        dummy.scale.set(
-          scale*.88,
-          scale*.90,
-          scale*.88
-        );
+        if(isConifer){
+          coniferLower.setMatrixAt(
+            coniferCount,
+            dummy.matrix
+          );
 
-        dummy.updateMatrix();
-
-        upperCrowns.setMatrixAt(
-          instanceIndex,
-          dummy.matrix
-        );
-
-        upperCrowns.setColorAt(
-          instanceIndex,
-          colors[
-            (
+          coniferLower.setColorAt(
+            coniferCount,
+            coniferColors[
               Math.floor(
                 hash01(
-                  index*43+
-                  n*11
+                  index*47+
+                  n*3
                 )*
-                colors.length
-              )+
-              1
-            )%
-            colors.length
-          ]
-        );
+                coniferColors.length
+              )%
+              coniferColors.length
+            ]
+          );
 
-        instanceIndex++;
+          dummy.scale.set(
+            scale*.86,
+            scale*.94,
+            scale*.86
+          );
+
+          dummy.updateMatrix();
+
+          coniferUpper.setMatrixAt(
+            coniferCount,
+            dummy.matrix
+          );
+
+          coniferUpper.setColorAt(
+            coniferCount,
+            coniferColors[
+              (
+                Math.floor(
+                  hash01(
+                    index*53+
+                    n*7
+                  )*
+                  coniferColors.length
+                )+
+                1
+              )%
+              coniferColors.length
+            ]
+          );
+
+          coniferCount++;
+        }else{
+          broad.setMatrixAt(
+            broadCount,
+            dummy.matrix
+          );
+
+          broad.setColorAt(
+            broadCount,
+            leafColors[
+              Math.floor(
+                hash01(
+                  index*59+
+                  n*17
+                )*
+                leafColors.length
+              )%
+              leafColors.length
+            ]
+          );
+
+          dummy.scale.set(
+            scale*.88,
+            scale*.92,
+            scale*.88
+          );
+
+          dummy.updateMatrix();
+
+          broadUpper.setMatrixAt(
+            broadCount,
+            dummy.matrix
+          );
+
+          broadUpper.setColorAt(
+            broadCount,
+            leafColors[
+              (
+                Math.floor(
+                  hash01(
+                    index*61+
+                    n*23
+                  )*
+                  leafColors.length
+                )+
+                1
+              )%
+              leafColors.length
+            ]
+          );
+
+          broadCount++;
+        }
+
+        if(
+          hash01(
+            index*67+
+            n*31
+          )<
+          .48
+        ){
+          dummy.position.set(
+            x+
+            (
+              hash01(
+                index*71+
+                n*37
+              )-
+              .5
+            )*
+            7,
+            ground,
+            z+
+            (
+              hash01(
+                index*73+
+                n*41
+              )-
+              .5
+            )*
+            7
+          );
+
+          dummy.scale.set(
+            .7+
+            hash01(
+              index*79+
+              n*43
+            )*.5,
+            .7+
+            hash01(
+              index*83+
+              n*47
+            )*.35,
+            .7+
+            hash01(
+              index*89+
+              n*53
+            )*.5
+          );
+
+          dummy.updateMatrix();
+
+          shrubs.setMatrixAt(
+            shrubCount,
+            dummy.matrix
+          );
+
+          shrubs.setColorAt(
+            shrubCount,
+            shrubColors[
+              Math.floor(
+                hash01(
+                  index*97+
+                  n*59
+                )*
+                shrubColors.length
+              )%
+              shrubColors.length
+            ]
+          );
+
+          shrubCount++;
+        }
       }
     }
   );
 
-  trunks.count=
-    instanceIndex;
+  trunks.count=trunkCount;
+  broad.count=broadCount;
+  broadUpper.count=broadCount;
+  coniferLower.count=coniferCount;
+  coniferUpper.count=coniferCount;
+  shrubs.count=shrubCount;
 
-  lowerCrowns.count=
-    instanceIndex;
+  [
+    trunks,
+    broad,
+    broadUpper,
+    coniferLower,
+    coniferUpper,
+    shrubs
+  ].forEach(
+    mesh=>{
+      mesh.instanceMatrix.needsUpdate=true;
 
-  upperCrowns.count=
-    instanceIndex;
+      if(mesh.instanceColor){
+        mesh.instanceColor.needsUpdate=true;
+      }
 
-  trunks.instanceMatrix.needsUpdate=true;
-  lowerCrowns.instanceMatrix.needsUpdate=true;
-  upperCrowns.instanceMatrix.needsUpdate=true;
-
-  if(lowerCrowns.instanceColor){
-    lowerCrowns.instanceColor.needsUpdate=true;
-  }
-
-  if(upperCrowns.instanceColor){
-    upperCrowns.instanceColor.needsUpdate=true;
-  }
-
-  trunks.computeBoundingSphere();
-  lowerCrowns.computeBoundingSphere();
-  upperCrowns.computeBoundingSphere();
+      mesh.computeBoundingSphere();
+      mesh.castShadow=true;
+      mesh.receiveShadow=true;
+    }
+  );
 
   group.add(
     trunks,
-    lowerCrowns,
-    upperCrowns
+    broad,
+    broadUpper,
+    coniferLower,
+    coniferUpper,
+    shrubs
   );
 
   return {
     group,
     anchorCount:
-      FOREST_REFERENCE_POINTS.length,
+      points.length,
     treeCount:
-      instanceIndex
+      trunkCount,
+    shrubCount
   };
 }

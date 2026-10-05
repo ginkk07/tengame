@@ -523,3 +523,28 @@ export const BUILDING_REFERENCE_FEATURES=[
   {x:8383.6,y:3146.1,w:15.0,d:13.5,h:6.8,angle:-0.00998},
   {x:8348.4,y:3077.7,w:20.0,d:27.0,h:9.8,angle:1.64360}
 ];
+
+
+// v66 — official Ozeti base-facility marker coordinates from maps/ozeti.json.
+// Values are stored metres and are converted through mapPointToWorld().
+export const FACILITY_REFERENCE_POINTS=[
+  {faction:'valkyra',type:'weapons_vendor',x:13803,y:6733},
+  {faction:'valkyra',type:'garage_vendor',x:13790,y:6707},
+  {faction:'valkyra',type:'spawn_board',x:13788,y:6726},
+
+  {faction:'manticore',type:'weapons_vendor',x:6854,y:8816},
+  {faction:'manticore',type:'garage_vendor',x:6866,y:8792},
+  {faction:'manticore',type:'spawn_board',x:6842,y:8786},
+
+  {faction:'lonestar',type:'weapons_vendor',x:8385,y:3088},
+  {faction:'lonestar',type:'garage_vendor',x:8373,y:3117},
+  {faction:'lonestar',type:'spawn_board',x:8368,y:3104}
+];
+
+export const FACTION_REFERENCE_POINTS=[
+  {id:'valkyra',x:11875,y:7093,color:0xd86666},
+  {id:'manticore',x:6828,y:8803,color:0x82c596},
+  {id:'lonestar',x:8373,y:3069,color:0x5fa8d3}
+];
+
+

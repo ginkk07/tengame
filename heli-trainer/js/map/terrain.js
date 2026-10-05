@@ -1286,7 +1286,7 @@ export function createTerrainSystem({
 
       if(statusEl){
         statusEl.textContent=
-          'Ozeti v65 · 地形已載入，準備建立3D場景';
+          'Ozeti v68 · 地形已載入，準備建立3D場景';
       }
 
       return true;

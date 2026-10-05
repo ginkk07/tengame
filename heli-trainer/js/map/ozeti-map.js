@@ -27,6 +27,11 @@ import {
 } from './buildings.js';
 
 import {
+  createFacilityReferenceLayer
+} from './facilities.js';
+
+
+import {
   createFactionWorldLayer,
   factionCenterWorld
 } from './factions.js';
@@ -77,6 +82,7 @@ export function createOzetiMap({
   let structures=null;
   let vegetation=null;
   let buildings=null;
+  let facilities=null;
 
   async function load(){
     await terrain.load();
@@ -118,16 +124,27 @@ export function createOzetiMap({
         terrainHeight:terrain.height
       });
 
+    facilities=
+      createFacilityReferenceLayer({
+        THREE,
+        scene,
+        terrainHeight:terrain.height
+      });
+
+
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v65 · 道路 '+
+        'Ozeti v68 · 道路 '+
         roads.routeCount+
         ' / Tower '+
         structures.towerCount+
         ' / 樹 '+
         vegetation.treeCount+
         ' / 建築 '+
-        buildings.buildingCount;
+        buildings.buildingCount+
+        ' / 官方設施 '+
+        facilities.facilityCount+
+        ' / 地形貼合';
     }
 
     return true;
@@ -165,6 +182,9 @@ export function createOzetiMap({
     },
     get buildings(){
       return buildings;
+    },
+    get facilities(){
+      return facilities;
     },
     terrain,
     factionLayer
