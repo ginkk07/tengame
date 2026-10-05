@@ -1,5 +1,6 @@
 import {
-  BUILDING_REFERENCE_FEATURES
+  BUILDING_REFERENCE_FEATURES,
+  LANDMARK_REFERENCE_POINTS
 } from './map-data.js';
 
 import {
@@ -19,78 +20,155 @@ export function createBuildingReferenceLayer({
 
   scene.add(group);
 
-  const bodyGeometry=
-    new THREE.BoxGeometry(
-      1,
-      1,
-      1
-    );
-
-  bodyGeometry.translate(
-    0,
-    .5,
-    0
-  );
-
-  const roofGeometry=
-    new THREE.BoxGeometry(
-      1,
-      1,
-      1
-    );
-
-  roofGeometry.translate(
-    0,
-    .5,
-    0
-  );
-
-  const bodies=
-    new THREE.InstancedMesh(
-      bodyGeometry,
-      new THREE.MeshStandardMaterial({
-        color:0xffffff,
-        roughness:.92,
-        metalness:0
-      }),
-      BUILDING_REFERENCE_FEATURES.length
-    );
-
-  const roofs=
-    new THREE.InstancedMesh(
-      roofGeometry,
-      new THREE.MeshStandardMaterial({
-        color:0xffffff,
-        roughness:.90,
-        metalness:0
-      }),
-      BUILDING_REFERENCE_FEATURES.length
-    );
-
-  bodies.castShadow=true;
-  bodies.receiveShadow=true;
-
-  roofs.castShadow=true;
-  roofs.receiveShadow=true;
-
-  const wallColors=[
-    new THREE.Color(0x96958c),
-    new THREE.Color(0xa6a095),
-    new THREE.Color(0x858b86),
-    new THREE.Color(0xb0a999)
+  const wallMaterials=[
+    new THREE.MeshStandardMaterial({
+      color:0x989486,
+      roughness:.96
+    }),
+    new THREE.MeshStandardMaterial({
+      color:0x85887f,
+      roughness:.96
+    }),
+    new THREE.MeshStandardMaterial({
+      color:0xa6a08f,
+      roughness:.95
+    }),
+    new THREE.MeshStandardMaterial({
+      color:0x747a74,
+      roughness:.95
+    })
   ];
 
-  const roofColors=[
-    new THREE.Color(0x5e625e),
-    new THREE.Color(0x6b665f),
-    new THREE.Color(0x555b59),
-    new THREE.Color(0x746b62)
+  const roofMaterials=[
+    new THREE.MeshStandardMaterial({
+      color:0x5b5c56,
+      roughness:.92
+    }),
+    new THREE.MeshStandardMaterial({
+      color:0x6e665d,
+      roughness:.92
+    }),
+    new THREE.MeshStandardMaterial({
+      color:0x73736b,
+      roughness:.91
+    })
   ];
 
-  const dummy=
-    new THREE.Object3D();
+  const glassMaterial=
+    new THREE.MeshStandardMaterial({
+      color:0x65797a,
+      roughness:.34
+    });
 
-  BUILDING_REFERENCE_FEATURES.forEach(
+  function box(
+    w,h,d,material
+  ){
+    const mesh=
+      new THREE.Mesh(
+        new THREE.BoxGeometry(
+          w,h,d
+        ),
+        material
+      );
+
+    mesh.castShadow=true;
+    mesh.receiveShadow=true;
+
+    return mesh;
+  }
+
+  function gableRoof(
+    w,d,h,material
+  ){
+    const hw=w*.5;
+    const hd=d*.5;
+
+    const vertices=new Float32Array([
+      -hw,0,-hd,  hw,0,-hd,  hw,0,hd, -hw,0,hd,
+       0,h,-hd,   0,h,hd
+    ]);
+
+    const indices=[
+      0,1,4,
+      3,5,2,
+      0,4,5, 0,5,3,
+      1,2,5, 1,5,4
+    ];
+
+    const geometry=
+      new THREE.BufferGeometry();
+
+    geometry.setAttribute(
+      'position',
+      new THREE.BufferAttribute(
+        vertices,
+        3
+      )
+    );
+
+    geometry.setIndex(
+      indices
+    );
+
+    geometry.computeVertexNormals();
+
+    const mesh=
+      new THREE.Mesh(
+        geometry,
+        material
+      );
+
+    mesh.castShadow=true;
+    mesh.receiveShadow=true;
+
+    return mesh;
+  }
+
+  function distanceToLandmark(
+    feature,
+    landmark
+  ){
+    return Math.hypot(
+      feature.x-
+      landmark.x,
+      feature.y-
+      landmark.y
+    );
+  }
+
+  const exclusion=
+    LANDMARK_REFERENCE_POINTS.filter(
+      item=>
+        [
+          'stadium',
+          'pool',
+          'church',
+          'lumberyard',
+          'apartments',
+          'apartment_garages',
+          'stadium_garages',
+          'shops_1',
+          'shops_2',
+          'industrial'
+        ].includes(
+          item.id
+        )
+    );
+
+  const features=
+    BUILDING_REFERENCE_FEATURES.filter(
+      feature=>
+        !exclusion.some(
+          landmark=>
+            distanceToLandmark(
+              feature,
+              landmark
+            )<
+            landmark.clearRadius*.66
+        )
+    );
+
+  features.forEach(
     (feature,index)=>{
       const world=
         mapPointToWorld(
@@ -104,88 +182,222 @@ export function createBuildingReferenceLayer({
           world.z
         );
 
-      dummy.position.set(
+      const root=
+        new THREE.Group();
+
+      root.position.set(
         world.x,
         ground,
         world.z
       );
 
-      dummy.rotation.set(
-        0,
-        feature.angle,
-        0
-      );
+      root.rotation.y=
+        feature.angle;
 
-      dummy.scale.set(
-        feature.w,
-        feature.h,
-        feature.d
-      );
+      const aspect=
+        Math.max(
+          feature.w,
+          feature.d
+        )/
+        Math.max(
+          1,
+          Math.min(
+            feature.w,
+            feature.d
+          )
+        );
 
-      dummy.updateMatrix();
+      const isLong=
+        aspect>
+        1.75 ||
+        feature.w>
+        30 ||
+        feature.d>
+        26;
 
-      bodies.setMatrixAt(
-        index,
-        dummy.matrix
-      );
+      const isTiny=
+        feature.w<
+        18 &&
+        feature.d<
+        17;
 
-      bodies.setColorAt(
-        index,
-        wallColors[
+      const wall=
+        wallMaterials[
           index%
-          wallColors.length
-        ]
-      );
+          wallMaterials.length
+        ];
 
-      dummy.position.y=
-        ground+
-        feature.h;
-
-      dummy.scale.set(
-        feature.w*1.035,
-        .75,
-        feature.d*1.035
-      );
-
-      dummy.updateMatrix();
-
-      roofs.setMatrixAt(
-        index,
-        dummy.matrix
-      );
-
-      roofs.setColorAt(
-        index,
-        roofColors[
+      const roof=
+        roofMaterials[
           index%
-          roofColors.length
-        ]
+          roofMaterials.length
+        ];
+
+      const slab=
+        box(
+          feature.w+1.0,
+          .28,
+          feature.d+1.0,
+          wallMaterials[3]
+        );
+
+      slab.position.y=.14;
+
+      root.add(
+        slab
+      );
+
+      const bodyHeight=
+        isLong
+          ? Math.max(
+              5.8,
+              feature.h*.86
+            )
+          : feature.h;
+
+      const body=
+        box(
+          feature.w,
+          bodyHeight,
+          feature.d,
+          wall
+        );
+
+      body.position.y=
+        .28+
+        bodyHeight*.5;
+
+      root.add(
+        body
+      );
+
+      if(isLong){
+        const roofMesh=
+          gableRoof(
+            feature.w+1.3,
+            feature.d+1.3,
+            Math.max(
+              2.2,
+              feature.d*.12
+            ),
+            roof
+          );
+
+        roofMesh.position.y=
+          .28+
+          bodyHeight;
+
+        root.add(
+          roofMesh
+        );
+
+        const door=
+          box(
+            Math.min(
+              7.5,
+              feature.w*.32
+            ),
+            Math.min(
+              4.5,
+              bodyHeight*.72
+            ),
+            .25,
+            roofMaterials[2]
+          );
+
+        door.position.set(
+          0,
+          2.4,
+          -feature.d*.5-.13
+        );
+
+        root.add(
+          door
+        );
+      }else if(isTiny){
+        const roofMesh=
+          gableRoof(
+            feature.w+1.1,
+            feature.d+1.1,
+            2.3,
+            roof
+          );
+
+        roofMesh.position.y=
+          .28+
+          bodyHeight;
+
+        root.add(
+          roofMesh
+        );
+
+        const chimney=
+          box(
+            .9,
+            2.0,
+            .9,
+            roofMaterials[1]
+          );
+
+        chimney.position.set(
+          feature.w*.22,
+          bodyHeight+2.0,
+          feature.d*.16
+        );
+
+        root.add(
+          chimney
+        );
+      }else{
+        const flatRoof=
+          box(
+            feature.w+1.0,
+            .55,
+            feature.d+1.0,
+            roof
+          );
+
+        flatRoof.position.y=
+          .28+
+          bodyHeight+
+          .28;
+
+        root.add(
+          flatRoof
+        );
+
+        // Window band helps medium footprints read as multi-storey blocks.
+        const band=
+          box(
+            feature.w*.78,
+            .55,
+            .20,
+            glassMaterial
+          );
+
+        band.position.set(
+          0,
+          Math.min(
+            bodyHeight*.64,
+            5.5
+          ),
+          -feature.d*.5-.11
+        );
+
+        root.add(
+          band
+        );
+      }
+
+      group.add(
+        root
       );
     }
-  );
-
-  bodies.instanceMatrix.needsUpdate=true;
-  roofs.instanceMatrix.needsUpdate=true;
-
-  if(bodies.instanceColor){
-    bodies.instanceColor.needsUpdate=true;
-  }
-
-  if(roofs.instanceColor){
-    roofs.instanceColor.needsUpdate=true;
-  }
-
-  bodies.computeBoundingSphere();
-  roofs.computeBoundingSphere();
-
-  group.add(
-    bodies,
-    roofs
   );
 
   return {
     group,
     buildingCount:
-      BUILDING_REFERENCE_FEATURES.length
+      features.length
   };
 }

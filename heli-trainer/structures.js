@@ -100,9 +100,15 @@ export function createTowerReferenceLayer({
     const tower=
       new THREE.Group();
 
-    const height=44;
-    const baseHalf=5.0;
-    const topHalf=1.6;
+    const height=45;
+    const baseHalf=5.4;
+    const topHalf=1.7;
+
+    const footingMaterial=
+      new THREE.MeshStandardMaterial({
+        color:0x7e807a,
+        roughness:.96
+      });
 
     const corners=[
       [-1,-1],
@@ -113,10 +119,33 @@ export function createTowerReferenceLayer({
 
     corners.forEach(
       corner=>{
+        const footing=
+          new THREE.Mesh(
+            new THREE.BoxGeometry(
+              2.2,
+              .9,
+              2.2
+            ),
+            footingMaterial
+          );
+
+        footing.position.set(
+          corner[0]*baseHalf,
+          .45,
+          corner[1]*baseHalf
+        );
+
+        footing.castShadow=true;
+        footing.receiveShadow=true;
+
+        tower.add(
+          footing
+        );
+
         tower.add(
           makeBeam(
             corner[0]*baseHalf,
-            0,
+            .8,
             corner[1]*baseHalf,
 
             corner[0]*topHalf,
@@ -130,11 +159,12 @@ export function createTowerReferenceLayer({
     );
 
     const levels=[
-      7,
-      14,
-      21,
-      28,
-      35,
+      6,
+      12,
+      18,
+      24,
+      30,
+      36,
       42
     ];
 
@@ -151,7 +181,6 @@ export function createTowerReferenceLayer({
             t
           );
 
-        // horizontal frame
         [
           [-half,-half, half,-half],
           [ half,-half, half, half],
@@ -167,13 +196,12 @@ export function createTowerReferenceLayer({
                 edge[2],
                 level,
                 edge[3],
-                .18
+                .17
               )
             );
           }
         );
 
-        // diagonal bracing on all 4 faces.
         if(index<levels.length-1){
           const next=
             levels[index+1];
@@ -189,56 +217,61 @@ export function createTowerReferenceLayer({
               nt
             );
 
-          tower.add(
-            makeBeam(
-              -half,
-              level,
-              -half,
-               nextHalf,
-              next,
-              -nextHalf,
-              .13,
-              darkSteelMaterial
-            )
-          );
+          const facePairs=[
+            [
+              [-half,-half],
+              [ half,-half],
+              [-nextHalf,-nextHalf],
+              [ nextHalf,-nextHalf]
+            ],
+            [
+              [half,-half],
+              [half, half],
+              [nextHalf,-nextHalf],
+              [nextHalf, nextHalf]
+            ],
+            [
+              [half,half],
+              [-half,half],
+              [nextHalf,nextHalf],
+              [-nextHalf,nextHalf]
+            ],
+            [
+              [-half,half],
+              [-half,-half],
+              [-nextHalf,nextHalf],
+              [-nextHalf,-nextHalf]
+            ]
+          ];
 
-          tower.add(
-            makeBeam(
-               half,
-              level,
-               half,
-              -nextHalf,
-              next,
-               nextHalf,
-              .13,
-              darkSteelMaterial
-            )
-          );
+          facePairs.forEach(
+            face=>{
+              tower.add(
+                makeBeam(
+                  face[0][0],
+                  level,
+                  face[0][1],
+                  face[3][0],
+                  next,
+                  face[3][1],
+                  .12,
+                  darkSteelMaterial
+                )
+              );
 
-          tower.add(
-            makeBeam(
-              -half,
-              level,
-               half,
-               nextHalf,
-              next,
-               nextHalf,
-              .13,
-              darkSteelMaterial
-            )
-          );
-
-          tower.add(
-            makeBeam(
-               half,
-              level,
-              -half,
-              -nextHalf,
-              next,
-              -nextHalf,
-              .13,
-              darkSteelMaterial
-            )
+              tower.add(
+                makeBeam(
+                  face[1][0],
+                  level,
+                  face[1][1],
+                  face[2][0],
+                  next,
+                  face[2][1],
+                  .12,
+                  darkSteelMaterial
+                )
+              );
+            }
           );
         }
       }
@@ -247,59 +280,96 @@ export function createTowerReferenceLayer({
     const deck=
       new THREE.Mesh(
         new THREE.BoxGeometry(
-          6.2,
+          7.2,
           .55,
-          6.2
+          7.2
         ),
         platformMaterial
       );
 
-    deck.position.y=35.4;
+    deck.position.y=36.3;
     deck.castShadow=true;
     deck.receiveShadow=true;
-    tower.add(deck);
+
+    tower.add(
+      deck
+    );
 
     const mast=
       new THREE.Mesh(
         new THREE.CylinderGeometry(
-          .18,
-          .28,
-          13,
+          .17,
+          .26,
+          14,
           7
         ),
         steelMaterial
       );
 
-    mast.position.y=50.5;
+    mast.position.y=51.5;
     mast.castShadow=true;
-    tower.add(mast);
 
-    // Two simple antenna panels.
-    [-1,1].forEach(
-      side=>{
+    tower.add(
+      mast
+    );
+
+    const panelMaterial=
+      new THREE.MeshStandardMaterial({
+        color:0xb2b09d,
+        roughness:.70,
+        metalness:.08
+      });
+
+    [-1.35,1.35].forEach(
+      x=>{
         const panel=
           new THREE.Mesh(
             new THREE.BoxGeometry(
-              1.1,
+              1.0,
               4.8,
               .28
             ),
-            new THREE.MeshStandardMaterial({
-              color:0xaaa997,
-              roughness:.68,
-              metalness:.08
-            })
+            panelMaterial
           );
 
         panel.position.set(
-          side*1.25,
+          x,
           47,
           0
         );
 
         panel.castShadow=true;
-        tower.add(panel);
+
+        tower.add(
+          panel
+        );
       }
+    );
+
+    const dish=
+      new THREE.Mesh(
+        new THREE.CylinderGeometry(
+          1.65,
+          .45,
+          .55,
+          18
+        ),
+        panelMaterial
+      );
+
+    dish.rotation.z=
+      Math.PI*.5;
+
+    dish.position.set(
+      0,
+      39.5,
+      2.4
+    );
+
+    dish.castShadow=true;
+
+    tower.add(
+      dish
     );
 
     return tower;
