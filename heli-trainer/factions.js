@@ -1,6 +1,8 @@
 import {
   FACTIONS,
-  WORLD_CONFIG
+  WORLD_CONFIG,
+  OZETI_MAP_BOUNDS,
+  TACTICAL_PIXEL_CALIBRATION
 } from './map-data.js';
 
 const MAP_CENTER={
@@ -29,15 +31,23 @@ export function worldToTacticalMapPixel(x,z){
       z
     );
 
+  const c=
+    TACTICAL_PIXEL_CALIBRATION;
+
   return {
     x:
-      map.x*0.0482896054 +
-      map.y*(-0.0088439679) -
-      54.315748,
+      c.xx*
+      map.x+
+      c.xy*
+      map.y+
+      c.xOffset,
+
     y:
-      map.x*0.0029601433 +
-      map.y*(-0.0418518893) +
-      519.502394
+      c.yx*
+      map.x+
+      c.yy*
+      map.y+
+      c.yOffset
   };
 }
 

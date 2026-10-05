@@ -7,8 +7,28 @@ import {
 } from './terrain.js';
 
 import {
-  buildOzetiScenery
-} from './scenery.js';
+  createCoordinateCalibrationLayer
+} from './calibration.js';
+
+import {
+  createRoadReferenceLayer
+} from './roads.js';
+
+import {
+  createTowerReferenceLayer
+} from './structures.js';
+
+import {
+  createForestReferenceLayer
+} from './vegetation.js';
+
+import {
+  createBuildingReferenceLayer
+} from './buildings.js';
+
+import {
+  createFacilityReferenceLayer
+} from './facilities.js';
 
 import {
   createFactionWorldLayer,
@@ -56,18 +76,73 @@ export function createOzetiMap({
     });
 
   let scenery=null;
+  let calibration=null;
+  let roads=null;
+  let structures=null;
+  let vegetation=null;
+  let buildings=null;
+  let facilities=null;
 
   async function load(){
     await terrain.load();
 
-    scenery=
-      buildOzetiScenery({
+    factionLayer.rebuild();
+
+    calibration=
+      createCoordinateCalibrationLayer({
         THREE,
         scene,
         terrainHeight:terrain.height
       });
 
-    factionLayer.rebuild();
+    roads=
+      createRoadReferenceLayer({
+        THREE,
+        scene,
+        terrainHeight:terrain.height
+      });
+
+    structures=
+      createTowerReferenceLayer({
+        THREE,
+        scene,
+        terrainHeight:terrain.height
+      });
+
+    vegetation=
+      createForestReferenceLayer({
+        THREE,
+        scene,
+        terrainHeight:terrain.height
+      });
+
+    buildings=
+      createBuildingReferenceLayer({
+        THREE,
+        scene,
+        terrainHeight:terrain.height
+      });
+
+    facilities=
+      createFacilityReferenceLayer({
+        THREE,
+        scene,
+        terrainHeight:terrain.height
+      });
+
+    if(statusEl){
+      statusEl.textContent=
+        'Ozeti v66 · 道路 '+
+        roads.routeCount+
+        ' / Tower '+
+        structures.towerCount+
+        ' / 樹 '+
+        vegetation.treeCount+
+        ' / 建築 '+
+        buildings.buildingCount+
+        ' / 官方設施 '+
+        facilities.facilityCount;
+    }
 
     return true;
   }
@@ -89,6 +164,24 @@ export function createOzetiMap({
     },
     get scenery(){
       return scenery;
+    },
+    get calibration(){
+      return calibration;
+    },
+    get roads(){
+      return roads;
+    },
+    get structures(){
+      return structures;
+    },
+    get vegetation(){
+      return vegetation;
+    },
+    get buildings(){
+      return buildings;
+    },
+    get facilities(){
+      return facilities;
     },
     terrain,
     factionLayer
