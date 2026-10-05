@@ -1,452 +1,1770 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <link rel="shortcut icon" href="./favicon.ico">
-    <title>修練之路</title>
-    <style>
-        :root { 
-            --primary-color: #4a90e2; 
-            --secondary-color: #27ae60; 
-            --bg-color: #f0f4f8; 
-            --text-color: #2c3e50; 
-        }
-        
-        * { -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>WARDOGS Helicopter Trainer v2</title>
+<link rel="stylesheet" href="./css/ozeti-map.css">
+<style>
+  :root{
+    --bg:#11161a;--panel:#1b2228;--border:#39434a;--text:#eef3f5;--muted:#9aa6ad;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#0d1114;color:var(--text);font-family:Arial,"Noto Sans TC",sans-serif}
+  #app{height:100vh;display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:10px;padding:10px}
+  #stage{position:relative;overflow:hidden;border:1px solid var(--border);border-radius:12px;background:#111;min-width:0}
+  canvas{display:block;width:100%;height:100%}
+  #panel{background:#1b2228;border:1px solid var(--border);border-radius:12px;padding:14px;overflow:auto}
+  h3{font-size:14px;margin:0 0 8px}
+  .row{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:3px 0}
+  .assist{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+  .assist-options[hidden]{display:none}
+  .assist[data-tip]{position:relative;cursor:help}
+  .assist[data-tip]::after{
+    content:attr(data-tip);
+    position:absolute;
+    z-index:30;
+    left:0;
+    top:calc(100% + 6px);
+    width:100%;
+    padding:8px 10px;
+    border:1px solid #4b5962;
+    border-radius:6px;
+    background:rgba(10,14,17,.97);
+    color:#e8eef1;
+    font-size:12px;
+    line-height:1.5;
+    white-space:normal;
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+    opacity:0;
+    visibility:hidden;
+    transform:translateY(-3px);
+    transition:opacity .12s ease,transform .12s ease,visibility .12s;
+    pointer-events:none;
+  }
+  .assist[data-tip]:hover{z-index:31}
+  .assist[data-tip]:hover::after{
+    opacity:1;
+    visibility:visible;
+    transform:translateY(0);
+  }
+  .bindrow{display:grid;grid-template-columns:1fr 86px;gap:8px;align-items:center;margin:6px 0;font-size:13px}
+  button,input{font:inherit}
+  button{background:#202930;color:var(--text);border:1px solid var(--border);border-radius:6px;min-height:34px}
+  .bind.waiting{outline:2px solid #bfc9ce}
+  .bind.active{background:#35424b}
+  .control{margin:12px 0}
+  .control-top{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px;margin-bottom:4px}
+  .num{width:78px;background:#11181c;color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 7px;text-align:right}
+  input[type=range]{width:100%}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+  .version-label{
+    margin-top:8px;
+    text-align:center;
+    font-size:11px;
+    color:rgba(220,228,232,.5);
+    letter-spacing:.08em;
+    user-select:none;
+  }
+  #hud{position:absolute;inset:0;pointer-events:none}
 
-        body { 
-            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; 
-            background-color: var(--bg-color);
-            background-image: url(./images/background01.png);
-            background-size: cover;
-            margin: 0; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 100dvh; 
-            color: var(--text-color); 
-            overscroll-behavior-y: contain; 
-            overflow: hidden; 
-            background-position: center;
-        }
+  .collective-side{
+    position:absolute;top:50%;width:14px;height:122px;transform:translateY(-50%);
+    border-left:2px solid rgba(255,255,255,.5);border-right:2px solid rgba(255,255,255,.15);
+  }
+  #collectiveLeft{left:calc(50% - 78px)}
+  #collectiveRight{right:calc(50% - 78px)}
+  .collective-center{position:absolute;left:-5px;right:-5px;top:50%;height:2px;background:rgba(255,255,255,.75)}
+  .bar-up,.bar-down{position:absolute;left:2px;right:2px;background:rgba(255,255,255,.92)}
+  .bar-up{bottom:50%;height:0}
+  .bar-down{top:50%;height:0}
 
-        canvas { 
-            background: transparent;
-            display: block;
-            width: 100%;
-            height: 100%;
-            touch-action: none;
-            aspect-ratio: 400 / 735;
-        }
+  #speedReadout{
+    position:absolute;left:50%;top:calc(50% + 72px);transform:translateX(-50%);
+    font-size:11px;color:rgba(255,255,255,.95);text-shadow:0 1px 2px #000;
+    letter-spacing:.4px
+  }
 
-        #fxCanvas {
-            position: fixed; /* 鎖定在螢幕上，不隨捲動移動 */
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 9999; /* 確保蓋在所有 UI 之上 */
-            pointer-events: none; /* 讓點擊穿透過去，不會擋住玩家按鈕 */
-            background: transparent; /* 背景透明 */
-        }
-
-        #game-canvas-container{
-            height: 80vh;
-            background-color: #ffffff;
-        }
-
-        .screen { 
-            display: none; 
-            flex-direction: column; 
-            align-items: center; 
-            background: white; 
-            padding: 30px 20px; 
-            border-radius: 24px; 
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1); 
-            margin: 0 auto;
-            width: 92%; 
-            max-width: 500px;
-            min-width: 350px;
-            text-align: center; 
-            box-sizing: border-box; 
-            max-height: 98dvh;
-            overflow-y: auto;
-        }
-        .screen.active { display: flex; }
-
-        /* 💡 遊戲畫面的模糊濾鏡樣式 */
-        #screen-game {
-            transition: filter 0.1s ease;
-        }
-        #screen-game.blurred {
-            filter: blur(6px);
-        }
-
-        /* 彈窗樣式 */
-        .overlay-screen {
-            position: fixed;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1000;
-            width: 90%; max-width: 425px;
-            background: white;
-            border: 2px solid var(--primary-color);
-            box-shadow: 0 10px 50px rgba(0,0,0,0.5);
-            padding: 25px; border-radius: 24px;
-            flex-direction: column; align-items: center; text-align: center;
-            box-sizing: border-box;
-            display: none;
-        }
-        .overlay-screen.active { display: flex; }
-
-        /* 背景遮罩 */
-        #overlay-bg {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); z-index: 999; display: none;
-        }
-        #overlay-bg.active { display: block; }
-
-        h1 { font-size: 32px; margin: 0 0 15px 0; color: var(--primary-color); }
-
-        input[type="text"] { }
-
-        .setting-item { width: 100%; margin: 15px 0; display: flex; flex-direction: column; align-items: center; }
-        .setting-item label { font-weight: bold; margin-bottom: 8px; font-size: 16px; }
-        .volume-slider { width: 80%; cursor: pointer; height: 10px; border-radius: 5px; background: #dfe6e9; outline: none; -webkit-appearance: none; }
-        .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; background: var(--primary-color); border-radius: 50%; cursor: pointer; }
-
-        .btn { padding: 12px 0; font-size: 16px; margin-top: 15px; border: none; border-radius: 3px; cursor: pointer; width: 260px; font-weight: bold; transition: transform 0.1s; }
-        .btn:active { transform: translateY(2px); }
-        .btn-start { background: var(--secondary-color); color: white; }
-        .btn-rank { background: var(--primary-color); color: white; }
-        .btn-upload { background: #277aef; color: white; }
-        .btn-upload:disabled { background: #ccc; cursor: not-allowed; }
-        .btn-back { background: #2a2a2a; color: white; }
-        .btn-quit { background: #d32626; color: white; }
-        .btn-help { background: #d32626; color: white; }
-
-
-
-        #screen-home{
-            background-color: transparent;
-            box-shadow: none; 
-        }
-        #home-player-name{
-            padding: 10px; 
-            font-size: 20px; 
-            border: 2px solid #ffffff; 
-            border-radius: 5px; 
-            width: 260px; 
-            text-align: center; 
-            outline: none; 
-            box-sizing: border-box;
-
-            &:focus{
-                outline: #97c0ae 5px solid;
-            }
-        }
-
-
-
-        /* 🔥 新增：說明文字內容樣式 */
-        .help-content {
-            text-align: left;
-            font-size: 17px; 
-            line-height: 1.6; 
-            color: #34495e;
-            background: #f8f9fa; 
-            padding: 15px; 
-            border-radius: 12px; 
-            width: 100%; 
-            box-sizing: border-box; 
-            margin-bottom: 10px;
-            max-height: 300px; 
-            overflow-y: auto; /* 內容太長可捲動 */
-        }
-
-        /* 🔥 [修正] Game Header 加上 position: relative 與 padding */
-        .game-header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            width: 100%; 
-            margin-bottom: 10px; 
-            font-size: 18px; 
-            font-weight: bold; 
-            position: relative; /* 關鍵修正：讓 Combo 條以此定位 */
-            padding-bottom: 8px; /* 關鍵修正：留空間給 Combo 條 */
-        }
-        .gear-btn { font-size: 24px; cursor: pointer; color: #7f8c8d; padding: 0 5px; }
-
-
-        .skill-container { display: flex; justify-content: space-around; width: 100%;}
-        .skill-btn { 
-            position: relative;
-            overflow: visible;
-            width: 30%; 
-            height: 40px; 
-            background: #dfe6e9; 
-            border: 1px solid #b2bec3; 
-            border-radius: 6px; 
-            font-size: 12px; 
-            font-weight: bold; 
-            color: #2d3436; 
-            cursor: pointer; 
-            transition: all 0.2s; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            line-height: 1.2; 
-            text-align: center; 
-        }
-        .skill-btn.active { background: #e74c3c; color: white; border-color: #c0392b; }
-        .skill-btn.used { background: #ced6e0; color: #a4b0be; opacity: 0.6; filter: grayscale(1); pointer-events: none; }
-        .skill-badge {
-            position: absolute;
-            top: -10px;
-            right: -10px;
-            min-width: 24px;
-            height: 24px;
-            background-color: #ff4757;
-            color: white;
-            border-radius: 50%;
-            border: 2px solid #fff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 14px;
-            font-weight: bold;
-            z-index: 10;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            transition: transform 0.2s;
-        }
-
-
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; }
-        .result-score { font-size: 60px; font-weight: bold; color: var(--primary-color); margin: 5px 0; }
-
-        /* =========================================
-        🔥 倒數遮罩與動畫
-        ========================================= */
-        #start-mask {
-            position: absolute;
-            top: 0; 
-            left: 0;
-            width: 100%; 
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            z-index: 50; 
-            pointer-events: none;
-        }
-
-        #start-countdown {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 120px;
-            font-weight: 900;
-            color: #fff;
-            text-shadow: 0 0 20px rgba(0,0,0,0.8);
-            z-index: 100;
-            pointer-events: none;
-        }
-
-        @keyframes popIn {
-            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        }
-
-        /* =========================================
-        🔥 Combo 條 (無文字版)
-        ========================================= */
-        #combo-bar-container {
-            position: absolute;
-            bottom: 0; /* 貼在 Header 底部 */
-            left: 0;
-            width: 100%;
-            height: 6px; /* 細緻風格 */
-            background: rgba(0, 0, 0, 0.1);
-            z-index: 10;
-        }
-
-        #combo-bar-fill {
-            width: 0%;
-            height: 100%;
-            background: linear-gradient(90deg, #f1c40f, #e67e22, #e74c3c);
-            box-shadow: 0 0 8px rgba(241, 196, 15, 0.6);
-            transition: width 0.1s linear;
-        }
-
-        /* 🔥 新增：更新日誌按鈕顏色 (建議用藍綠色或紫色區隔) */
-        .btn-news { background: #1f1f1f; color: white; }
-
-        /* 🔥 新增：更新日誌內容樣式 */
-        .news-content {
-            text-align: left;
-            background: #f8f9fa; 
-            padding: 15px; 
-            border-radius: 12px; 
-            width: 100%; 
-            box-sizing: border-box; 
-            margin-bottom: 10px;
-            max-height: 300px; 
-            overflow-y: auto; 
-        }
-
-        .news-item {
-            margin-bottom: 15px;
-            border-bottom: 1px dashed #cbd5e0;
-            padding-bottom: 10px;
-        }
-        .news-item:last-child { border-bottom: none; margin-bottom: 0; }
-
-        .news-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .news-ver {
-            font-weight: bold;
-            color: var(--primary-color);
-            background: rgba(74, 144, 226, 0.1);
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        .news-date {
-            font-size: 12px;
-            color: #7f8c8d;
-        }
-        .news-list {
-            margin: 5px 0 0 0;
-            padding-left: 20px;
-            font-size: 17px;
-            color: #2c3e50;
-        }
-        .news-list li { margin-bottom: 4px; }
-
-        /**/
-        .btnS-green{
-            background-image: url(./images/button_up.png);
-            background-position: center center;
-            background-size: cover;
-            font-size: 20px;
-            color: #fff;
-        }
-        .btnS-green:hover{
-            background-image: url(./images/button_down.png);
-        }
-    </style>
+  #loading{position:absolute;inset:0;display:grid;place-items:center;color:white}
+  .section{margin-bottom:16px}
+  @media(max-width:820px){
+    #app{grid-template-columns:1fr;grid-template-rows:minmax(420px,65vh) auto;height:auto}
+  }
+</style>
 </head>
 <body>
-    <canvas id="fxCanvas"></canvas>
-    <div id="screen-home" class="screen active">
-        <div><img src="./images/title.png" alt="修練之路" style="width: 100%;"></div>
-        <div class="name-input-group"><input type="text" id="home-player-name" placeholder="請輸入名稱" maxlength="10"></div>
-        <button class="btn btnS-green" onclick="GameEngine.start()">開始遊戲</button>
-        <button class="btn btnS-green" onclick="GameSystem.showHelp()">遊戲說明</button>
-        <button class="btn btnS-green" onclick="GameSystem.showLeaderboard()">排行榜</button>
-        <button class="btn btnS-green" onclick="GameSystem.showNews()">更新日誌</button>
+<div id="app" tabindex="0">
+  <div id="stage">
+    <div id="loading">載入 3D 模擬中…</div>
+    <div id="hud">
+      <div id="collectiveLeft" class="collective-side">
+        <div class="collective-center"></div>
+        <div class="bar-up"></div>
+        <div class="bar-down"></div>
+      </div>
+
+      <div id="collectiveRight" class="collective-side">
+        <div class="collective-center"></div>
+        <div class="bar-up"></div>
+        <div class="bar-down"></div>
+      </div>
+
+      <div id="speedReadout">0 km/h</div>
     </div>
 
-    <div id="overlay-bg"></div>
+  </div>
 
-    <!--遊戲說明-->
-    <div id="screen-help" class="overlay-screen">
-        <h1>遊戲說明</h1>
-        <div class="help-content">
-            <p><b>目標：</b>框選數字總和為 <b>10</b> 的方塊進行消除得到。</p>
-            <p><b>得分：</b>2數框選消除後可獲得 <b>200</b> 分，3數以上消除時每多一個都會將得分獎勵翻倍。</p>
-            <p><b>連擊 (Combo)：</b>連續消除可累積，Combo 3 以上獲得額外加分！</p>
-            <p><b>傷口：</b><span><img alt="wound" src="./images/icon-wound.png" style="margin-bottom: -6px;" width="24px" height="24px"></span>可當作 <b>1~9</b> 的任意數字，自動補足缺口。</p>
-            <p><b>獎勵：</b>擊敗萊徹時獲得獎勵「剩餘時間 +50s」與「補充尋找技能」，但每次獎勵需求都會提高。</p>
-            
-        </div>
-        <button class="btn btn-back" onclick="GameSystem.closeHelp()">關閉</button>
+  <aside id="panel">
+    <div class="section">
+      <h3>飛行狀態</h3>
+      <div class="row"><span>升降輸入</span><strong id="verticalInputVal">0%</strong></div>
+      <div class="row"><span>控制總距</span><strong id="collectiveVal">65%</strong></div>
+      <div class="row"><span>旋翼輸出</span><strong id="effectiveCollectiveVal">65%</strong></div>
+      <div class="row"><span>高度</span><strong id="altVal">10.0 m</strong></div>
+      <div class="row"><span>升降速度</span><strong id="verticalVal">0.0 m/s</strong></div>
+      <div class="row"><span>時速</span><strong id="speedKmhVal">0 km/h</strong></div>
+      <div class="row"><span>目標極速</span><strong>約 310 km/h</strong></div>
+      <div class="row"><span>偏航效力</span><strong id="yawAuthorityVal">100%</strong></div>
+      <div class="row"><span>Pitch</span><strong id="pitchVal">0.0°</strong></div>
+      <div class="row"><span>Roll</span><strong id="rollVal">0.0°</strong></div>
+      <div class="row"><span>視角</span><strong id="cameraModeVal">第三人稱</strong></div>
+      <div class="row"><span>操控反應</span><strong>較平緩</strong></div>
+      <div class="row"><span>垂直慣性</span><strong>強</strong></div>
+      <div class="row"><span>高度保持</span><strong>物理煞停捕捉</strong></div>
+      <div class="row"><span>下降重力</span><strong>加強</strong></div>
+      <div class="row"><span>水平慣性</span><strong>速度保留</strong></div>
+      <div class="row"><span>加速度模型</span><strong>直接 F / m</strong></div>
+      <div class="row"><span>升降模型</span><strong>線性總距 + F / m</strong></div>
+      <div class="row"><span>物理核心</span><strong>Rotor + 6DoF 簡化</strong></div>
+      <div class="row"><span>Pitch 輔助</span><strong>放手姿態保持</strong></div>
+      <div class="row"><span>基準引擎重量</span><strong>4200 kg</strong></div>
+      <div class="row"><span>目前重量</span><strong id="massReadout">4200 kg</strong></div>
+      <div class="row"><span>場地</span><strong id="terrainStatusVal">Ozeti 地形載入中…</strong></div>
     </div>
 
-    <!--更新日誌-->
-    <div id="screen-news" class="overlay-screen">
-        <h1>更新日誌</h1>
-        <div class="news-content">
-            <div class="news-item">
-                <div class="news-header">
-                    <span class="news-ver">V8.6</span>
-                    <span class="news-date">2026/01/20</span>
-                </div>
-                <ul class="news-list">
-                    <li>新增機制「傷口」</li>
-                    <li>重製排行榜</li>
-                    <li>修正分數上傳BUG</li>
-                    <li>製作按鈕UI</li>
-                </ul>
-            </div>
+    <div class="section">
+      <h3>飛行輔助</h3>
+      <div class="assist">
+        <label>Flight Assists</label>
+        <input id="assistMaster" type="checkbox" checked>
+      </div>
+
+      <div id="assistOptions" class="assist-options">
+        <div class="assist" data-tip="穩定姿態。前後傾放開後會保持當下 Pitch 姿態並抑制殘留角速度；左右 Roll 放開後會逐漸回到水平。">
+          <label>Stability Assist</label>
+          <input id="stabilityAssist" type="checkbox" checked>
         </div>
-        <button class="btn btn-back" onclick="GameSystem.closeNews()">關閉</button>
+
+        <div class="assist" data-tip="自動懸停輔助。只在低速、姿態接近水平時抑制水平漂移，不會在正常巡航速度下主動煞車。">
+          <label>Auto-Hover Assist</label>
+          <input id="hoverAssist" type="checkbox" checked>
+        </div>
+
+        <div class="assist" data-tip="姿態包線限制。接近大 Pitch／Roll 角度時逐漸介入，避免機體超出設定的安全傾角範圍。">
+          <label>Envelope Limits</label>
+          <input id="envelopeAssist" type="checkbox" checked>
+        </div>
+
+        <div class="assist" data-tip="轉彎協調。沒有手動偏航輸入時，依 Roll 角加入少量偏航，讓轉彎方向更自然。">
+          <label>Turn Coordination</label>
+          <input id="turnAssist" type="checkbox" checked>
+        </div>
+      </div>
     </div>
 
-    <!--遊戲設定-->
-    <div id="screen-settings" class="overlay-screen">
-        <h1>遊戲設定</h1>
-        <div class="setting-item">
-            <label>音樂音量 (BGM)</label>
-            <input type="range" id="music-slider" class="volume-slider" min="0" max="1" step="0.05" value="0.5">
-        </div>
-        <div class="setting-item">
-            <label>音效音量 (SFX)</label>
-            <input type="range" id="sfx-slider" class="volume-slider" min="0" max="1" step="0.05" value="0.5">
-        </div>
-        <button class="btn btn-start" onclick="GameEngine.resumeFromSettings()">繼續遊戲</button>
-        <button class="btn btn-quit" onclick="GameEngine.end()">結束遊戲</button>
+    <div class="section">
+      <h3>操作</h3>
+      <div class="bindrow"><span>前傾</span><button class="bind" data-action="pitchForward">W</button></div>
+      <div class="bindrow"><span>後傾</span><button class="bind" data-action="pitchBack">S</button></div>
+      <div class="bindrow"><span>左滾</span><button class="bind" data-action="rollLeft">A</button></div>
+      <div class="bindrow"><span>右滾</span><button class="bind" data-action="rollRight">D</button></div>
+      <div class="bindrow"><span>左偏航</span><button class="bind" data-action="yawLeft">Q</button></div>
+      <div class="bindrow"><span>右偏航</span><button class="bind" data-action="yawRight">E</button></div>
+      <div class="bindrow"><span>上升</span><button class="bind" data-action="collectiveUp">L SHIFT</button></div>
+      <div class="bindrow"><span>下降</span><button class="bind" data-action="collectiveDown">L CTRL</button></div>
+      <div class="bindrow"><span>切換視角</span><button id="cameraToggleKey" type="button">C</button></div>
+      <div class="bindrow"><span>戰術地圖</span><button id="mapToggleKey" type="button">M</button></div>
     </div>
 
-    <!--結束畫面-->
-    <div id="screen-result" class="overlay-screen">
-        <h1>遊戲結束</h1>
-        <div class="result-score" id="final-result-score">0</div>
-        <p id="result-player-display" style="margin-bottom: 20px;"></p>
-        <button class="btn btn-upload" id="upload-btn" onclick="GameSystem.uploadScore()">上傳成績</button>
-        <button class="btn btn-back" onclick="GameEngine.backToHome()">回主選單</button>
-    </div>
-    
-    <!--排行榜-->
-    <div id="screen-rank" class="screen">
-        <h1>排行榜</h1>
-        <div style="max-height: 400px; overflow-y: auto; width: 100%;">
-            <table id="rank-table"><thead><tr><th>排名</th><th>玩家</th><th>得分</th></tr></thead><tbody id="rank-body"></tbody></table>
-        </div>
-        <button class="btn btn-back" onclick="GameEngine.backToHome()">回主選單</button>
-    </div>
-
-    <div id="screen-game" class="screen">
-        <div class="game-header">
-            <div class="header-left">Score: <span id="score">0</span></div>
-            <div class="header-center">Time: <span id="timer">100</span>s</div>
-            <div class="header-right" onclick="GameEngine.openSettings()">⚙️</div>
-            <div id="combo-bar-container" style="display:none;"><div id="combo-bar-fill"></div></div>
-        </div>
-
-        <div id="start-mask" style="display:none;"></div>
-        <div id="start-countdown" style="display:none;">3</div>
-
-        <div id="game-canvas-container">
-            <canvas id="gameCanvas" width="400" height="735"></canvas>
-        </div>
-
-        <div class="skill-container">
-            <button id="skill-btn-hint" class="skill-btn" onclick="GameEngine.useSkillHint()">
-                <div id="hint-badge" class="skill-badge">1</div> [Q] 尋找
-            </button>
-            <button id="skill-btn-shuffle" class="skill-btn" onclick="GameEngine.useSkillShuffle(true)">[W] 打亂</button>
-            <button id="skill-btn-delete" class="skill-btn" onclick="GameEngine.useSkillWipe()">[E] 紅蓮一閃</button>
-        </div>
+    <div class="section">
+      <div class="control">
+        <div class="control-top"><span>姿態速度</span><input id="attitudeRateNumber" class="num" type="number" min="20" max="100" value="40"></div>
+        <input id="attitudeRate" type="range" min="20" max="100" value="40">
+      </div>
+      <div class="control">
+        <div class="control-top"><span>偏航速度</span><input id="yawRateNumber" class="num" type="number" min="1" max="120" value="50"></div>
+        <input id="yawRate" type="range" min="1" max="120" value="50">
+      </div>
+      <div class="control">
+        <div class="control-top"><span>最大推力 %</span><input id="maxThrustNumber" class="num" type="number" min="120" max="220" value="155"></div>
+        <input id="maxThrust" type="range" min="120" max="220" value="155">
+      </div>
+      <div class="control">
+        <div class="control-top"><span>機體重量 kg</span><input id="massKgNumber" class="num" type="number" min="2500" max="6500" step="100" value="4200"></div>
+        <input id="massKg" type="range" min="2500" max="6500" step="100" value="4200">
+      </div>
     </div>
 
-    <script src="script.js"></script>
+    <div class="btns">
+      <button id="reset">重置</button>
+      <button id="pause">暫停</button>
+    </div>
+    <div class="version-label">VERSION v70</div>
+  </aside>
+</div>
+
+<script type="module">
+const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm');
+const {createOzetiMap}=await import('./js/map/ozeti-map.js');
+
+const root=document.getElementById('app');
+const stage=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.04;
+stage.prepend(renderer.domElement);
+document.getElementById('loading').remove();
+
+const pmremGenerator=new THREE.PMREMGenerator(renderer);
+pmremGenerator.compileEquirectangularShader();
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0xb9c6d2);
+scene.fog=new THREE.Fog(0xb4c2cc,3800,11800);
+
+// Local sky texture.
+// Place the downloaded Poly Haven JPG at:
+// ./assets/sky/kloofendal_48d_partly_cloudy_puresky.jpg
+const SKY_TEXTURE_URL='./assets/sky/kloofendal_48d_partly_cloudy_puresky.jpg';
+
+new THREE.TextureLoader().load(
+  SKY_TEXTURE_URL,
+  texture=>{
+    texture.mapping=THREE.EquirectangularReflectionMapping;
+    texture.colorSpace=THREE.SRGBColorSpace;
+
+    // Keep the equirectangular texture alive because it is also the visible sky.
+    // Disposing it here caused the background to disappear after PMREM creation.
+    texture.needsUpdate=true;
+    window.__skyTexture=texture;
+
+    scene.background=texture;
+
+    const envMap=pmremGenerator.fromEquirectangular(texture).texture;
+    window.__skyEnvMap=envMap;
+    scene.environment=envMap;
+
+    if('environmentIntensity' in scene){
+      scene.environmentIntensity=.75;
+    }
+
+    pmremGenerator.dispose();
+  },
+  undefined,
+  err=>{
+    console.warn('Local sky texture failed to load. Expected:',SKY_TEXTURE_URL,err);
+    scene.background=new THREE.Color(0x9fc5df);
+  }
+);
+
+const camera=new THREE.PerspectiveCamera(55,1,.1,24000);
+scene.add(new THREE.HemisphereLight(0xffffff,0x4b5c44,1.35));
+const sun=new THREE.DirectionalLight(0xfff6e8,1.72);
+sun.position.set(620,900,480);
+sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-720;
+sun.shadow.camera.right=720;
+sun.shadow.camera.top=720;
+sun.shadow.camera.bottom=-720;
+sun.shadow.camera.near=20;
+sun.shadow.camera.far=2400;
+sun.shadow.bias=-.00022;
+sun.shadow.normalBias=1.15;
+scene.add(sun);
+scene.add(sun.target);
+
+/*
+ * OZETI LOCAL TERRAIN ASSET
+ * -------------------------
+ * Visual terrain:
+ *   ./assets/maps/ozeti-terrain-reconstruction-v1.glb
+ *
+ * Collision sampling is rebuilt from the GLB's own vertex positions, so the
+ * visible ground and terrainHeight() share the same local asset.
+ *
+ * No Ozeti terrain data is fetched from N4 / WARDOGS at runtime.
+ */
+const terrainStatusVal=
+  document.getElementById(
+    'terrainStatusVal'
+  );
+
+let ozetiMap=null;
+
+function terrainHeight(x,z){
+  return ozetiMap
+    ? ozetiMap.terrainHeight(x,z)
+    : 0;
+}
+
+function factionCenterWorld(id){
+  return ozetiMap
+    ? ozetiMap.factionCenterWorld(id)
+    : {x:0,z:0};
+}
+
+function setMapOpen(open){
+  ozetiMap?.setMapOpen(open);
+}
+
+function toggleMap(){
+  ozetiMap?.toggleMap();
+}
+
+function updateMapMarker(){
+  ozetiMap?.updateMapMarker();
+}
+
+function isMapOpen(){
+  return ozetiMap?.isMapOpen() ?? false;
+}
+
+// helicopter model remains visible; only the center HUD/crosshair was removed
+const heli=new THREE.Group();
+scene.add(heli);
+
+const bodyMat=new THREE.MeshStandardMaterial({color:0x50585c});
+const darkMat=new THREE.MeshStandardMaterial({color:0x24282b});
+const noseMat=new THREE.MeshStandardMaterial({color:0xa83d3d});
+
+const body=new THREE.Mesh(new THREE.CapsuleGeometry(1.3,2.7,6,12),bodyMat);
+body.rotation.z=Math.PI/2;
+heli.add(body);
+
+const nose=new THREE.Mesh(new THREE.ConeGeometry(1.15,1.9,18),noseMat);
+nose.rotation.z=-Math.PI/2;
+nose.position.x=2.55;
+heli.add(nose);
+
+const tail=new THREE.Mesh(new THREE.CylinderGeometry(.18,.34,5.3,10),bodyMat);
+tail.rotation.z=Math.PI/2;
+tail.position.x=-3.4;
+heli.add(tail);
+
+// Helicopter-style tail surfaces: swept vertical fin + compact horizontal stabilizer.
+const finMat=new THREE.MeshStandardMaterial({
+  color:0xc85353,
+  roughness:.82,
+  side:THREE.DoubleSide
+});
+
+// Swept triangular vertical fin in the helicopter's longitudinal X/Y plane.
+const finShape=new THREE.Shape();
+finShape.moveTo(0,0);
+finShape.lineTo(-1.15,.18);
+finShape.lineTo(-.82,2.55);
+finShape.lineTo(.18,.95);
+finShape.closePath();
+
+const verticalFin=new THREE.Mesh(
+  new THREE.ShapeGeometry(finShape),
+  finMat
+);
+verticalFin.position.set(-5.35,.35,0);
+heli.add(verticalFin);
+
+// Small tapered horizontal stabilizer, mounted ahead of the tail rotor.
+const stabGeo=new THREE.BufferGeometry();
+stabGeo.setAttribute(
+  'position',
+  new THREE.Float32BufferAttribute([
+    -.85,0,-1.9,
+     .65,0,-1.45,
+     .65,0, 1.45,
+    -.85,0, 1.9
+  ],3)
+);
+stabGeo.setIndex([0,1,2,0,2,3]);
+stabGeo.computeVertexNormals();
+
+const horizontalStab=new THREE.Mesh(
+  stabGeo,
+  finMat
+);
+horizontalStab.position.set(-4.95,.62,0);
+heli.add(horizontalStab);
+
+// Tail rotor: vertical disc mounted on the side of the tail.
+// Shaft points laterally, so the rotor spins in the X/Y plane.
+const tailRotor=new THREE.Group();
+tailRotor.position.set(-6.05,1.25,.28);
+heli.add(tailRotor);
+
+const tailRotorHub=new THREE.Mesh(
+  new THREE.CylinderGeometry(.09,.09,.34,10),
+  darkMat
+);
+tailRotorHub.rotation.x=Math.PI/2;
+tailRotor.add(tailRotorHub);
+
+const tailBladeA=new THREE.Mesh(
+  new THREE.BoxGeometry(1.75,.10,.06),
+  darkMat
+);
+tailRotor.add(tailBladeA);
+
+const tailBladeB=new THREE.Mesh(
+  new THREE.BoxGeometry(.10,1.75,.06),
+  darkMat
+);
+tailRotor.add(tailBladeB);
+
+// Small tail-rotor guard / visual ring for easier recognition.
+const tailRotorRing=new THREE.Mesh(
+  new THREE.TorusGeometry(.92,.035,8,32),
+  new THREE.MeshBasicMaterial({color:0x303438})
+);
+tailRotorRing.position.z=.01;
+tailRotor.add(tailRotorRing);
+
+const rotor=new THREE.Group();
+rotor.position.y=1.9;
+heli.add(rotor);
+rotor.add(new THREE.Mesh(new THREE.BoxGeometry(9,.05,.16),darkMat));
+rotor.add(new THREE.Mesh(new THREE.BoxGeometry(.16,.05,9),darkMat));
+
+const fuselageParts=[body,nose,tail,verticalFin,horizontalStab,tailRotor];
+
+const state={
+  pos:new THREE.Vector3(0,42,320),
+  vel:new THREE.Vector3(),
+  pitch:0,
+  roll:0,
+  yaw:Math.PI,
+  verticalInput:0,
+  collective:.65,
+  effectiveCollective:.65,
+  holdAltitude:42,
+  paused:false,
+  yawAuthority:1,
+  firstPerson:false,
+  pitchCommand:0,
+  rollCommand:0,
+  yawCommand:0,
+
+  // Rigid-body angular rates.
+  pitchRate:0,
+  rollRate:0,
+  yawRateBody:0,
+
+  // Rotor-disc flapping / cyclic response relative to the fuselage.
+  rotorPitch:0,
+  rotorRoll:0,
+
+  // Tracks release of vertical input so altitude hold can capture smoothly.
+  verticalWasActive:false,
+
+  // Stability Assist pitch trim:
+  // when W/S is released, hold the current pitch instead of forcing 0°.
+  pitchTrim:0,
+  pitchWasActive:false
+};
+
+const STORAGE_KEY='wardogsHelicopterTrainerSettingsV2';
+
+const DEFAULT_BINDINGS={
+  pitchForward:'KeyW',
+  pitchBack:'KeyS',
+  rollLeft:'KeyA',
+  rollRight:'KeyD',
+  yawLeft:'KeyQ',
+  yawRight:'KeyE',
+  collectiveUp:'ShiftLeft',
+  collectiveDown:'AltLeft'
+};
+
+const bindings={...DEFAULT_BINDINGS};
+
+const pressed=new Set();
+let rebinding=null;
+
+function held(a){return pressed.has(bindings[a])}
+function keyName(c){
+  if(c.startsWith('Key'))return c.slice(3);
+  if(c==='ShiftLeft')return 'L SHIFT';
+  if(c==='ControlLeft')return 'L CTRL';
+  return c;
+}
+function updateBindUI(){
+  document.querySelectorAll('.bind').forEach(b=>{
+    const a=b.dataset.action;
+    b.textContent=rebinding===a?'按鍵…':keyName(bindings[a]);
+    b.classList.toggle('waiting',rebinding===a);
+    b.classList.toggle('active',held(a));
+  });
+}
+
+document.querySelectorAll('.bind').forEach(b=>{
+  b.addEventListener('click',()=>{
+    rebinding=b.dataset.action;
+    pressed.clear();
+    root.focus();
+    updateBindUI();
+  });
+});
+
+root.addEventListener('keydown',e=>{
+  if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;
+
+  if(!rebinding && e.code==='KeyC' && !e.repeat){
+    e.preventDefault();
+    state.firstPerson=!state.firstPerson;
+    document.getElementById('cameraModeVal').textContent=state.firstPerson?'機頭第一人稱':'第三人稱';
+    return;
+  }
+  if(!rebinding && e.code==='KeyM' && !e.repeat){
+    e.preventDefault();
+    toggleMap();
+    return;
+  }
+
+  if(!rebinding && e.code==='Escape' && isMapOpen() && !e.repeat){
+    e.preventDefault();
+    setMapOpen(false);
+    return;
+  }
+  if(rebinding){
+    e.preventDefault();
+    if(e.code==='Escape'){
+      rebinding=null;
+      updateBindUI();
+      return;
+    }
+    const old=bindings[rebinding];
+    const conflict=Object.keys(bindings).find(k=>k!==rebinding&&bindings[k]===e.code);
+    if(conflict)bindings[conflict]=old;
+    bindings[rebinding]=e.code;
+    rebinding=null;
+    pressed.clear();
+    updateBindUI();
+    saveSettings();
+    return;
+  }
+  if(Object.values(bindings).includes(e.code)){
+    e.preventDefault();
+    pressed.add(e.code);
+  }
+});
+root.addEventListener('keyup',e=>pressed.delete(e.code));
+window.addEventListener('blur',()=>pressed.clear());
+stage.addEventListener('pointerdown',()=>root.focus());
+
+document.getElementById('cameraToggleKey').addEventListener('click',()=>{
+  state.firstPerson=!state.firstPerson;
+  document.getElementById('cameraModeVal').textContent=state.firstPerson?'機頭第一人稱':'第三人稱';
+  root.focus();
+});
+
+function sync(id){
+  const r=document.getElementById(id);
+  const n=document.getElementById(id+'Number');
+  const clamp=v=>Math.max(+r.min,Math.min(+r.max,Number.isFinite(+v)?+v:+r.value));
+
+  r.addEventListener('input',()=>{
+    n.value=r.value;
+    saveSettings();
+  });
+
+  n.addEventListener('input',()=>{
+    r.value=clamp(n.value);
+    saveSettings();
+  });
+
+  n.addEventListener('change',()=>{
+    const v=clamp(n.value);
+    n.value=v;
+    r.value=v;
+    saveSettings();
+  });
+}
+['attitudeRate','yawRate','maxThrust','massKg'].forEach(sync);
+
+const massReadout=document.getElementById('massReadout');
+const massSlider=document.getElementById('massKg');
+const massNumber=document.getElementById('massKgNumber');
+
+function updateMassReadout(){
+  massReadout.textContent=Math.round(+massSlider.value)+' kg';
+}
+
+massSlider.addEventListener('input',updateMassReadout);
+massNumber.addEventListener('input',updateMassReadout);
+massNumber.addEventListener('change',updateMassReadout);
+
+const assistMaster=document.getElementById('assistMaster');
+const stabilityAssist=document.getElementById('stabilityAssist');
+const hoverAssist=document.getElementById('hoverAssist');
+const envelopeAssist=document.getElementById('envelopeAssist');
+const turnAssist=document.getElementById('turnAssist');
+const assistOptions=document.getElementById('assistOptions');
+
+const assistsOn=e=>assistMaster.checked&&e.checked;
+
+function updateAssistVisibility(){
+  assistOptions.hidden=!assistMaster.checked;
+}
+
+function saveSettings(){
+  try{
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        bindings:{...bindings},
+        attitudeRate:+document.getElementById('attitudeRate').value,
+        yawRate:+document.getElementById('yawRate').value,
+        maxThrust:+document.getElementById('maxThrust').value,
+        massKg:+document.getElementById('massKg').value,
+        assists:{
+          master:assistMaster.checked,
+          stability:stabilityAssist.checked,
+          hover:hoverAssist.checked,
+          envelope:envelopeAssist.checked,
+          turn:turnAssist.checked
+        }
+      })
+    );
+  }catch(err){
+    // Storage can be unavailable in some private/sandbox browser modes.
+  }
+}
+
+function loadSettings(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(!raw)return;
+
+    const saved=JSON.parse(raw);
+
+    if(saved.bindings && typeof saved.bindings==='object'){
+      Object.keys(DEFAULT_BINDINGS).forEach(action=>{
+        if(typeof saved.bindings[action]==='string'){
+          bindings[action]=saved.bindings[action];
+        }
+      });
+    }
+
+    const applyNumber=(id,value)=>{
+      if(!Number.isFinite(+value))return;
+
+      const range=document.getElementById(id);
+      const number=document.getElementById(id+'Number');
+
+      const min=+range.min;
+      const max=+range.max;
+      const v=Math.max(min,Math.min(max,+value));
+
+      range.value=v;
+      number.value=v;
+    };
+
+    applyNumber('attitudeRate',saved.attitudeRate);
+    applyNumber('yawRate',saved.yawRate);
+    applyNumber('maxThrust',saved.maxThrust);
+    applyNumber('massKg',saved.massKg);
+
+    if(saved.assists){
+      if(typeof saved.assists.master==='boolean')assistMaster.checked=saved.assists.master;
+      if(typeof saved.assists.stability==='boolean')stabilityAssist.checked=saved.assists.stability;
+      if(typeof saved.assists.hover==='boolean')hoverAssist.checked=saved.assists.hover;
+      if(typeof saved.assists.envelope==='boolean')envelopeAssist.checked=saved.assists.envelope;
+      if(typeof saved.assists.turn==='boolean')turnAssist.checked=saved.assists.turn;
+    }
+  }catch(err){
+    // Ignore malformed/blocked storage and continue with defaults.
+  }
+}
+
+loadSettings();
+updateAssistVisibility();
+updateBindUI();
+
+[assistMaster,stabilityAssist,hoverAssist,envelopeAssist,turnAssist].forEach(input=>{
+  input.addEventListener('change',()=>{
+    updateAssistVisibility();
+    saveSettings();
+  });
+});
+
+updateMassReadout();
+
+// Engine/thrust calibration remains based on the original 4,200 kg aircraft.
+// Player weight changes mass/inertia; it does NOT magically scale engine output.
+const BASE_MASS=4200;
+const G=9.81;
+
+function currentMass(){
+  return +document.getElementById('massKg').value;
+}
+const qYaw=new THREE.Quaternion();
+const qPitch=new THREE.Quaternion();
+const qRoll=new THREE.Quaternion();
+const qBody=new THREE.Quaternion();
+const qThrustPitch=new THREE.Quaternion();
+const qThrustRoll=new THREE.Quaternion();
+const qThrust=new THREE.Quaternion();
+const axisY=new THREE.Vector3(0,1,0);
+const axisZ=new THREE.Vector3(0,0,1);
+const axisX=new THREE.Vector3(1,0,0);
+const rotorUp=new THREE.Vector3();
+const force=new THREE.Vector3();
+
+function orient(){
+  qYaw.setFromAxisAngle(axisY,state.yaw);
+  qPitch.setFromAxisAngle(axisZ,state.pitch);
+  qRoll.setFromAxisAngle(axisX,state.roll);
+  qBody.copy(qYaw).multiply(qPitch).multiply(qRoll);
+}
+function shortest(a){
+  while(a>Math.PI)a-=Math.PI*2;
+  while(a<-Math.PI)a+=Math.PI*2;
+  return a;
+}
+
+// Keep attitude angles on the nearest equivalent orientation.
+// This prevents Stability Assist from "unwinding" a completed 360° roll/pitch.
+function wrapAngle(a){
+  return Math.atan2(Math.sin(a),Math.cos(a));
+}
+
+const INPUT_RAMP_UP_TIME=1.0;
+const INPUT_RELEASE_TIME=0.18;
+
+function updateVerticalInput(dt){
+  let target=0;
+  if(held('collectiveUp')&&!held('collectiveDown'))target=1;
+  if(held('collectiveDown')&&!held('collectiveUp'))target=-1;
+
+  if(target!==0){
+    const rate=1/INPUT_RAMP_UP_TIME;
+    if(state.verticalInput<target){
+      state.verticalInput=Math.min(target,state.verticalInput+rate*dt);
+    }else if(state.verticalInput>target){
+      state.verticalInput=Math.max(target,state.verticalInput-rate*dt);
+    }
+  }else{
+    const rate=1/INPUT_RELEASE_TIME;
+    if(state.verticalInput>0){
+      state.verticalInput=Math.max(0,state.verticalInput-rate*dt);
+    }else if(state.verticalInput<0){
+      state.verticalInput=Math.min(0,state.verticalInput+rate*dt);
+    }
+  }
+}
+
+function rotorSpeedFactor(horizontalSpeed){
+  // Small translational-lift benefit after leaving hover.
+  const etl=
+    1 +
+    .045 *
+    THREE.MathUtils.smoothstep(
+      horizontalSpeed,
+      5,
+      24
+    );
+
+  /*
+   * High-speed rotor efficiency:
+   * instead of using huge airframe drag as a fake speed limiter,
+   * available rotor thrust gradually falls in the high-speed regime.
+   *
+   * 0–162 km/h: essentially full rotor authority
+   * ~324 km/h: about 55% high-speed effectiveness
+   */
+  const highSpeedLoss=
+    1 -
+    .45 *
+    THREE.MathUtils.smoothstep(
+      horizontalSpeed,
+      45,
+      90
+    );
+
+  return etl*highSpeedLoss;
+}
+
+function verticalController(dt,thrustRatio,rotorFactor=1){
+  const active=Math.abs(state.verticalInput)>.02;
+  const verticalFactor=Math.max(.22,rotorUp.y);
+  const mass=currentMass();
+
+  // Available vertical rotor force at 100% collective.
+  const maxVerticalThrust=
+    BASE_MASS *
+    G *
+    thrustRatio *
+    rotorFactor *
+    verticalFactor;
+
+  const hoverCollective=
+    THREE.MathUtils.clamp(
+      (mass*G) /
+      Math.max(maxVerticalThrust,1),
+      0,
+      1
+    );
+
+  // These limits come from the current engine, mass and attitude.
+  // They are not fixed climb/descent acceleration caps.
+  const maxUpAccel=
+    Math.max(
+      0,
+      maxVerticalThrust/mass-G
+    );
+
+  const maxDownAccel=G;
+
+  let targetCollective=hoverCollective;
+
+  if(active){
+    /*
+     * Manual vertical input is now a linear request around hover.
+     *
+     * +100% = full available collective
+     *    0% = current hover collective
+     * -100% = zero collective
+     *
+     * The 1-second input-bar ramp already provides the player's control feel,
+     * so there is no extra nonlinear .82 curve here.
+     */
+    if(state.verticalInput>=0){
+      targetCollective=
+        hoverCollective +
+        (1-hoverCollective) *
+        state.verticalInput;
+    }else{
+      targetCollective=
+        hoverCollective *
+        (1+state.verticalInput);
+    }
+
+    state.verticalWasActive=true;
+    state.holdAltitude=state.pos.y;
+  }else{
+    /*
+     * On release, estimate where the helicopter would naturally stop
+     * using its current vertical velocity and the physically available
+     * braking acceleration.
+     *
+     * This replaces the old fixed ±2.8 m/s vertical-speed target.
+     */
+    if(state.verticalWasActive){
+      let brakingAccel;
+
+      if(state.vel.y>=0){
+        // Climbing: reducing collective can use gravity to arrest the climb.
+        brakingAccel=maxDownAccel;
+      }else{
+        // Descending: arresting the descent depends on actual thrust-to-weight.
+        brakingAccel=Math.max(maxUpAccel,.15);
+      }
+
+      const stoppingDistance=
+        (
+          state.vel.y *
+          Math.abs(state.vel.y)
+        ) /
+        (
+          2*brakingAccel
+        );
+
+      state.holdAltitude=
+        state.pos.y +
+        stoppingDistance;
+
+      state.verticalWasActive=false;
+    }
+
+    const altitudeError=
+      state.holdAltitude -
+      state.pos.y;
+
+    /*
+     * Critically-damped altitude capture.
+     * The controller requests acceleration directly; its final authority is
+     * limited only by the aircraft's current physical up/down capability.
+     */
+    const HOLD_RESPONSE_TIME=1.55;
+    const omega=2.4/HOLD_RESPONSE_TIME;
+
+    let desiredAccel=
+      altitudeError *
+      omega *
+      omega -
+      2 *
+      omega *
+      state.vel.y;
+
+    desiredAccel=
+      THREE.MathUtils.clamp(
+        desiredAccel,
+        -maxDownAccel,
+        maxUpAccel
+      );
+
+    targetCollective=
+      (
+        mass *
+        (G+desiredAccel)
+      ) /
+      Math.max(
+        maxVerticalThrust,
+        1
+      );
+  }
+
+  targetCollective=
+    THREE.MathUtils.clamp(
+      targetCollective,
+      0,
+      1
+    );
+
+  /*
+   * The old controller had two extra response filters (8/10.5 and 9/11.5),
+   * on top of the player's 1-second vertical-input ramp.
+   * That made collective feel rubbery.
+   *
+   * Keep only a short rotor/collective response lag.
+   */
+  state.collective=targetCollective;
+
+  const COLLECTIVE_TAU=.12;
+  const follow=
+    1-Math.exp(
+      -dt/COLLECTIVE_TAU
+    );
+
+  state.effectiveCollective +=
+    (
+      state.collective -
+      state.effectiveCollective
+    ) *
+    follow;
+}
+
+function updateCollectiveHUD(){
+  const v=state.verticalInput;
+  const pct=Math.round(Math.abs(v)*100);
+  const up=v>0?pct:0;
+  const down=v<0?pct:0;
+
+  document.querySelectorAll('.bar-up').forEach(el=>el.style.height=(up*.5)+'%');
+  document.querySelectorAll('.bar-down').forEach(el=>el.style.height=(down*.5)+'%');
+
+  const horizontalSpeed=Math.hypot(state.vel.x,state.vel.z);
+  const kmh=horizontalSpeed*3.6;
+  document.getElementById('speedReadout').textContent=kmh.toFixed(0)+' km/h';
+}
+
+function moveToward(current,target,maxDelta){
+  if(current<target)return Math.min(target,current+maxDelta);
+  if(current>target)return Math.max(target,current-maxDelta);
+  return current;
+}
+
+function updateControlCommands(dt,pitchRaw,rollRaw,yawRaw){
+  // Keyboard input no longer reaches full control authority instantly.
+  // Cyclic takes ~0.38 s to reach full command and ~0.22 s to release.
+  const CYCLIC_RAMP=1/0.38;
+  const CYCLIC_RELEASE=1/0.22;
+
+  // Pedal/yaw is slightly slower.
+  const YAW_RAMP=1/0.45;
+  const YAW_RELEASE=1/0.25;
+
+  state.pitchCommand=moveToward(
+    state.pitchCommand,
+    pitchRaw,
+    (pitchRaw===0?CYCLIC_RELEASE:CYCLIC_RAMP)*dt
+  );
+
+  state.rollCommand=moveToward(
+    state.rollCommand,
+    rollRaw,
+    (rollRaw===0?CYCLIC_RELEASE:CYCLIC_RAMP)*dt
+  );
+
+  state.yawCommand=moveToward(
+    state.yawCommand,
+    yawRaw,
+    (yawRaw===0?YAW_RELEASE:YAW_RAMP)*dt
+  );
+}
+
+/*
+ * Simplified helicopter FDM:
+ * - keyboard -> smoothed pilot command
+ * - pilot command -> rotor-disc flapping (lagged)
+ * - rotor disc -> angular acceleration / rigid-body rate
+ * - body rate -> pitch / roll attitude
+ * - thrust direction follows body + a small fraction of rotor-disc flapping
+ *
+ * This avoids the old direct mapping:
+ * key -> body angle -> full horizontal thrust.
+ */
+const DEG=Math.PI/180;
+const MAX_DISC_FLAP=8*DEG;
+const ROTOR_DISC_TAU=.28;
+
+function updateRotorDisc(dt,pitchCyclic,rollCyclic){
+  const targetPitch=pitchCyclic*MAX_DISC_FLAP;
+  const targetRoll=rollCyclic*MAX_DISC_FLAP;
+
+  const follow=1-Math.exp(-dt/ROTOR_DISC_TAU);
+
+  state.rotorPitch +=
+    (targetPitch-state.rotorPitch)*follow;
+
+  state.rotorRoll +=
+    (targetRoll-state.rotorRoll)*follow;
+}
+
+function stabilityCyclic(pitchRaw,rollRaw){
+  let pitchAssist=0;
+  let rollAssist=0;
+
+  if(!assistsOn(stabilityAssist)){
+    // Keep the trim target synchronized while assist is disabled,
+    // so re-enabling it will not suddenly pull the nose elsewhere.
+    state.pitchTrim=state.pitch;
+    state.pitchWasActive=pitchRaw!==0;
+    return {pitchAssist,rollAssist};
+  }
+
+  /*
+   * PITCH:
+   * Stability Assist no longer treats 0° as the permanent target.
+   *
+   * While W/S is held, the pilot owns the pitch axis.
+   * On release, capture the current pitch as a trim attitude and hold it.
+   * The assist mainly removes residual pitch rate, then gently holds that
+   * captured attitude. This prevents the "nose always pulled to center" feel.
+   */
+  if(pitchRaw!==0){
+    state.pitchWasActive=true;
+    state.pitchTrim=state.pitch;
+  }else{
+    if(state.pitchWasActive){
+      state.pitchTrim=state.pitch;
+      state.pitchWasActive=false;
+    }
+
+    const pitchError=
+      shortest(
+        state.pitchTrim-state.pitch
+      );
+
+    pitchAssist=THREE.MathUtils.clamp(
+      pitchError*.90 -
+      state.pitchRate*.38,
+      -.38,
+      .38
+    );
+  }
+
+  /*
+   * ROLL keeps the existing self-level behavior.
+   * This preserves the useful left/right leveling assistance without
+   * forcing the helicopter's nose back to 0° pitch.
+   */
+  if(rollRaw===0){
+    rollAssist=THREE.MathUtils.clamp(
+      -wrapAngle(state.roll)*.72 -
+      state.rollRate*.30,
+      -.42,
+      .42
+    );
+  }
+
+  return {pitchAssist,rollAssist};
+}
+
+function envelopeCyclic(){
+  if(!assistsOn(envelopeAssist)){
+    return {pitchEnvelope:0,rollEnvelope:0};
+  }
+
+  const softStart=44*DEG;
+  const hardLimit=56*DEG;
+
+  function axisAssist(angle,rate){
+    const a=Math.abs(angle);
+
+    if(a<=softStart)return 0;
+
+    const t=THREE.MathUtils.clamp(
+      (a-softStart)/(hardLimit-softStart),
+      0,
+      1
+    );
+
+    return THREE.MathUtils.clamp(
+      -Math.sign(angle)*(t*.95) - rate*.18,
+      -1,
+      1
+    );
+  }
+
+  return {
+    pitchEnvelope:axisAssist(state.pitch,state.pitchRate),
+    rollEnvelope:axisAssist(state.roll,state.rollRate)
+  };
+}
+
+function updateRigidBodyAttitude(dt,pitchCyclic,rollCyclic){
+  /*
+   * "姿態速度" remains the user's response setting, but it now scales
+   * torque/rotational authority instead of directly adding degrees/frame.
+   */
+  const attitudeSetting=
+    +document.getElementById('attitudeRate').value;
+
+  const mass=currentMass();
+
+  const massResponse=
+    Math.sqrt(BASE_MASS/mass);
+
+  const authority=
+    THREE.MathUtils.clamp(
+      (attitudeSetting/30)*massResponse,
+      .30,
+      2.35
+    );
+
+  const pitchAccelFromRotor=
+    state.rotorPitch * 6.0 * authority;
+
+  const rollAccelFromRotor=
+    state.rotorRoll * 6.4 * authority;
+
+  // Airframe rotational damping. Keeps angular momentum but prevents endless spin.
+  const pitchAngularAccel=
+    pitchAccelFromRotor -
+    state.pitchRate*1.95;
+
+  const rollAngularAccel=
+    rollAccelFromRotor -
+    state.rollRate*2.05;
+
+  state.pitchRate += pitchAngularAccel*dt;
+  state.rollRate += rollAngularAccel*dt;
+
+  state.pitch += state.pitchRate*dt;
+  state.roll += state.rollRate*dt;
+
+  // Store only the nearest equivalent orientation; no 360° unwind.
+  state.pitch=wrapAngle(state.pitch);
+  state.roll=wrapAngle(state.roll);
+
+  // Last-resort numerical safety if envelope assist is enabled.
+  if(assistsOn(envelopeAssist)){
+    const hard=58*DEG;
+
+    if(state.pitch>hard){
+      state.pitch=hard;
+      if(state.pitchRate>0)state.pitchRate*=.25;
+    }else if(state.pitch<-hard){
+      state.pitch=-hard;
+      if(state.pitchRate<0)state.pitchRate*=.25;
+    }
+
+    if(state.roll>hard){
+      state.roll=hard;
+      if(state.rollRate>0)state.rollRate*=.25;
+    }else if(state.roll<-hard){
+      state.roll=-hard;
+      if(state.rollRate<0)state.rollRate*=.25;
+    }
+  }
+}
+
+function updateYawDynamics(dt,yawInput,horizontalSpeed){
+  const yawSetting=
+    +document.getElementById('yawRate').value*DEG;
+
+  state.yawAuthority=
+    1/(1+horizontalSpeed*.045);
+
+  let targetYawRate=
+    yawInput *
+    yawSetting *
+    state.yawAuthority;
+
+  // Coordinated turn adds a small yaw-rate request, not an instant yaw rotation.
+  if(assistsOn(turnAssist) && Math.abs(yawInput)<.02){
+    targetYawRate +=
+      -Math.sin(state.roll) *
+      10*DEG;
+  }
+
+  /*
+   * Weathercock stability only becomes significant in forward flight.
+   * It is deliberately weak so it cannot rotate the helicopter a full turn
+   * back toward an old heading.
+   */
+  if(horizontalSpeed>12){
+    const travelYaw=
+      Math.atan2(-state.vel.z,state.vel.x);
+
+    const headingError=
+      shortest(travelYaw-state.yaw);
+
+    const speedFactor=
+      THREE.MathUtils.clamp(
+        (horizontalSpeed-12)/55,
+        0,
+        1
+      );
+
+    targetYawRate +=
+      headingError *
+      .16 *
+      speedFactor;
+  }
+
+  const yawFollow=
+    1-Math.exp(-dt/.42);
+
+  state.yawRateBody +=
+    (targetYawRate-state.yawRateBody) *
+    yawFollow;
+
+  state.yaw +=
+    state.yawRateBody*dt;
+}
+
+function updateRotorThrustDirection(){
+  /*
+   * Rotor thrust direction follows the aircraft + rotor-disc flapping,
+   * but small tilt angles are softened for translation.
+   *
+   * This is intentionally nonlinear:
+   * a tiny visual tilt no longer produces almost the full theoretical
+   * horizontal acceleration immediately, while large tilt still retains
+   * full authority and therefore does not reduce the intended top speed.
+   */
+  const thrustPitch=
+    state.pitch +
+    state.rotorPitch*.35;
+
+  const thrustRoll=
+    state.roll +
+    state.rotorRoll*.35;
+
+  qThrustPitch.setFromAxisAngle(axisZ,thrustPitch);
+  qThrustRoll.setFromAxisAngle(axisX,thrustRoll);
+  qThrust.copy(qYaw).multiply(qThrustPitch).multiply(qThrustRoll);
+
+  rotorUp.set(0,1,0).applyQuaternion(qThrust).normalize();
+
+  const horizontalMag=
+    Math.hypot(
+      rotorUp.x,
+      rotorUp.z
+    );
+
+  if(horizontalMag>.0001 && rotorUp.y>0){
+    const rawTilt=
+      Math.atan2(
+        horizontalMag,
+        rotorUp.y
+      );
+
+    const fullTilt=
+      55*DEG;
+
+    const normalized=
+      THREE.MathUtils.clamp(
+        rawTilt/fullTilt,
+        0,
+        1
+      );
+
+    // Small-angle translation is softened, but no longer heavily suppressed.
+    const effectiveTilt=
+      fullTilt *
+      Math.pow(
+        normalized,
+        1.18
+      );
+
+    const hx=
+      rotorUp.x/horizontalMag;
+
+    const hz=
+      rotorUp.z/horizontalMag;
+
+    const sinTilt=
+      Math.sin(effectiveTilt);
+
+    rotorUp.x=
+      hx*sinTilt;
+
+    rotorUp.z=
+      hz*sinTilt;
+
+    rotorUp.y=
+      Math.cos(effectiveTilt);
+  }
+}
+
+function update(dt){
+  if(state.paused||isMapOpen())return;
+
+  const pitchRaw=(held('pitchBack')?1:0)-(held('pitchForward')?1:0);
+  const rollRaw=(held('rollRight')?1:0)-(held('rollLeft')?1:0);
+  const yawRaw=(held('yawLeft')?1:0)-(held('yawRight')?1:0);
+
+  updateControlCommands(dt,pitchRaw,rollRaw,yawRaw);
+
+  const horizontalSpeed=
+    Math.hypot(state.vel.x,state.vel.z);
+
+  // Stability and envelope systems now produce cyclic commands instead
+  // of directly editing the aircraft orientation.
+  const stability=
+    stabilityCyclic(pitchRaw,rollRaw);
+
+  const envelope=
+    envelopeCyclic();
+
+  const pitchCyclic=
+    THREE.MathUtils.clamp(
+      state.pitchCommand +
+      stability.pitchAssist +
+      envelope.pitchEnvelope,
+      -1,
+      1
+    );
+
+  const rollCyclic=
+    THREE.MathUtils.clamp(
+      state.rollCommand +
+      stability.rollAssist +
+      envelope.rollEnvelope,
+      -1,
+      1
+    );
+
+  updateRotorDisc(
+    dt,
+    pitchCyclic,
+    rollCyclic
+  );
+
+  updateRigidBodyAttitude(
+    dt,
+    pitchCyclic,
+    rollCyclic
+  );
+
+  updateYawDynamics(
+    dt,
+    state.yawCommand,
+    horizontalSpeed
+  );
+
+  updateVerticalInput(dt);
+
+  orient();
+  updateRotorThrustDirection();
+
+  const thrustRatio=+document.getElementById('maxThrust').value/100;
+  const rotorFactor=rotorSpeedFactor(horizontalSpeed);
+
+  verticalController(
+    dt,
+    thrustRatio,
+    rotorFactor
+  );
+
+  const mass=currentMass();
+
+  /*
+   * Fixed engine / rotor output.
+   *
+   * Acceleration is no longer artificially delayed:
+   * current force divided by current mass gives acceleration immediately.
+   * The inertia the player feels now lives where it should: velocity.
+   */
+  const thrust=
+    BASE_MASS *
+    G *
+    thrustRatio *
+    state.effectiveCollective *
+    rotorFactor;
+
+  force.copy(rotorUp).multiplyScalar(thrust);
+  force.y-=mass*G;
+
+  state.vel.x +=
+    (force.x/mass)*dt;
+
+  state.vel.z +=
+    (force.z/mass)*dt;
+
+  state.vel.y +=
+    (force.y/mass)*dt;
+
+  if(assistsOn(hoverAssist)){
+    const mild=
+      Math.abs(state.pitch)<8*Math.PI/180 &&
+      Math.abs(state.roll)<8*Math.PI/180;
+
+    // Auto-hover only arrests very low-speed drift. It must not behave
+    // like cruise-speed braking.
+    if(horizontalSpeed<3&&mild&&pitchRaw===0&&rollRaw===0){
+      const k=
+        1-Math.exp(-.18*dt);
+
+      state.vel.x-=
+        state.vel.x*k;
+
+      state.vel.z-=
+        state.vel.z*k;
+    }
+  }
+
+  /*
+   * Parasitic airframe drag.
+   *
+   * Kept deliberately lower than before so leveling the aircraft does not
+   * feel like pressing a brake pedal. High-speed rotor-efficiency loss now
+   * does most of the top-speed limiting.
+   */
+  const AIR_DENSITY=1.225;
+  const CDA=6.8;
+
+  const horizontalSpeedNow=Math.hypot(state.vel.x,state.vel.z);
+
+  if(horizontalSpeedNow>0.01){
+    const dragForce=
+      0.5 *
+      AIR_DENSITY *
+      CDA *
+      horizontalSpeedNow *
+      horizontalSpeedNow;
+
+    const dragAccel=
+      dragForce/mass;
+
+    const dragDv=
+      Math.min(
+        horizontalSpeedNow,
+        dragAccel*dt
+      );
+
+    const invSpeed=
+      1/horizontalSpeedNow;
+
+    state.vel.x-=
+      state.vel.x *
+      invSpeed *
+      dragDv;
+
+    state.vel.z-=
+      state.vel.z *
+      invSpeed *
+      dragDv;
+  }
+
+  /*
+   * Vertical motion keeps strong inertia, but air/rotor drag opposes motion.
+   * Gravity is still fully present, so a low-collective descent accelerates
+   * more strongly than a full-power climb.
+   */
+  const verticalSpeed=Math.abs(state.vel.y);
+
+  if(verticalSpeed>0.01){
+    const VERTICAL_CDA=5.0;
+
+    const verticalDragForce=
+      0.5 *
+      AIR_DENSITY *
+      VERTICAL_CDA *
+      verticalSpeed *
+      verticalSpeed;
+
+    const verticalDragAccel=
+      verticalDragForce/mass;
+
+    const verticalDv=
+      Math.min(
+        verticalSpeed,
+        verticalDragAccel*dt
+      );
+
+    state.vel.y -=
+      Math.sign(state.vel.y) *
+      verticalDv;
+  }
+
+  state.pos.addScaledVector(state.vel,dt);
+
+  // Terrain-aware collision / minimum skid clearance.
+  const groundY=
+    terrainHeight(
+      state.pos.x,
+      state.pos.z
+    ) + 1.8;
+
+  if(state.pos.y<groundY){
+    state.pos.y=groundY;
+
+    if(state.vel.y<0){
+      state.vel.y=0;
+    }
+
+    if(!Math.abs(state.verticalInput)){
+      state.holdAltitude=groundY;
+    }
+  }
+
+  // Keep the aircraft inside the actual Ozeti reconstruction footprint.
+  const edgeX=
+    (ozetiMap?.bounds.halfX ?? 4275)-25;
+
+  const edgeZ=
+    (ozetiMap?.bounds.halfZ ?? 3890)-25;
+
+  if(state.pos.x>edgeX){
+    state.pos.x=edgeX;
+    if(state.vel.x>0)state.vel.x=0;
+  }else if(state.pos.x<-edgeX){
+    state.pos.x=-edgeX;
+    if(state.vel.x<0)state.vel.x=0;
+  }
+
+  if(state.pos.z>edgeZ){
+    state.pos.z=edgeZ;
+    if(state.vel.z>0)state.vel.z=0;
+  }else if(state.pos.z<-edgeZ){
+    state.pos.z=-edgeZ;
+    if(state.vel.z<0)state.vel.z=0;
+  }
+
+  heli.position.copy(state.pos);
+  heli.quaternion.copy(qBody);
+  rotor.rotation.y+=dt*24;
+  tailRotor.rotation.z+=dt*38;
+}
+
+const camPos=new THREE.Vector3();
+const look=new THREE.Vector3();
+const heading=new THREE.Vector3();
+const up=new THREE.Vector3(0,1,0);
+
+function updateSunForAircraft(){
+  /*
+   * Keep the directional-light shadow frustum centered around the aircraft.
+   * This gives useful local terrain/building/tree shadows anywhere on Ozeti
+   * instead of spending shadow-map resolution on the whole 8 km scene.
+   */
+  sun.position.set(
+    state.pos.x+620,
+    state.pos.y+900,
+    state.pos.z+480
+  );
+
+  sun.target.position.set(
+    state.pos.x,
+    state.pos.y,
+    state.pos.z
+  );
+
+  sun.target.updateMatrixWorld();
+}
+
+function updateHelicopterVisibility(){
+  const hideBody=state.firstPerson;
+  fuselageParts.forEach(part=>part.visible=!hideBody);
+  rotor.visible=true;
+}
+
+function updateCamera(dt){
+  updateHelicopterVisibility();
+
+  if(state.firstPerson){
+    // Nose / cockpit-like first-person view.
+    // Camera follows full aircraft orientation so pitch and roll are visible.
+    const noseForward=new THREE.Vector3(1,0,0).applyQuaternion(qBody).normalize();
+    const bodyUp=new THREE.Vector3(0,1,0).applyQuaternion(qBody).normalize();
+
+    const targetPos=state.pos.clone()
+      .addScaledVector(noseForward,2.25)
+      .addScaledVector(bodyUp,.75);
+
+    // First-person camera is rigidly attached to the airframe:
+    // no positional smoothing / no follow delay.
+    camera.position.copy(targetPos);
+
+    const fpLook=targetPos.clone()
+      .addScaledVector(noseForward,20);
+
+    camera.up.copy(bodyUp);
+    camera.lookAt(fpLook);
+  }else{
+    // Third-person chase camera: follows heading but remains world-up.
+    heading.set(1,0,0).applyAxisAngle(up,state.yaw).normalize();
+
+    camPos.copy(state.pos)
+      .addScaledVector(heading,-24)
+      .addScaledVector(up,9);
+
+    camera.position.lerp(
+      camPos,
+      1-Math.exp(-4*dt)
+    );
+
+    look.copy(state.pos)
+      .addScaledVector(heading,6)
+      .addScaledVector(up,1.2);
+
+    camera.up.set(0,1,0);
+    camera.lookAt(look);
+  }
+}
+
+function updateHUD(){
+  const horizontalSpeed=Math.hypot(state.vel.x,state.vel.z);
+  const kmh=horizontalSpeed*3.6;
+
+  document.getElementById('verticalInputVal').textContent=
+    (state.verticalInput>=0?'+':'')+Math.round(state.verticalInput*100)+'%';
+  document.getElementById('collectiveVal').textContent=(state.collective*100).toFixed(0)+'%';
+  document.getElementById('effectiveCollectiveVal').textContent=(state.effectiveCollective*100).toFixed(0)+'%';
+  document.getElementById('altVal').textContent=state.pos.y.toFixed(1)+' m';
+  document.getElementById('verticalVal').textContent=state.vel.y.toFixed(1)+' m/s';
+  document.getElementById('speedKmhVal').textContent=kmh.toFixed(0)+' km/h';
+  document.getElementById('yawAuthorityVal').textContent=(state.yawAuthority*100).toFixed(0)+'%';
+  document.getElementById('pitchVal').textContent=(state.pitch*180/Math.PI).toFixed(1)+'°';
+  document.getElementById('rollVal').textContent=(state.roll*180/Math.PI).toFixed(1)+'°';
+
+  updateBindUI();
+  updateCollectiveHUD();
+}
+
+function reset(){
+  const lonestar=
+    factionCenterWorld(
+      'lonestar'
+    );
+
+  const startX=
+    lonestar.x;
+
+  const startZ=
+    lonestar.z;
+
+  const startY=
+    terrainHeight(
+      startX,
+      startZ
+    )+42;
+
+  state.pos.set(
+    startX,
+    startY,
+    startZ
+  );
+
+  state.vel.set(0,0,0);
+  state.pitch=0;
+  state.roll=0;
+  state.yaw=Math.PI;
+  state.verticalInput=0;
+  state.collective=.65;
+  state.effectiveCollective=.65;
+  state.holdAltitude=startY;
+  state.pitchCommand=0;
+  state.rollCommand=0;
+  state.yawCommand=0;
+  state.pitchRate=0;
+  state.rollRate=0;
+  state.yawRateBody=0;
+  state.rotorPitch=0;
+  state.rotorRoll=0;
+  state.verticalWasActive=false;
+  state.pitchTrim=0;
+  state.pitchWasActive=false;
+  state.firstPerson=false;
+  setMapOpen(false);
+  document.getElementById('cameraModeVal').textContent='第三人稱';
+  updateHelicopterVisibility();
+  orient();
+  root.focus();
+}
+
+document.getElementById('reset').addEventListener('click',reset);
+document.getElementById('pause').addEventListener('click',()=>{
+  state.paused=!state.paused;
+  document.getElementById('pause').textContent=state.paused?'繼續':'暫停';
+});
+
+function resize(){
+  const w=stage.clientWidth;
+  const h=stage.clientHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect=w/h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+
+ozetiMap=createOzetiMap({
+  THREE,
+  scene,
+  root,
+  stage,
+  state,
+  heli,
+  orient,
+  statusEl:terrainStatusVal,
+  clearPressed:()=>pressed.clear()
+});
+
+resize();
+reset();
+
+ozetiMap.load()
+  .then(()=>{
+    reset();
+  })
+  .catch(error=>{
+    console.error(
+      'Ozeti map initialization failed:',
+      error
+    );
+  });
+
+camera.position.set(0,60,390);
+
+let last=performance.now();
+function frame(now){
+  const dt=Math.min((now-last)/1000,.033);
+  last=now;
+  update(dt);
+  updateCamera(dt);
+  updateSunForAircraft();
+  updateHUD();
+  updateMapMarker();
+  renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
 </body>
 </html>
-
