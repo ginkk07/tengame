@@ -1,11 +1,11 @@
 import {
   TOWER_REFERENCE_POINTS
-} from './map-data.js';
+} from './map-data.js?v=71';
 
 import {
   placeRigidMapObject,
   addTerrainFoundation
-} from './terrain-placement.js';
+} from './terrain-placement.js?v=71';
 
 export function createTowerReferenceLayer({
   THREE,

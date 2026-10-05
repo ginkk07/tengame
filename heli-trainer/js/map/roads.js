@@ -1,10 +1,10 @@
 import {
   ROAD_REFERENCE_ROUTES
-} from './map-data.js';
+} from './map-data.js?v=71';
 
 import {
   mapPointToWorld
-} from './factions.js';
+} from './factions.js?v=71';
 
 export function createRoadReferenceLayer({
   THREE,

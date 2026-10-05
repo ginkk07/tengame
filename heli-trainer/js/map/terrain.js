@@ -5,13 +5,13 @@ import {
   FACTIONS,
   TRIBUTARY_GULLIES,
   STADIUM_REFERENCE
-} from './map-data.js';
+} from './map-data.js?v=71';
 
 import {
   mapPointToWorld,
   factionCenterWorld,
   worldToTacticalMapPixel
-} from './factions.js';
+} from './factions.js?v=71';
 
 export function createTerrainSystem({
   THREE,

@@ -1,48 +1,48 @@
 import {
   WORLD_CONFIG
-} from './map-data.js';
+} from './map-data.js?v=71';
 
 import {
   createTerrainSystem
-} from './terrain.js';
+} from './terrain.js?v=71';
 
 import {
   createCoordinateCalibrationLayer
-} from './calibration.js';
+} from './calibration.js?v=71';
 
 import {
   createRoadReferenceLayer
-} from './roads.js';
+} from './roads.js?v=71';
 
 import {
   createTowerReferenceLayer
-} from './structures.js';
+} from './structures.js?v=71';
 
 import {
   createForestReferenceLayer
-} from './vegetation.js';
+} from './vegetation.js?v=71';
 
 import {
   createBuildingReferenceLayer
-} from './buildings.js';
+} from './buildings.js?v=71';
 
 import {
   createFacilityReferenceLayer
-} from './facilities.js';
+} from './facilities.js?v=71';
 
 import {
   createStadiumReferenceLayer
-} from './stadium.js';
+} from './stadium.js?v=71';
 
 
 import {
   createFactionWorldLayer,
   factionCenterWorld
-} from './factions.js';
+} from './factions.js?v=71';
 
 import {
   createTacticalMap
-} from './tactical-map.js';
+} from './tactical-map.js?v=71';
 
 export function createOzetiMap({
   THREE,
@@ -89,78 +89,172 @@ export function createOzetiMap({
   let facilities=null;
   let stadium=null;
 
-  async function load(){
-    await terrain.load();
+  function safeBuild(
+    label,
+    build,
+    fallback
+  ){
+    try{
+      return build();
+    }catch(error){
+      console.error(
+        'Ozeti layer failed: '+label,
+        error
+      );
 
-    factionLayer.rebuild();
+      return fallback;
+    }
+  }
+
+  async function load(){
+    let terrainReady=false;
+
+    try{
+      await terrain.load();
+      terrainReady=true;
+    }catch(error){
+      console.error(
+        'Ozeti terrain fallback active:',
+        error
+      );
+    }
+
+    try{
+      factionLayer.rebuild();
+    }catch(error){
+      console.error(
+        'Ozeti faction layer failed:',
+        error
+      );
+    }
 
     calibration=
-      createCoordinateCalibrationLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
+      safeBuild(
+        'calibration',
+        ()=>
+          createCoordinateCalibrationLayer({
+            THREE,
+            scene,
+            terrainHeight:terrain.height
+          }),
+        {
+          count:0,
+          group:null
+        }
+      );
 
     roads=
-      createRoadReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
+      safeBuild(
+        'roads',
+        ()=>
+          createRoadReferenceLayer({
+            THREE,
+            scene,
+            terrainHeight:terrain.height
+          }),
+        {
+          routeCount:0,
+          group:null
+        }
+      );
 
     structures=
-      createTowerReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
+      safeBuild(
+        'towers',
+        ()=>
+          createTowerReferenceLayer({
+            THREE,
+            scene,
+            terrainHeight:terrain.height
+          }),
+        {
+          towerCount:0,
+          group:null
+        }
+      );
 
     stadium=
-      createStadiumReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
+      safeBuild(
+        'stadium',
+        ()=>
+          createStadiumReferenceLayer({
+            THREE,
+            scene,
+            terrainHeight:terrain.height
+          }),
+        {
+          stadiumCount:0,
+          group:null
+        }
+      );
 
     vegetation=
-      createForestReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
+      safeBuild(
+        'vegetation',
+        ()=>
+          createForestReferenceLayer({
+            THREE,
+            scene,
+            terrainHeight:terrain.height
+          }),
+        {
+          treeCount:0,
+          shrubCount:0,
+          group:null
+        }
+      );
 
     buildings=
-      createBuildingReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
+      safeBuild(
+        'buildings',
+        ()=>
+          createBuildingReferenceLayer({
+            THREE,
+            scene,
+            terrainHeight:terrain.height
+          }),
+        {
+          buildingCount:0,
+          group:null
+        }
+      );
 
     facilities=
-      createFacilityReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
-
+      safeBuild(
+        'facilities',
+        ()=>
+          createFacilityReferenceLayer({
+            THREE,
+            scene,
+            terrainHeight:terrain.height
+          }),
+        {
+          facilityCount:0,
+          group:null
+        }
+      );
 
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v70 · 道路 '+
+        'Ozeti v71 · '+
+        (
+          terrainReady
+            ? '地形OK'
+            : 'Fallback地形'
+        )+
+        ' / Road '+
         roads.routeCount+
         ' / Tower '+
         structures.towerCount+
         ' / Stadium '+
         stadium.stadiumCount+
-        ' / 樹 '+
+        ' / Tree '+
         vegetation.treeCount+
-        ' / 建築 '+
-        buildings.buildingCount+
-        ' / 官方設施 '+
-        facilities.facilityCount;
+        ' / Building '+
+        buildings.buildingCount;
     }
 
-    return true;
+    return terrainReady;
   }
 
   return {
