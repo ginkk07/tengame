@@ -1,5 +1,6 @@
 import {
-  BUILDING_REFERENCE_FEATURES
+  BUILDING_REFERENCE_FEATURES,
+  SITE_CLEARINGS
 } from './map-data.js';
 
 import {
@@ -124,7 +125,20 @@ export function createBuildingReferenceLayer({
     return mesh;
   }
 
-  const features=BUILDING_REFERENCE_FEATURES;
+  const features=
+    BUILDING_REFERENCE_FEATURES.filter(
+      feature=>
+        !SITE_CLEARINGS.some(
+          clearing=>
+            Math.hypot(
+              feature.x-
+              clearing.x,
+              feature.y-
+              clearing.y
+            )<
+            clearing.radius
+        )
+    );
 
   features.forEach(
     (feature,index)=>{

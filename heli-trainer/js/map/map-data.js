@@ -548,3 +548,28 @@ export const FACTION_REFERENCE_POINTS=[
 ];
 
 
+
+
+// v69 — first large landmark traced from the SAME Ozeti tactical reference
+// used by roads / forest / building detection.
+// Tactical source centre ≈ px(334,371), converted by the v62 4-Tower calibration.
+export const STADIUM_REFERENCE={
+  id:'dinamo_ozeti_stadium',
+  x:9500.4,
+  y:5218.8,
+  siteWidth:205,
+  siteDepth:150,
+  yaw:0.035,
+  targetElevation:146.6,
+  terraceMargin:34,
+  clearRadius:145
+};
+
+export const SITE_CLEARINGS=[
+  {
+    id:'stadium',
+    x:9500.4,
+    y:5218.8,
+    radius:145
+  }
+];
