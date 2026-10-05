@@ -3,8 +3,9 @@ import {
 } from './map-data.js';
 
 import {
-  mapPointToWorld
-} from './factions.js';
+  placeRigidMapObject,
+  addTerrainFoundation
+} from './terrain-placement.js';
 
 export function createTowerReferenceLayer({
   THREE,
@@ -377,26 +378,30 @@ export function createTowerReferenceLayer({
 
   TOWER_REFERENCE_POINTS.forEach(
     point=>{
-      const world=
-        mapPointToWorld(
-          point.x,
-          point.y
-        );
-
-      const ground=
-        terrainHeight(
-          world.x,
-          world.z
-        );
-
       const tower=
         createTower();
 
-      tower.position.set(
-        world.x,
-        ground,
-        world.z
-      );
+      const placement=
+        placeRigidMapObject({
+          object:tower,
+          mapX:point.x,
+          mapY:point.y,
+          width:13,
+          depth:13,
+          terrainHeight,
+          clearance:.12,
+          samples:5
+        });
+
+      addTerrainFoundation({
+        THREE,
+        object:tower,
+        width:13,
+        depth:13,
+        terrainRange:placement.terrain.range,
+        material:platformMaterial,
+        extraDepth:.55
+      });
 
       tower.userData.mapCoordinate={
         x:point.x,

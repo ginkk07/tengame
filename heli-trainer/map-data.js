@@ -548,29 +548,28 @@ export const FACTION_REFERENCE_POINTS=[
 ];
 
 
-// v67 — higher-fidelity Ozeti landmark references.
-// These are community map POI positions calibrated into the official Ozeti
-// stored-metre coordinate frame using the four published Tower pairs.
-// They are used only as reconstruction references; they are not extracted assets.
-export const LANDMARK_REFERENCE_POINTS=[
-  {id:'stadium',x:9776.3,y:6547.1,clearRadius:150.0},
-  {id:'pool',x:10024.1,y:6585.1,clearRadius:58.0},
-  {id:'church',x:10124.2,y:6312.3,clearRadius:62.0},
-  {id:'lumberyard',x:10140.4,y:5838.5,clearRadius:88.0},
-  {id:'apartments',x:9564.5,y:6185.6,clearRadius:92.0},
-  {id:'apartment_garages',x:9506.2,y:6290.0,clearRadius:58.0},
-  {id:'stadium_garages',x:9723.7,y:6689.1,clearRadius:58.0},
-  {id:'shops_1',x:9981.2,y:6468.3,clearRadius:62.0},
-  {id:'shops_2',x:10142.7,y:6653.2,clearRadius:62.0},
-  {id:'industrial',x:9075.0,y:6092.5,clearRadius:90.0}
-];
 
-export const CROSSING_REFERENCE_POINTS=[
-  {id:'central_bridge',x:9778.4,y:6242.8,angle:0.18000},
-  {id:'north_ford',x:9656.3,y:6107.7,angle:0.12000},
-  {id:'south_culvert',x:9679.4,y:6492.2,angle:0.08000}
-];
 
-// Approximate central river centerline constrained by the three documented
-// crossing references. This is deliberately limited to the town/bridge sector.
-export const RIVER_REFERENCE_PATH=[[9560.0,5920.0],[9656.3,6107.7],[9778.4,6242.8],[9679.4,6492.2],[9600.0,6710.0]];
+// v69 — first large landmark traced from the SAME Ozeti tactical reference
+// used by roads / forest / building detection.
+// Tactical source centre ≈ px(334,371), converted by the v62 4-Tower calibration.
+export const STADIUM_REFERENCE={
+  id:'dinamo_ozeti_stadium',
+  x:9500.4,
+  y:5218.8,
+  siteWidth:205,
+  siteDepth:150,
+  yaw:0.035,
+  targetElevation:146.6,
+  terraceMargin:34,
+  clearRadius:145
+};
+
+export const SITE_CLEARINGS=[
+  {
+    id:'stadium',
+    x:9500.4,
+    y:5218.8,
+    radius:145
+  }
+];

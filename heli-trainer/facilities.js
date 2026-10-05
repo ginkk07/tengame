@@ -4,8 +4,9 @@ import {
 } from './map-data.js';
 
 import {
-  mapPointToWorld
-} from './factions.js';
+  placeRigidMapObject,
+  addTerrainFoundation
+} from './terrain-placement.js';
 
 export function createFacilityReferenceLayer({
   THREE,
@@ -210,6 +211,18 @@ export function createFacilityReferenceLayer({
     return root;
   }
 
+  function facilityFootprint(type){
+    if(type==='garage_vendor'){
+      return {width:20,depth:18};
+    }
+
+    if(type==='weapons_vendor'){
+      return {width:15,depth:11};
+    }
+
+    return {width:9,depth:7};
+  }
+
   let facilityCount=0;
 
   FACILITY_REFERENCE_POINTS.forEach(point=>{
@@ -223,9 +236,30 @@ export function createFacilityReferenceLayer({
     }
     if(!object){return;}
 
-    const world=mapPointToWorld(point.x,point.y);
-    const ground=terrainHeight(world.x,world.z);
-    object.position.set(world.x,ground,world.z);
+    const footprint=facilityFootprint(point.type);
+
+    const placement=
+      placeRigidMapObject({
+        object,
+        mapX:point.x,
+        mapY:point.y,
+        width:footprint.width,
+        depth:footprint.depth,
+        terrainHeight,
+        clearance:.16,
+        samples:5
+      });
+
+    addTerrainFoundation({
+      THREE,
+      object,
+      width:footprint.width,
+      depth:footprint.depth,
+      terrainRange:placement.terrain.range,
+      material:concreteMaterial,
+      extraDepth:.45
+    });
+
     object.userData.mapCoordinate={
       x:point.x,y:point.y,type:point.type,faction:point.faction
     };
@@ -235,10 +269,30 @@ export function createFacilityReferenceLayer({
 
   let factionMarkerCount=0;
   FACTION_REFERENCE_POINTS.forEach(point=>{
-    const world=mapPointToWorld(point.x,point.y);
-    const ground=terrainHeight(world.x,world.z);
     const object=createFactionMarkerProp(point.id);
-    object.position.set(world.x,ground,world.z);
+
+    const placement=
+      placeRigidMapObject({
+        object,
+        mapX:point.x,
+        mapY:point.y,
+        width:18,
+        depth:18,
+        terrainHeight,
+        clearance:.14,
+        samples:5
+      });
+
+    addTerrainFoundation({
+      THREE,
+      object,
+      width:17,
+      depth:17,
+      terrainRange:placement.terrain.range,
+      material:concreteMaterial,
+      extraDepth:.40
+    });
+
     object.userData.mapCoordinate={x:point.x,y:point.y,faction:point.id};
     group.add(object);
     factionMarkerCount++;

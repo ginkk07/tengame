@@ -1,11 +1,12 @@
 import {
   BUILDING_REFERENCE_FEATURES,
-  LANDMARK_REFERENCE_POINTS
+  SITE_CLEARINGS
 } from './map-data.js';
 
 import {
-  mapPointToWorld
-} from './factions.js';
+  placeRigidMapObject,
+  addTerrainFoundation
+} from './terrain-placement.js';
 
 export function createBuildingReferenceLayer({
   THREE,
@@ -124,75 +125,48 @@ export function createBuildingReferenceLayer({
     return mesh;
   }
 
-  function distanceToLandmark(
-    feature,
-    landmark
-  ){
-    return Math.hypot(
-      feature.x-
-      landmark.x,
-      feature.y-
-      landmark.y
-    );
-  }
-
-  const exclusion=
-    LANDMARK_REFERENCE_POINTS.filter(
-      item=>
-        [
-          'stadium',
-          'pool',
-          'church',
-          'lumberyard',
-          'apartments',
-          'apartment_garages',
-          'stadium_garages',
-          'shops_1',
-          'shops_2',
-          'industrial'
-        ].includes(
-          item.id
-        )
-    );
-
   const features=
     BUILDING_REFERENCE_FEATURES.filter(
       feature=>
-        !exclusion.some(
-          landmark=>
-            distanceToLandmark(
-              feature,
-              landmark
+        !SITE_CLEARINGS.some(
+          clearing=>
+            Math.hypot(
+              feature.x-
+              clearing.x,
+              feature.y-
+              clearing.y
             )<
-            landmark.clearRadius*.66
+            clearing.radius
         )
     );
 
   features.forEach(
     (feature,index)=>{
-      const world=
-        mapPointToWorld(
-          feature.x,
-          feature.y
-        );
-
-      const ground=
-        terrainHeight(
-          world.x,
-          world.z
-        );
-
       const root=
         new THREE.Group();
 
-      root.position.set(
-        world.x,
-        ground,
-        world.z
-      );
+      const placement=
+        placeRigidMapObject({
+          object:root,
+          mapX:feature.x,
+          mapY:feature.y,
+          width:feature.w+2.4,
+          depth:feature.d+2.4,
+          yaw:feature.angle,
+          terrainHeight,
+          clearance:.20,
+          samples:5
+        });
 
-      root.rotation.y=
-        feature.angle;
+      addTerrainFoundation({
+        THREE,
+        object:root,
+        width:feature.w+1.8,
+        depth:feature.d+1.8,
+        terrainRange:placement.terrain.range,
+        material:wallMaterials[3],
+        extraDepth:.55
+      });
 
       const aspect=
         Math.max(

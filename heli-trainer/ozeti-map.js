@@ -31,8 +31,9 @@ import {
 } from './facilities.js';
 
 import {
-  createLandmarkReferenceLayer
-} from './landmarks.js';
+  createStadiumReferenceLayer
+} from './stadium.js';
+
 
 import {
   createFactionWorldLayer,
@@ -86,7 +87,7 @@ export function createOzetiMap({
   let vegetation=null;
   let buildings=null;
   let facilities=null;
-  let landmarks=null;
+  let stadium=null;
 
   async function load(){
     await terrain.load();
@@ -114,6 +115,13 @@ export function createOzetiMap({
         terrainHeight:terrain.height
       });
 
+    stadium=
+      createStadiumReferenceLayer({
+        THREE,
+        scene,
+        terrainHeight:terrain.height
+      });
+
     vegetation=
       createForestReferenceLayer({
         THREE,
@@ -135,27 +143,21 @@ export function createOzetiMap({
         terrainHeight:terrain.height
       });
 
-    landmarks=
-      createLandmarkReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
 
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v67 · 道路 '+
+        'Ozeti v69 · 道路 '+
         roads.routeCount+
         ' / Tower '+
         structures.towerCount+
+        ' / Stadium '+
+        stadium.stadiumCount+
         ' / 樹 '+
         vegetation.treeCount+
         ' / 建築 '+
         buildings.buildingCount+
-        ' / 地標 '+
-        landmarks.landmarkCount+
-        ' / Crossing '+
-        landmarks.crossingCount;
+        ' / 官方設施 '+
+        facilities.facilityCount;
     }
 
     return true;
@@ -197,8 +199,8 @@ export function createOzetiMap({
     get facilities(){
       return facilities;
     },
-    get landmarks(){
-      return landmarks;
+    get stadium(){
+      return stadium;
     },
     terrain,
     factionLayer

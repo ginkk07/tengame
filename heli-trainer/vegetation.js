@@ -1,6 +1,6 @@
 import {
   FOREST_REFERENCE_POINTS,
-  LANDMARK_REFERENCE_POINTS
+  SITE_CLEARINGS
 } from './map-data.js';
 
 import {
@@ -21,21 +21,8 @@ export function createForestReferenceLayer({
   scene.add(group);
 
   const clearings=
-    LANDMARK_REFERENCE_POINTS.filter(
-      item=>
-        [
-          'stadium',
-          'pool',
-          'church',
-          'lumberyard',
-          'apartments',
-          'shops_1',
-          'shops_2',
-          'industrial'
-        ].includes(
-          item.id
-        )
-    );
+    SITE_CLEARINGS;
+
 
   function insideClearing(point){
     return clearings.some(
@@ -46,7 +33,7 @@ export function createForestReferenceLayer({
           point[1]-
           item.y
         )<
-        item.clearRadius
+        (item.radius || item.clearRadius || 0)
     );
   }
 

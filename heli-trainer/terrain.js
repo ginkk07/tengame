@@ -486,6 +486,132 @@ export function createTerrainSystem({
     return cut;
   }
 
+  const stadiumWorldCenter={
+    x:
+      STADIUM_REFERENCE.x-
+      WORLD_CONFIG.centerX,
+
+    z:
+      WORLD_CONFIG.centerY-
+      STADIUM_REFERENCE.y
+  };
+
+  function stadiumTerraceBlend(
+    x,
+    z
+  ){
+    const dx=
+      x-
+      stadiumWorldCenter.x;
+
+    const dz=
+      z-
+      stadiumWorldCenter.z;
+
+    const yaw=
+      -STADIUM_REFERENCE.yaw;
+
+    const c=
+      Math.cos(
+        yaw
+      );
+
+    const s=
+      Math.sin(
+        yaw
+      );
+
+    const localX=
+      dx*c-
+      dz*s;
+
+    const localZ=
+      dx*s+
+      dz*c;
+
+    const halfW=
+      STADIUM_REFERENCE.siteWidth*.5;
+
+    const halfD=
+      STADIUM_REFERENCE.siteDepth*.5;
+
+    const margin=
+      STADIUM_REFERENCE.terraceMargin;
+
+    const outsideX=
+      Math.max(
+        0,
+        Math.abs(localX)-
+        halfW
+      );
+
+    const outsideZ=
+      Math.max(
+        0,
+        Math.abs(localZ)-
+        halfD
+      );
+
+    const outside=
+      Math.hypot(
+        outsideX,
+        outsideZ
+      );
+
+    if(
+      outside>=margin
+    ){
+      return 0;
+    }
+
+    if(
+      outside<=.001
+    ){
+      return 1;
+    }
+
+    const p=
+      THREE.MathUtils.clamp(
+        outside/
+        margin,
+        0,
+        1
+      );
+
+    const smooth=
+      p*p*
+      (
+        3-
+        2*p
+      );
+
+    return 1-smooth;
+  }
+
+  function applyVerifiedSiteTerraces(
+    x,
+    z,
+    y
+  ){
+    const blend=
+      stadiumTerraceBlend(
+        x,
+        z
+      );
+
+    if(
+      blend<=0
+    ){
+      return y;
+    }
+
+    return THREE.MathUtils.lerp(
+      y,
+      STADIUM_REFERENCE.targetElevation,
+      blend
+    );
+  }
+
   function terrainDetailNoise(x,z){
     return (
       Math.sin(x*.0034+z*.0017)*1.65+
@@ -650,6 +776,13 @@ export function createTerrainSystem({
             drainageCut(
               x,
               z
+            );
+
+          y=
+            applyVerifiedSiteTerraces(
+              x,
+              z,
+              y
             );
 
           position.setY(
@@ -1286,7 +1419,7 @@ export function createTerrainSystem({
 
       if(statusEl){
         statusEl.textContent=
-          'Ozeti v67 · 地形已載入，準備建立3D場景';
+          'Ozeti v69 · 地形已載入，準備建立3D場景';
       }
 
       return true;
