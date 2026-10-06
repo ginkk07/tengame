@@ -1,49 +1,69 @@
-export const WORLD_CONFIG={
-  // Ozeti website playable/searchable map.bounds converted to metres.
-  // bounds: X 57.58..143.07, Y 21.81..99.56
-  // coordinateMetersPerUnit = 100.
-  minX:5758,
-  maxX:14307,
-  minY:2181,
-  maxY:9956,
-  width:8549,
-  depth:7775,
-  centerX:10032.5,
-  centerY:6068.5,
-  metersPerWorldUnit:1
-};
-
-export const TERRAIN_CONFIG={
-  width:8549,
-  depth:7775,
-  nx:257,
-  nz:233,
-  verticalScale:1.18,
-  reliefMeters:388,
-  sourceBounds:{
-    minX:5758,
-    maxX:14307,
-    minY:2181,
-    maxY:9956
-  }
-};
-
-export const MAP_ASSETS={
-  terrain:'./assets/maps/ozeti-terrain-reconstruction-v1.glb',
-  tacticalMap:'./assets/maps/ozeti-tactical-map-v1.png'
-};
-
-export const OZETI_MAP_BOUNDS={
-  // Playable/searchable coordinate extent in metres.
+// v77: physical size follows the width-to-height ratio of the CURRENT
+// recovered, searchable Ozeti terrain crop. This is not yet a measurement
+// of the N4 viewer's complete tile-pyramid aspect ratio.
+export const OZETI_SOURCE_BOUNDS=Object.freeze({
   minX:5758,
   maxX:14307,
   minY:2181,
   maxY:9956
+});
+
+export const MASTER_SCALE=Object.freeze({
+  source:'recovered-central-heightfield',
+  sourceWidthMeters:OZETI_SOURCE_BOUNDS.maxX-OZETI_SOURCE_BOUNDS.minX,
+  sourceDepthMeters:OZETI_SOURCE_BOUNDS.maxY-OZETI_SOURCE_BOUNDS.minY,
+  targetWidthMeters:16384,
+  // One common dimensionless multiplier; do not stretch axes separately.
+  get factor(){return this.targetWidthMeters/this.sourceWidthMeters;},
+  get targetDepthMeters(){return this.sourceDepthMeters*this.factor;}
+});
+
+export const WORLD_CONFIG={
+  // min/max and centers below are ORIGINAL map coordinates (metres).
+  // World-space positions are centered at the origin and multiplied by scale.
+  minX:OZETI_SOURCE_BOUNDS.minX,
+  maxX:OZETI_SOURCE_BOUNDS.maxX,
+  minY:OZETI_SOURCE_BOUNDS.minY,
+  maxY:OZETI_SOURCE_BOUNDS.maxY,
+  width:MASTER_SCALE.targetWidthMeters,
+  depth:MASTER_SCALE.targetDepthMeters,
+  centerX:(OZETI_SOURCE_BOUNDS.minX+OZETI_SOURCE_BOUNDS.maxX)*.5,
+  centerY:(OZETI_SOURCE_BOUNDS.minY+OZETI_SOURCE_BOUNDS.maxY)*.5,
+  scale:MASTER_SCALE.factor,
+  metersPerWorldUnit:1
 };
 
+export const TERRAIN_CONFIG={
+  width:WORLD_CONFIG.width,
+  depth:WORLD_CONFIG.depth,
+  nx:257,
+  nz:233,
+  verticalScale:WORLD_CONFIG.scale,
+  rawReliefMeters:388,
+  reliefMeters:388*WORLD_CONFIG.scale,
+  sectorSize:512,
+  sectorsX:Math.ceil(WORLD_CONFIG.width/512),
+  sectorsY:Math.ceil(WORLD_CONFIG.depth/512),
+  sourceBounds:OZETI_SOURCE_BOUNDS
+};
+
+export const MAP_ASSETS={
+  // Runtime U16 heightfield; v77 scales it uniformly, not an old GLB.
+  terrainHeightfield:'./assets/maps/ozeti-terrain-heightfield-u16-v76.bin',
+
+  // Tactical map is UI-only. It must never be sampled into terrain colour.
+  tacticalMap:'./assets/maps/ozeti-tactical-map-v1.png',
+
+  // Terrain core deliberately uses no terrain image texture.
+  groundTexture:null
+};
+
+export const OZETI_MAP_BOUNDS=OZETI_SOURCE_BOUNDS;
+
 export const OZETI_TILE_BOUNDS={
-  // Complete source tile pyramid extent. The website does NOT use this
-  // as the playable viewport bounds.
+  // Complete source/full-world extent.
+  // v73 uses this as the simulator's 3D world footprint; OZETI_MAP_BOUNDS
+  // remains the published searchable/playable central crop.
   minX:-3,
   maxX:16381,
   minY:-1,
@@ -550,26 +570,120 @@ export const FACTION_REFERENCE_POINTS=[
 
 
 
-// v69 — first large landmark traced from the SAME Ozeti tactical reference
-// used by roads / forest / building detection.
-// Tactical source centre ≈ px(334,371), converted by the v62 4-Tower calibration.
+
+
+// v72 — FULL-MAP REFERENCE FRAME
+// The central Ozeti town no longer uses the 670×625 tactical screenshot as its
+// layout source. Community full-map POI coordinates are calibrated into the
+// official Ozeti stored-metre frame with the four published Tower coordinates.
+// Max four-Tower fit residual: 4.64 m.
+export const FULLMAP_REFERENCE_FRAME={
+  sourceToOfficialX:[
+    0.992171062465,
+    0.007034148728,
+    48.527389711
+  ],
+  sourceToOfficialY:[
+    0.001552410137,
+    -1.014535812259,
+    16479.558374089
+  ],
+  towerResidualMax:4.641
+};
+
+export const FULLMAP_POIS=[
+  {id:'stadium',x:9776.3,y:6547.1,sourceX:9735,sourceY:9805,kind:'stadium'},
+  {id:'pool',x:10024.1,y:6585.1,sourceX:9985,sourceY:9768,kind:'pool'},
+  {id:'church_top',x:10124.2,y:6312.3,sourceX:10084,sourceY:10037,kind:'church_top'},
+  {id:'lumberyard',x:10140.4,y:5838.5,sourceX:10097,sourceY:10504,kind:'lumberyard'},
+  {id:'apartments',x:9564.5,y:6185.6,sourceX:9519,sourceY:10161,kind:'apartments'},
+  {id:'apartment_garages',x:9506.2,y:6290.0,sourceX:9461,sourceY:10058,kind:'garage'},
+  {id:'stadium_garages',x:9723.7,y:6689.1,sourceX:9683,sourceY:9665,kind:'garage'},
+  {id:'shops_1',x:9981.2,y:6468.3,sourceX:9941,sourceY:9883,kind:'shops_1'},
+  {id:'shops_2',x:10142.7,y:6653.2,sourceX:10105,sourceY:9701,kind:'shops_2'},
+  {id:'industrial_1',x:9075.0,y:6092.5,sourceX:9025,sourceY:10252,kind:'industrial_1'},
+  {id:'residential_1',x:9763.5,y:6242.8,sourceX:9720,sourceY:10105,kind:'residential'},
+  {id:'residential_2',x:9900.5,y:6374.9,sourceX:9859,sourceY:9975,kind:'residential'},
+  {id:'residential_3',x:10163.2,y:6550.8,sourceX:10125,sourceY:9802,kind:'residential'},
+  {id:'residential_4',x:10254.6,y:6678.8,sourceX:10218,sourceY:9676,kind:'residential'},
+  {id:'residential_5',x:9904.6,y:6644.7,sourceX:9865,sourceY:9709,kind:'residential'},
+  {id:'residential_6',x:9948.5,y:6751.3,sourceX:9910,sourceY:9604,kind:'residential'},
+  {id:'residential_7',x:10312.0,y:6122.9,sourceX:10272,sourceY:10224,kind:'residential'},
+  {id:'residential_8',x:10106.8,y:6102.3,sourceX:10065,sourceY:10244,kind:'residential'},
+  {id:'residential_9',x:9706.9,y:5957.6,sourceX:9661,sourceY:10386,kind:'residential'},
+  {id:'hillside_church_1',x:10014.7,y:6222.9,sourceX:9973,sourceY:10125,kind:'church_terrace'},
+  {id:'hillside_church_2',x:10225.5,y:6435.2,sourceX:10187,sourceY:9916,kind:'church_terrace'},
+  {id:'hillside_church_3',x:10181.6,y:6191.7,sourceX:10141,sourceY:10156,kind:'church_terrace'},
+  {id:'hillside_church_4',x:10276.7,y:6349.1,sourceX:10238,sourceY:10001,kind:'church_terrace'},
+  {id:'hillside_church_5',x:10440.3,y:6231.6,sourceX:10402,sourceY:10117,kind:'church_terrace'},
+  {id:'hillside_church_6',x:10509.4,y:6422.5,sourceX:10473,sourceY:9929,kind:'church_terrace'},
+  {id:'stadium_parking',x:9679.4,y:6492.2,sourceX:9637,sourceY:9859,kind:'stadium_parking'},
+  {id:'stadium_front',x:9817.7,y:6445.8,sourceX:9776,sourceY:9905,kind:'stadium_front'},
+  {id:'central_bridge',x:9778.4,y:6242.8,sourceX:9735,sourceY:10105,kind:'crossing'},
+  {id:'north_ford',x:9656.3,y:6107.7,sourceX:9611,sourceY:10238,kind:'crossing'},
+  {id:'south_culvert',x:9679.4,y:6492.2,sourceX:9637,sourceY:9859,kind:'crossing'}
+];
+
+export const FULLMAP_RIVER_PATH=[[9618.2,5730.2],[9656.3,6107.7],[9744.2,6166.6],[9778.4,6242.8],[9732.9,6369.5],[9679.4,6492.2],[9646.3,6694.1],[9625.1,6886.8]];
+
+export const FULLMAP_ROAD_PATHS=[
+  [[9506.2,6290.0],[9564.5,6185.6],[9778.4,6242.8],[9763.5,6242.8],[9900.5,6374.9],[9981.2,6468.3],[10142.7,6653.2],[10254.6,6678.8]],
+  [[9706.9,5957.6],[10039.6,5919.6],[10140.4,5838.5],[10106.8,6102.3],[10312.0,6122.9],[10440.3,6231.6]],
+  [[9723.7,6689.1],[9679.4,6492.2],[9776.3,6547.1],[9817.7,6445.8],[9904.6,6644.7],[9948.5,6751.3],[10024.1,6585.1],[10163.2,6550.8]],
+  [[9900.5,6374.9],[10014.7,6222.9],[10124.2,6312.3],[10181.6,6191.7],[10276.7,6349.1],[10509.4,6422.5]],
+  [[9075.0,6092.5],[9378.2,6289.8],[9506.2,6290.0],[9564.5,6185.6]]
+];
+
+// Stadium now comes from the FULL-MAP POI layout.
+// Raw GLB terrain near this position is ~43m; after the current 1.18 vertical
+// scale the graded site is approximately 51m, not the incorrect 146.6m used by v69.
 export const STADIUM_REFERENCE={
   id:'dinamo_ozeti_stadium',
-  x:9500.4,
-  y:5218.8,
-  siteWidth:205,
-  siteDepth:150,
-  yaw:0.035,
-  targetElevation:146.6,
-  terraceMargin:34,
-  clearRadius:145
+  x:9776.3,
+  y:6547.1,
+  siteWidth:190,
+  siteDepth:140,
+  yaw:0.04,
+  targetElevation:51.0,
+  terraceMargin:30,
+  clearRadius:135
 };
 
 export const SITE_CLEARINGS=[
   {
     id:'stadium',
-    x:9500.4,
-    y:5218.8,
-    radius:145
+    x:9776.3,
+    y:6547.1,
+    radius:135
   }
+];
+
+
+// v73 — outer full-map POIs, calibrated with official Tower 1–4.
+// Maximum four-Tower residual: 4.64m.
+export const FULLMAP_ENVIRONMENT_POIS=[
+  {id:'deforested_1',x:10042.6,y:6916.9,sourceX:10006,sourceY:9441,kind:'deforested'},
+  {id:'farm_1',x:9530.3,y:6539.7,sourceX:9487,sourceY:9812,kind:'farm'},
+  {id:'farm_2',x:9692.2,y:6940.7,sourceX:9653,sourceY:9417,kind:'farm'},
+  {id:'farm_3',x:10393.6,y:6660.7,sourceX:10358,sourceY:9694,kind:'farm'},
+  {id:'farm_4',x:10644.9,y:6622.6,sourceX:10611,sourceY:9732,kind:'farm'},
+  {id:'farm_5',x:9378.2,y:6289.8,sourceX:9332,sourceY:10058,kind:'farm'},
+  {id:'farm_6',x:9124.3,y:6279.3,sourceX:9076,sourceY:10068,kind:'farm'},
+  {id:'farm_7',x:9223.5,y:6428.6,sourceX:9177,sourceY:9921,kind:'farm'},
+  {id:'farm_8',x:9275.6,y:6643.8,sourceX:9231,sourceY:9709,kind:'farm'},
+  {id:'farm_9',x:9165.7,y:6745.0,sourceX:9121,sourceY:9609,kind:'farm'},
+  {id:'grassland_1',x:10867.7,y:6258.7,sourceX:10833,sourceY:10091,kind:'grassland'},
+  {id:'forest_1',x:9973.0,y:5937.7,sourceX:9929,sourceY:10406,kind:'forest'},
+  {id:'forest_2',x:9656.3,y:6107.7,sourceX:9611,sourceY:10238,kind:'forest'},
+  {id:'forest_3',x:9705.5,y:6733.7,sourceX:9665,sourceY:9621,kind:'forest'},
+  {id:'forest_4',x:10211.8,y:6833.9,sourceX:10176,sourceY:9523,kind:'forest'},
+  {id:'forest_5',x:10521.2,y:5861.5,sourceX:10481,sourceY:10482,kind:'forest'},
+  {id:'forest_6',x:10380.3,y:5584.3,sourceX:10337,sourceY:10755,kind:'forest'},
+  {id:'forest_7',x:9798.6,y:5611.8,sourceX:9751,sourceY:10727,kind:'forest'},
+  {id:'forest_8',x:9301.1,y:5531.9,sourceX:9249,sourceY:10805,kind:'forest'},
+  {id:'forest_9',x:8962.6,y:5706.8,sourceX:8909,sourceY:10632,kind:'forest'},
+  {id:'forest_10',x:9068.3,y:5915.0,sourceX:9017,sourceY:10427,kind:'forest'},
+  {id:'forest_11',x:9256.8,y:6051.2,sourceX:9208,sourceY:10293,kind:'forest'},
+  {id:'forest_12',x:9942.5,y:7048.6,sourceX:9906,sourceY:9311,kind:'forest'},
+  {id:'forest_13',x:9476.8,y:6814.5,sourceX:9435,sourceY:9541,kind:'forest'}
 ];

@@ -1,48 +1,22 @@
 import {
   WORLD_CONFIG
-} from './map-data.js';
+} from './map-data.js?v=79';
 
 import {
   createTerrainSystem
-} from './terrain.js';
+} from './terrain.js?v=79';
 
 import {
-  createCoordinateCalibrationLayer
-} from './calibration.js';
-
-import {
-  createRoadReferenceLayer
-} from './roads.js';
-
-import {
-  createTowerReferenceLayer
-} from './structures.js';
-
-import {
-  createForestReferenceLayer
-} from './vegetation.js';
-
-import {
-  createBuildingReferenceLayer
-} from './buildings.js';
-
-import {
-  createFacilityReferenceLayer
-} from './facilities.js';
-
-import {
-  createStadiumReferenceLayer
-} from './stadium.js';
-
-
-import {
-  createFactionWorldLayer,
   factionCenterWorld
-} from './factions.js';
+} from './factions.js?v=79';
 
 import {
   createTacticalMap
-} from './tactical-map.js';
+} from './tactical-map.js?v=79';
+
+import {
+  createMapObjectSystem
+} from './models/model-system.js?v=79';
 
 export function createOzetiMap({
   THREE,
@@ -55,109 +29,52 @@ export function createOzetiMap({
   statusEl,
   clearPressed
 }){
-  const terrain=
-    createTerrainSystem({
-      THREE,
-      scene,
-      statusEl
-    });
+  const terrain=createTerrainSystem({
+    THREE,
+    scene,
+    statusEl
+  });
 
-  const tactical=
-    createTacticalMap({
-      root,
-      stage,
-      state,
-      heli,
-      orient,
-      terrainHeight:terrain.height,
-      clearPressed
-    });
+  const tactical=createTacticalMap({
+    root,
+    stage,
+    state,
+    heli,
+    orient,
+    terrainHeight:terrain.height,
+    clearPressed
+  });
 
-  const factionLayer=
-    createFactionWorldLayer({
-      THREE,
-      scene,
-      terrainHeight:terrain.height
-    });
+  const objects=createMapObjectSystem({
+    THREE,
+    scene,
+    terrainHeight:terrain.height,
+    masterScale:WORLD_CONFIG.scale
+  });
 
-  let scenery=null;
-  let calibration=null;
-  let roads=null;
-  let structures=null;
-  let vegetation=null;
-  let buildings=null;
-  let facilities=null;
-  let stadium=null;
+  let rockLayer=null;
 
   async function load(){
     await terrain.load();
 
-    factionLayer.rebuild();
+    if(!terrain.data.heightfield){
+      throw new Error('Ozeti v79 terrain heightfield missing after load');
+    }
 
-    calibration=
-      createCoordinateCalibrationLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
+    rockLayer=objects.loadTerrainRockLayer({
+      terrainBounds:terrain.data.heightfield.bounds,
+      worldHalfX:terrain.bounds.halfX,
+      worldHalfZ:terrain.bounds.halfZ,
+      sectorSize:terrain.sectorIndex.size
+    });
 
-    roads=
-      createRoadReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
-
-    structures=
-      createTowerReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
-
-    stadium=
-      createStadiumReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
-
-    vegetation=
-      createForestReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
-
-    buildings=
-      createBuildingReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
-
-    facilities=
-      createFacilityReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
-
+    if(!rockLayer || rockLayer.count<=0){
+      throw new Error('Ozeti v79 rock layer generated zero placements');
+    }
 
     if(statusEl){
-      statusEl.textContent=
-        'Ozeti v70 · 道路 '+
-        roads.routeCount+
-        ' / Tower '+
-        structures.towerCount+
-        ' / Stadium '+
-        stadium.stadiumCount+
-        ' / 樹 '+
-        vegetation.treeCount+
-        ' / 建築 '+
-        buildings.buildingCount+
-        ' / 官方設施 '+
-        facilities.facilityCount;
+      statusEl.textContent+=
+        ' / rocks '+rockLayer.count;
     }
 
     return true;
@@ -178,31 +95,31 @@ export function createOzetiMap({
       width:WORLD_CONFIG.width,
       depth:WORLD_CONFIG.depth
     },
+    objects,
+    get rockLayer(){return rockLayer;},
+    placeMapObject:objects.placement.place,
+    placeMapObjects:objects.placement.placeMany,
+    clearMapObjectSector:objects.clearSector,
     get scenery(){
-      return scenery;
-    },
-    get calibration(){
-      return calibration;
-    },
-    get roads(){
-      return roads;
+      return null;
     },
     get structures(){
-      return structures;
-    },
-    get vegetation(){
-      return vegetation;
-    },
-    get buildings(){
-      return buildings;
-    },
-    get facilities(){
-      return facilities;
+      return null;
     },
     get stadium(){
-      return stadium;
+      return null;
+    },
+    get fullMapTown(){
+      return null;
+    },
+    get fullMapEnvironment(){
+      return null;
     },
     terrain,
-    factionLayer
+    factionLayer:{
+      group:null,
+      rebuild(){},
+      clear(){}
+    }
   };
 }

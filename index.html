@@ -209,16 +209,93 @@
       <button id="reset">重置</button>
       <button id="pause">暫停</button>
     </div>
-    <div class="version-label">VERSION v70</div>
+    <div class="version-label">VERSION v79</div>
   </aside>
 </div>
 
 <script type="module">
-const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm');
-const {createOzetiMap}=await import('./js/map/ozeti-map.js');
+const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=77');
 
 const root=document.getElementById('app');
 const stage=document.getElementById('stage');
+
+function showRuntimeError(
+  title,
+  error
+){
+  console.error(
+    title,
+    error
+  );
+
+  let box=
+    document.getElementById(
+      'runtimeError'
+    );
+
+  if(!box){
+    box=
+      document.createElement(
+        'div'
+      );
+
+    box.id='runtimeError';
+
+    Object.assign(
+      box.style,
+      {
+        position:'absolute',
+        left:'12px',
+        top:'12px',
+        zIndex:'100',
+        maxWidth:'min(720px,calc(100% - 24px))',
+        padding:'10px 12px',
+        border:'1px solid #b94b4b',
+        borderRadius:'7px',
+        background:'rgba(30,8,8,.92)',
+        color:'#fff',
+        font:'12px/1.45 monospace',
+        whiteSpace:'pre-wrap',
+        pointerEvents:'none'
+      }
+    );
+
+    stage.appendChild(
+      box
+    );
+  }
+
+  const message=
+    error?.stack ||
+    error?.message ||
+    String(error);
+
+  box.textContent=
+    title+
+    '\n'+
+    message;
+}
+
+window.addEventListener(
+  'error',
+  event=>{
+    showRuntimeError(
+      'JavaScript runtime error',
+      event.error ||
+      event.message
+    );
+  }
+);
+
+window.addEventListener(
+  'unhandledrejection',
+  event=>{
+    showRuntimeError(
+      'Unhandled promise rejection',
+      event.reason
+    );
+  }
+);
 const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.shadowMap.enabled=true;
@@ -226,7 +303,7 @@ renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.04;
 stage.prepend(renderer.domElement);
-document.getElementById('loading').remove();
+document.getElementById('loading')?.remove();
 
 const pmremGenerator=new THREE.PMREMGenerator(renderer);
 pmremGenerator.compileEquirectangularShader();
@@ -288,15 +365,13 @@ scene.add(sun);
 scene.add(sun.target);
 
 /*
- * OZETI LOCAL TERRAIN ASSET
- * -------------------------
- * Visual terrain:
- *   ./assets/maps/ozeti-terrain-reconstruction-v1.glb
- *
- * Collision sampling is rebuilt from the GLB's own vertex positions, so the
- * visible ground and terrainHeight() share the same local asset.
- *
- * No Ozeti terrain data is fetched from N4 / WARDOGS at runtime.
+ * OZETI v77 MASTER SCALE
+ * ----------------------
+ * Uses a single uniform scale computed from the available central recovered
+ * heightfield's 8549 x 7775 m extent to a target width of 16,384 m.
+ * Target height, Y elevations, marker positions and sectors scale together.
+ * This DOES NOT represent a verified full N4 map reference image.
+ * All non-terrain 3D map layers remain disabled.
  */
 const terrainStatusVal=
   document.getElementById(
@@ -1724,47 +1799,98 @@ function resize(){
 }
 new ResizeObserver(resize).observe(stage);
 
-ozetiMap=createOzetiMap({
-  THREE,
-  scene,
-  root,
-  stage,
-  state,
-  heli,
-  orient,
-  statusEl:terrainStatusVal,
-  clearPressed:()=>pressed.clear()
-});
-
 resize();
 reset();
 
-ozetiMap.load()
-  .then(()=>{
-    reset();
-  })
-  .catch(error=>{
-    console.error(
-      'Ozeti map initialization failed:',
-      error
-    );
-  });
+camera.position.set(
+  0,
+  60,
+  390
+);
 
-camera.position.set(0,60,390);
-
+let frameErrorShown=false;
 let last=performance.now();
+
 function frame(now){
-  const dt=Math.min((now-last)/1000,.033);
+  const dt=
+    Math.min(
+      (now-last)/1000,
+      .033
+    );
+
   last=now;
-  update(dt);
-  updateCamera(dt);
-  updateSunForAircraft();
-  updateHUD();
-  updateMapMarker();
-  renderer.render(scene,camera);
-  requestAnimationFrame(frame);
+
+  try{
+    update(dt);
+    updateCamera(dt);
+    updateSunForAircraft();
+    updateHUD();
+    updateMapMarker();
+  }catch(error){
+    if(!frameErrorShown){
+      frameErrorShown=true;
+
+      showRuntimeError(
+        'Frame update failed',
+        error
+      );
+    }
+  }
+
+  renderer.render(
+    scene,
+    camera
+  );
+
+  requestAnimationFrame(
+    frame
+  );
 }
-requestAnimationFrame(frame);
+
+requestAnimationFrame(
+  frame
+);
+
+/*
+ * Map boot is deliberately non-blocking.
+ * Even if a map module fails, the simulator canvas / helicopter / HUD
+ * remains visible and the exact error is shown on-screen.
+ */
+import(
+  './js/map/ozeti-map.js?v=79'
+)
+  .then(
+    module=>{
+      ozetiMap=
+        module.createOzetiMap({
+          THREE,
+          scene,
+          root,
+          stage,
+          state,
+          heli,
+          orient,
+          statusEl:terrainStatusVal,
+          clearPressed:()=>
+            pressed.clear()
+        });
+
+      return ozetiMap.load();
+    }
+  )
+  .then(
+    ()=>{
+      reset();
+    }
+  )
+  .catch(
+    error=>{
+      showRuntimeError(
+        'Ozeti map initialization failed',
+        error
+      );
+    }
+  );
 </script>
 </body>
 </html>
