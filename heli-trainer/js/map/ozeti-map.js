@@ -1,18 +1,22 @@
 import {
   WORLD_CONFIG
-} from './map-data.js?v=77';
+} from './map-data.js?v=78';
 
 import {
   createTerrainSystem
-} from './terrain.js?v=77';
+} from './terrain.js?v=78';
 
 import {
   factionCenterWorld
-} from './factions.js?v=77';
+} from './factions.js?v=78';
 
 import {
   createTacticalMap
-} from './tactical-map.js?v=77';
+} from './tactical-map.js?v=78';
+
+import {
+  createMapObjectSystem
+} from './models/model-system.js?v=78';
 
 export function createOzetiMap({
   THREE,
@@ -25,26 +29,32 @@ export function createOzetiMap({
   statusEl,
   clearPressed
 }){
-  const terrain=
-    createTerrainSystem({
-      THREE,
-      scene,
-      statusEl
-    });
+  const terrain=createTerrainSystem({
+    THREE,
+    scene,
+    statusEl
+  });
 
-  const tactical=
-    createTacticalMap({
-      root,
-      stage,
-      state,
-      heli,
-      orient,
-      terrainHeight:terrain.height,
-      clearPressed
-    });
+  const tactical=createTacticalMap({
+    root,
+    stage,
+    state,
+    heli,
+    orient,
+    terrainHeight:terrain.height,
+    clearPressed
+  });
+
+  const objects=createMapObjectSystem({
+    THREE,
+    scene,
+    terrainHeight:terrain.height,
+    masterScale:WORLD_CONFIG.scale
+  });
 
   async function load(){
-    return terrain.load();
+    await terrain.load();
+    return true;
   }
 
   return {
@@ -62,6 +72,10 @@ export function createOzetiMap({
       width:WORLD_CONFIG.width,
       depth:WORLD_CONFIG.depth
     },
+    objects,
+    placeMapObject:objects.placement.place,
+    placeMapObjects:objects.placement.placeMany,
+    clearMapObjectSector:objects.clearSector,
     get scenery(){
       return null;
     },

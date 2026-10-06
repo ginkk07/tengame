@@ -2,7 +2,7 @@ import {
   WORLD_CONFIG,
   TERRAIN_CONFIG,
   MAP_ASSETS
-} from '../map-data.js?v=76';
+} from '../map-data.js?v=78';
 
 const SECTOR_SIZE=512;
 

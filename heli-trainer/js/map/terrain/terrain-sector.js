@@ -1,6 +1,6 @@
 import {
   sourceWorldBounds
-} from './terrain-config.js?v=76';
+} from './terrain-config.js?v=78';
 
 function intersects(a,b){
   return !(
@@ -202,7 +202,7 @@ export function buildVerifiedTerrainSectors({
   targetSpacing
 }){
   const group=new THREE.Group();
-  group.name='OzetiTerrainSectorsV77';
+  group.name='OzetiTerrainSectorsV78';
 
   let meshCount=0;
   let vertexCount=0;
@@ -237,7 +237,7 @@ export function buildVerifiedTerrainSectors({
 
   if(!meshCount){
     throw new Error(
-      'Ozeti v77 generated zero terrain sectors'
+      'Ozeti v78 generated zero terrain sectors'
     );
   }
 

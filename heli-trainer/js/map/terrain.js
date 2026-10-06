@@ -1,24 +1,24 @@
 import {
   TERRAIN_CORE_CONFIG
-} from './terrain/terrain-config.js?v=77';
+} from './terrain/terrain-config.js?v=78';
 
 import {
   createTerrainSectorIndex,
   buildVerifiedTerrainSectors
-} from './terrain/terrain-sector.js?v=77';
+} from './terrain/terrain-sector.js?v=78';
 
 import {
   createTerrainCoreMaterial,
   createUnverifiedBaseMaterial
-} from './terrain/terrain-material.js?v=77';
+} from './terrain/terrain-material.js?v=78';
 
 import {
   loadTerrainHeightfield
-} from './terrain/terrain-loader.js?v=77';
+} from './terrain/terrain-loader.js?v=78';
 
 import {
   buildTerrainHeightfield
-} from './terrain/terrain-heightfield.js?v=77';
+} from './terrain/terrain-heightfield.js?v=78';
 
 export function createTerrainSystem({
   THREE,
@@ -50,7 +50,7 @@ export function createTerrainSystem({
       createUnverifiedBaseMaterial(THREE)
     );
 
-  basePlane.name='OzetiWorldFallbackV77';
+  basePlane.name='OzetiWorldFallbackV78';
   basePlane.rotation.x=-Math.PI/2;
   basePlane.position.y=-2;
   basePlane.receiveShadow=true;
@@ -70,7 +70,7 @@ export function createTerrainSystem({
   async function load(){
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v77 · 等比例地形生成中…';
+        'Ozeti v78 · 等比例地形生成中…';
     }
 
     const payload=
@@ -113,7 +113,7 @@ export function createTerrainSystem({
 
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v77 · Master Scale '+config.source.scale.toFixed(6)+' × · '+
+        'Ozeti v78 · Master Scale '+config.source.scale.toFixed(6)+' × · '+
         'GLB 0 / '+
         generated.meshCount+
         ' generated sectors / '+
