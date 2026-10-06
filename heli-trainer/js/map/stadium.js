@@ -1,10 +1,10 @@
 import {
   STADIUM_REFERENCE
-} from './map-data.js?v=71';
+} from './map-data.js?v=74';
 
 import {
   mapPointToWorld
-} from './factions.js?v=71';
+} from './factions.js?v=74';
 
 export function createStadiumReferenceLayer({
   THREE,
@@ -83,6 +83,74 @@ export function createStadiumReferenceLayer({
       opacity:.72,
       depthWrite:false
     });
+
+  function makeFacadeSign(
+    text,
+    width=22,
+    height=4
+  ){
+    const canvas=
+      document.createElement(
+        'canvas'
+      );
+
+    canvas.width=1024;
+    canvas.height=256;
+
+    const context=
+      canvas.getContext(
+        '2d'
+      );
+
+    context.fillStyle=
+      '#d4d0c3';
+
+    context.fillRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    context.fillStyle=
+      '#202321';
+
+    context.font=
+      '700 92px Arial';
+
+    context.textAlign=
+      'center';
+
+    context.textBaseline=
+      'middle';
+
+    context.fillText(
+      text,
+      canvas.width*.5,
+      canvas.height*.5
+    );
+
+    const texture=
+      new THREE.CanvasTexture(
+        canvas
+      );
+
+    texture.colorSpace=
+      THREE.SRGBColorSpace;
+
+    const material=
+      new THREE.MeshBasicMaterial({
+        map:texture
+      });
+
+    return new THREE.Mesh(
+      new THREE.PlaneGeometry(
+        width,
+        height
+      ),
+      material
+    );
+  }
 
   function box(w,h,d,material){
     const mesh=
@@ -276,6 +344,42 @@ export function createStadiumReferenceLayer({
     );
 
     root.add(gallery);
+
+    const sign=
+      makeFacadeSign(
+        'DINAMO OZETI',
+        24,
+        4.2
+      );
+
+    sign.position.set(
+      -12,
+      13.0,
+      9.15
+    );
+
+    sign.rotation.y=
+      Math.PI;
+
+    root.add(sign);
+
+    const mural=
+      makeFacadeSign(
+        '10',
+        7.5,
+        10
+      );
+
+    mural.position.set(
+      28,
+      8.8,
+      9.17
+    );
+
+    mural.rotation.y=
+      Math.PI;
+
+    root.add(mural);
 
     return root;
   }

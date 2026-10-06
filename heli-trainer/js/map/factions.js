@@ -3,7 +3,7 @@ import {
   WORLD_CONFIG,
   OZETI_MAP_BOUNDS,
   TACTICAL_PIXEL_CALIBRATION
-} from './map-data.js?v=71';
+} from './map-data.js?v=74';
 
 const MAP_CENTER={
   x:WORLD_CONFIG.centerX,
@@ -79,131 +79,33 @@ export function createFactionWorldLayer({
   scene,
   terrainHeight
 }){
+  /*
+   * v74:
+   * Faction polygons, labels and map-control graphics are UI overlays,
+   * not terrain. Keep the 3D world completely clean.
+   */
   const group=
     new THREE.Group();
 
+  group.name=
+    'FactionWorldUI_DISABLED';
+
+  group.visible=false;
+
   scene.add(group);
+
+  function rebuild(){
+    group.visible=false;
+  }
 
   function clear(){
     while(group.children.length){
-      const child=
+      group.remove(
         group.children[
           group.children.length-1
-        ];
-
-      group.remove(child);
-
-      child.traverse?.(
-        obj=>{
-          obj.geometry?.dispose?.();
-
-          if(obj.material){
-            if(Array.isArray(obj.material)){
-              obj.material.forEach(
-                material=>material.dispose?.()
-              );
-            }else{
-              obj.material.dispose?.();
-            }
-          }
-        }
+        ]
       );
     }
-  }
-
-  function rebuild(){
-    clear();
-
-    Object.values(FACTIONS).forEach(
-      faction=>{
-        const verts=[];
-
-        faction.points.forEach(
-          point=>{
-            const world=
-              mapPointToWorld(
-                point[0],
-                point[1]
-              );
-
-            verts.push(
-              world.x,
-              terrainHeight(
-                world.x,
-                world.z
-              )+2.6,
-              world.z
-            );
-          }
-        );
-
-        const geometry=
-          new THREE.BufferGeometry();
-
-        geometry.setAttribute(
-          'position',
-          new THREE.Float32BufferAttribute(
-            verts,
-            3
-          )
-        );
-
-        geometry.setIndex([
-          0,1,2,
-          0,2,3
-        ]);
-
-        geometry.computeVertexNormals();
-
-        const fill=
-          new THREE.Mesh(
-            geometry,
-            new THREE.MeshBasicMaterial({
-              color:faction.color,
-              transparent:true,
-              opacity:.18,
-              side:THREE.DoubleSide,
-              depthWrite:false
-            })
-          );
-
-        group.add(fill);
-
-        const outlinePoints=
-          faction.points.map(
-            point=>{
-              const world=
-                mapPointToWorld(
-                  point[0],
-                  point[1]
-                );
-
-              return new THREE.Vector3(
-                world.x,
-                terrainHeight(
-                  world.x,
-                  world.z
-                )+3.4,
-                world.z
-              );
-            }
-          );
-
-        const outline=
-          new THREE.LineLoop(
-            new THREE.BufferGeometry().setFromPoints(
-              outlinePoints
-            ),
-            new THREE.LineBasicMaterial({
-              color:faction.color,
-              transparent:true,
-              opacity:.95
-            })
-          );
-
-        group.add(outline);
-      }
-    );
   }
 
   return {

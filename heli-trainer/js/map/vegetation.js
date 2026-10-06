@@ -1,11 +1,11 @@
 import {
   FOREST_REFERENCE_POINTS,
   SITE_CLEARINGS
-} from './map-data.js?v=71';
+} from './map-data.js?v=74';
 
 import {
   mapPointToWorld
-} from './factions.js?v=71';
+} from './factions.js?v=74';
 
 export function createForestReferenceLayer({
   THREE,
