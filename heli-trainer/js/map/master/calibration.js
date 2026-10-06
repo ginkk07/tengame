@@ -1,9 +1,9 @@
-import {MASTER_MAP_CONFIG} from './master-map.js?v=87';
+import {MASTER_MAP_CONFIG} from './master-map.js?v=88';
 import {
   mapMetersToWorld,
   worldToMapMeters,
   masterContainsMapPoint
-} from './coordinate-transform.js?v=87';
+} from './coordinate-transform.js?v=88';
 
 export const MASTER_CONTROL_POINTS=Object.freeze([
   Object.freeze({id:'tower-1',x:9580,y:6282}),
@@ -16,21 +16,21 @@ export function verifyMasterCalibration(){
   const c=MASTER_MAP_CONFIG;
 
   if(!Number.isFinite(c.uniformScale) || c.uniformScale<=0){
-    throw new Error('Ozeti v87 master scale is invalid');
+    throw new Error('Ozeti v88 master scale is invalid');
   }
 
   const aspectSource=c.sourceWidthMeters/c.sourceDepthMeters;
   const aspectTarget=c.targetWidthMeters/c.targetDepthMeters;
 
   if(Math.abs(aspectSource-aspectTarget)>1e-12){
-    throw new Error('Ozeti v87 master frame is stretched');
+    throw new Error('Ozeti v88 master frame is stretched');
   }
 
   let maxRoundTripError=0;
 
   for(const point of MASTER_CONTROL_POINTS){
     if(!masterContainsMapPoint(point.x,point.y)){
-      throw new Error(`Ozeti v87 control point outside master bounds: ${point.id}`);
+      throw new Error(`Ozeti v88 control point outside master bounds: ${point.id}`);
     }
 
     const world=mapMetersToWorld(point.x,point.y);
@@ -41,7 +41,7 @@ export function verifyMasterCalibration(){
 
   if(maxRoundTripError>1e-7){
     throw new Error(
-      'Ozeti v87 master transform round-trip error '+
+      'Ozeti v88 master transform round-trip error '+
       maxRoundTripError
     );
   }

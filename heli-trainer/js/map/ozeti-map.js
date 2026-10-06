@@ -1,13 +1,13 @@
-import {WORLD_CONFIG} from './map-data.js?v=87';
-import {createTerrainSystem} from './terrain.js?v=87';
-import {factionCenterWorld} from './factions.js?v=87';
-import {createTacticalMap} from './tactical-map.js?v=87';
-import {createMapObjectSystem} from './models/model-system.js?v=87';
-import {verifyMasterCalibration} from './master/calibration.js?v=87';
-import {OZETI_PLAYABLE_BOUNDS} from './map-data.js?v=87';
-import {mapBoundsToWorld} from './master/coordinate-transform.js?v=87';
-import {createRiverLayer} from './water/river-layer.js?v=87';
-import {createRoadLayer} from './roads/road-layer.js?v=87';
+import {WORLD_CONFIG} from './map-data.js?v=88';
+import {createTerrainSystem} from './terrain.js?v=88';
+import {factionCenterWorld} from './factions.js?v=88';
+import {createTacticalMap} from './tactical-map.js?v=88';
+import {createMapObjectSystem} from './models/model-system.js?v=88';
+import {verifyMasterCalibration} from './master/calibration.js?v=88';
+import {OZETI_PLAYABLE_BOUNDS} from './map-data.js?v=88';
+import {mapBoundsToWorld} from './master/coordinate-transform.js?v=88';
+import {createRoadLayer} from './roads/road-layer.js?v=88';
+import {createEnvironmentLayer} from './environment/environment-layer.js?v=88';
 
 export function createOzetiMap({
   THREE,scene,root,stage,state,heli,orient,statusEl,clearPressed
@@ -29,13 +29,13 @@ export function createOzetiMap({
     masterScale:WORLD_CONFIG.scale
   });
 
-  const river=createRiverLayer({
+  const roads=createRoadLayer({
     THREE,scene,
     terrainHeight:terrain.height
   });
 
-  const roads=createRoadLayer({
-    THREE,scene,
+  const environment=createEnvironmentLayer({
+    objects,
     terrainHeight:terrain.height
   });
 
@@ -43,42 +43,38 @@ export function createOzetiMap({
     await terrain.load();
 
     if(!terrain.data.heightfield){
-      throw new Error('Ozeti v87 terrain heightfield missing after load');
+      throw new Error('Ozeti v88 terrain heightfield missing after load');
     }
 
     const initialStats=objects.placement.stats();
     if(initialStats.instances!==0 || initialStats.uniqueObjects!==0){
-      throw new Error('Ozeti v87 map objects must start empty before rock loading');
+      throw new Error('Ozeti v88 environment must start empty');
     }
 
-    const rockLoad=objects.loadAllActiveSectors();
+    const environmentStats=environment.rebuild();
     const objectStats=objects.placement.stats();
-    const riverStats=river.rebuild();
     const roadStats=roads.rebuild();
 
     if(
-      objectStats.instances!==rockLoad.expected.total ||
-      objectStats.uniqueObjects!==0 ||
-      rockLoad.placements!==rockLoad.expected.total ||
-      rockLoad.sectors!==rockLoad.expected.sectors
+      objectStats.instances!==environmentStats.trees ||
+      objectStats.uniqueObjects!==environmentStats.buildings
     ){
       throw new Error(
-        'Ozeti v87 rock placement count mismatch: '+
-        objectStats.instances+' / expected '+rockLoad.expected.total
+        'Ozeti v88 environment count mismatch: '+
+        objectStats.instances+' trees / '+
+        objectStats.uniqueObjects+' buildings'
       );
     }
 
     if(statusEl){
       statusEl.textContent+=
         ' / master calibration '+
-        calibration.controlPoints+' points / rocks '+
-        objectStats.instances+' / river '+
-        riverStats.paths+' paths / '+
-        Math.round(riverStats.measuredLengthMeters)+' m / roads '+
-        roadStats.paths+' paths ('+
-        roadStats.primaryPaths+' primary + '+
-        roadStats.localPaths+' local) / '+
-        Math.round(roadStats.measuredLengthMeters)+' m / playable '+
+        calibration.controlPoints+' points / forest refs '+
+        environmentStats.forestReferencePoints+' → trees '+
+        environmentStats.trees+' / building refs '+
+        environmentStats.buildingReferences+' → buildings '+
+        environmentStats.buildings+' / roads '+
+        roadStats.paths+' reference paths / playable '+
         Math.round(playableWorld.maxX-playableWorld.minX)+'×'+
         Math.round(playableWorld.maxZ-playableWorld.minZ)+' m';
     }
@@ -96,12 +92,10 @@ export function createOzetiMap({
     updateMapMarker:tactical.updateMarker,
     isMapOpen:tactical.isOpen,
     bounds:{
-      // Full terrain/rendering world.
       halfX:WORLD_CONFIG.width*.5,
       halfZ:WORLD_CONFIG.depth*.5,
       width:WORLD_CONFIG.width,
       depth:WORLD_CONFIG.depth,
-      // Flight/player movement boundary.
       playable:{
         minX:playableWorld.minX,
         maxX:playableWorld.maxX,
@@ -113,18 +107,19 @@ export function createOzetiMap({
     },
     masterCalibration:calibration,
     objects,
+    environmentLayer:environment,
+    roadLayer:roads,
+    terrain,
     placeMapObject:objects.placement.place,
     placeMapObjects:objects.placement.placeMany,
     clearMapObjectSector:objects.clearSector,
-    get scenery(){return null;},
-    get structures(){return null;},
+    get scenery(){return environment;},
+    get structures(){return environment;},
     get stadium(){return null;},
-    get fullMapTown(){return null;},
-    get fullMapEnvironment(){return null;},
-    get rockLayer(){return objects.expectedPlacementStats;},
-    riverLayer:river,
-    roadLayer:roads,
-    terrain,
+    get fullMapTown(){return environment;},
+    get fullMapEnvironment(){return environment;},
+    get rockLayer(){return null;},
+    get riverLayer(){return null;},
     factionLayer:{group:null,rebuild(){},clear(){}}
   };
 }

@@ -2,7 +2,7 @@ import {
   MASTER_MAP_CONFIG,
   MASTER_SOURCE_BOUNDS,
   PLAYABLE_SOURCE_BOUNDS
-} from './master/master-map.js?v=87';
+} from './master/master-map.js?v=88';
 
 // Player-accessible region and currently recovered terrain coverage.
 // This DOES NOT define the full Ozeti world dimensions.
@@ -53,8 +53,6 @@ export const MAP_ASSETS={
   // Terrain-only macro texture generated from the recovered heightfield.
   // It contains no UI, faction labels, roads, buildings, or tactical-map pixels.
   groundTexture:'./assets/maps/ozeti-terrain-macro-v82.png',
-  // R=bare ground, G=rock-surface potential. Derived from the supplied full-map reference after UI removal.
-  geologyMask:'./assets/maps/ozeti-terrain-geology-v83.png',
   // UI-only. Never sample this image into terrain geometry/material.
   tacticalMap:'./assets/maps/ozeti-tactical-map-v1.png'
 };

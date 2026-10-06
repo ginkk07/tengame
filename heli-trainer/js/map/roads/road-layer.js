@@ -1,12 +1,12 @@
 import {
   mapMetersToWorld
-} from '../master/coordinate-transform.js?v=87';
+} from '../master/coordinate-transform.js?v=88';
 
 import {
   ROAD_CONFIG,
   ROAD_PATHS,
   ROAD_STATS
-} from './road-data.js?v=87';
+} from './road-data.js?v=88';
 
 function classConfig(path){
   if(path.class==='local'){
@@ -169,7 +169,7 @@ export function createRoadLayer({
   terrainHeight
 }){
   const group=new THREE.Group();
-  group.name='OzetiRoadLayerV87';
+  group.name='OzetiRoadLayerV88';
   scene.add(group);
 
   const materials={
@@ -257,7 +257,7 @@ export function createRoadLayer({
         geometry,
         materials[key]
       );
-      mesh.name=`ozeti-road-${key}-batch-v87`;
+      mesh.name=`ozeti-road-${key}-batch-v88`;
       mesh.receiveShadow=true;
       mesh.castShadow=false;
       mesh.renderOrder=renderOrder;

@@ -1,7 +1,7 @@
 function standardMaterial(THREE,color){
   return new THREE.MeshStandardMaterial({
     color,
-    roughness:.9,
+    roughness:.92,
     metalness:0
   });
 }
@@ -18,28 +18,46 @@ function addBox(THREE,group,size,pos,color){
   return mesh;
 }
 
-function createHouse(THREE,{width=10,depth=14,height=6,wall=0xb9b1a0,roof=0x6c5548}={}){
+function gableRoofGeometry(THREE,width,depth,height){
+  const hw=width*.5;
+  const hd=depth*.5;
+  const vertices=new Float32Array([
+    -hw,0,-hd,  hw,0,-hd,  hw,0,hd, -hw,0,hd,
+    0,height,-hd, 0,height,hd
+  ]);
+  const indices=[
+    0,1,4,
+    3,5,2,
+    0,4,5, 0,5,3,
+    1,2,5, 1,5,4
+  ];
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.BufferAttribute(vertices,3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function createHouse(THREE,{
+  width=10,
+  depth=14,
+  height=6,
+  wall=0xb9b1a0,
+  roof=0x6c5548
+}={}){
   const group=new THREE.Group();
   addBox(THREE,group,[width,height,depth],[0,height*.5,0],wall);
 
-  const roofGeometry=new THREE.ConeGeometry(
-    Math.max(width,depth)*.72,
-    3.2,
-    4,
-    1,
-    false,
-    Math.PI*.25
-  );
-  roofGeometry.scale(1,.72,depth/width);
+  const roofHeight=Math.max(2.3,Math.min(4.2,width*.26));
   const roofMesh=new THREE.Mesh(
-    roofGeometry,
+    gableRoofGeometry(THREE,width*1.06,depth*1.06,roofHeight),
     standardMaterial(THREE,roof)
   );
-  roofMesh.position.y=height+1.2;
-  roofMesh.rotation.y=Math.PI*.25;
+  roofMesh.position.y=height;
   roofMesh.castShadow=true;
   roofMesh.receiveShadow=true;
   group.add(roofMesh);
+
   return group;
 }
 
@@ -62,7 +80,13 @@ export function registerBuildingModels(registry){
     sourceUnitScale:true,
     alignToTerrain:false,
     createObject(THREE){
-      return createHouse(THREE,{width:13,depth:18,height:7.2,wall:0xc2b8a5,roof:0x625048});
+      return createHouse(THREE,{
+        width:13,
+        depth:18,
+        height:7.2,
+        wall:0xc2b8a5,
+        roof:0x625048
+      });
     }
   });
 
@@ -76,6 +100,8 @@ export function registerBuildingModels(registry){
       const group=new THREE.Group();
       addBox(THREE,group,[22,14,12],[0,7,0],0xa9aaa3);
       addBox(THREE,group,[20,.9,10],[0,14.35,0],0x666761);
+      addBox(THREE,group,[3.6,2.2,1.2],[-5,8,6.1],0x72746f);
+      addBox(THREE,group,[3.6,2.2,1.2],[5,8,6.1],0x72746f);
       return group;
     }
   });
@@ -90,6 +116,8 @@ export function registerBuildingModels(registry){
       const group=new THREE.Group();
       addBox(THREE,group,[28,8,18],[0,4,0],0x898c86);
       addBox(THREE,group,[30,.8,20],[0,8.35,0],0x585c59);
+      addBox(THREE,group,[7,4,.8],[-7,3.2,9.2],0x555b58);
+      addBox(THREE,group,[7,4,.8],[7,3.2,9.2],0x555b58);
       return group;
     }
   });

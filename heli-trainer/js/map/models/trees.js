@@ -1,38 +1,75 @@
-function treeParts(THREE,{trunkHeight,trunkRadius,crownHeight,crownRadius,trunkColor,crownColor,segments=7}){
-  const trunkGeometry=new THREE.CylinderGeometry(
-    trunkRadius*.72,
-    trunkRadius,
-    trunkHeight,
+function material(THREE,color){
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness:1,
+    metalness:0
+  });
+}
+
+function trunkPart(THREE,height,radius,color){
+  const geometry=new THREE.CylinderGeometry(
+    radius*.72,
+    radius,
+    height,
     7,
     1,
     false
   );
-  trunkGeometry.translate(0,trunkHeight*.5,0);
+  geometry.translate(0,height*.5,0);
+  return {
+    geometry,
+    material:material(THREE,color)
+  };
+}
 
-  const crownGeometry=new THREE.ConeGeometry(
-    crownRadius,
-    crownHeight,
-    segments,
-    2
-  );
-  crownGeometry.translate(0,trunkHeight+crownHeight*.47,0);
-
-  return [
-    {
-      geometry:trunkGeometry,
-      material:new THREE.MeshStandardMaterial({
-        color:trunkColor,
-        roughness:1
-      })
-    },
-    {
-      geometry:crownGeometry,
-      material:new THREE.MeshStandardMaterial({
-        color:crownColor,
-        roughness:1
-      })
-    }
+function broadleafParts(THREE){
+  const parts=[
+    trunkPart(THREE,5.4,.43,0x665343)
   ];
+
+  const crownMaterial=material(THREE,0x425b39);
+  const crownSpecs=[
+    [0,8.7,0,3.0,2.25,2.7],
+    [-1.6,8.1,.5,2.25,1.85,2.15],
+    [1.45,8.15,-.35,2.2,1.8,2.1],
+    [.2,10.05,.15,2.25,1.75,2.15]
+  ];
+
+  for(const [x,y,z,sx,sy,sz] of crownSpecs){
+    const geometry=new THREE.IcosahedronGeometry(1,1);
+    geometry.scale(sx,sy,sz);
+    geometry.translate(x,y,z);
+    parts.push({geometry,material:crownMaterial});
+  }
+
+  return parts;
+}
+
+function coniferParts(THREE){
+  const parts=[
+    trunkPart(THREE,4.6,.36,0x5d4c3f)
+  ];
+
+  const crownMaterial=material(THREE,0x344a35);
+  const tiers=[
+    [3.4,6.0,7.0],
+    [2.75,5.4,9.1],
+    [2.0,4.6,11.0]
+  ];
+
+  for(const [radius,height,y] of tiers){
+    const geometry=new THREE.ConeGeometry(
+      radius,
+      height,
+      8,
+      1,
+      false
+    );
+    geometry.translate(0,y,0);
+    parts.push({geometry,material:crownMaterial});
+  }
+
+  return parts;
 }
 
 export function registerTreeModels(registry){
@@ -41,18 +78,10 @@ export function registerTreeModels(registry){
     category:'tree',
     mode:'instanced',
     sourceUnitScale:true,
-    defaultCapacity:1024,
+    defaultCapacity:4096,
     alignToTerrain:false,
     createParts(THREE){
-      return treeParts(THREE,{
-        trunkHeight:5.2,
-        trunkRadius:.42,
-        crownHeight:6.4,
-        crownRadius:3.2,
-        trunkColor:0x665343,
-        crownColor:0x425b39,
-        segments:8
-      });
+      return broadleafParts(THREE);
     }
   });
 
@@ -61,18 +90,10 @@ export function registerTreeModels(registry){
     category:'tree',
     mode:'instanced',
     sourceUnitScale:true,
-    defaultCapacity:1024,
+    defaultCapacity:2048,
     alignToTerrain:false,
     createParts(THREE){
-      return treeParts(THREE,{
-        trunkHeight:4.4,
-        trunkRadius:.36,
-        crownHeight:8.8,
-        crownRadius:3.1,
-        trunkColor:0x5d4c3f,
-        crownColor:0x344a35,
-        segments:7
-      });
+      return coniferParts(THREE);
     }
   });
 
@@ -87,11 +108,10 @@ export function registerTreeModels(registry){
       const geometry=new THREE.IcosahedronGeometry(1.35,1);
       geometry.scale(1.2,.72,1);
       geometry.translate(0,.8,0);
-      const material=new THREE.MeshStandardMaterial({
-        color:0x4a613f,
-        roughness:1
-      });
-      return [{geometry,material}];
+      return [{
+        geometry,
+        material:material(THREE,0x4a613f)
+      }];
     }
   });
 }

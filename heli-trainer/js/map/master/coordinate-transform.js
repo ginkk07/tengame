@@ -2,7 +2,7 @@ import {
   MASTER_MAP_CONFIG,
   MASTER_SOURCE_BOUNDS,
   PLAYABLE_SOURCE_BOUNDS
-} from './master-map.js?v=87';
+} from './master-map.js?v=88';
 
 export function mapMetersToWorld(mapX,mapY){
   const c=MASTER_MAP_CONFIG;

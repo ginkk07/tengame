@@ -1,25 +1,25 @@
 import {
   TERRAIN_CORE_CONFIG
-} from './terrain/terrain-config.js?v=87';
+} from './terrain/terrain-config.js?v=88';
 
 import {
   createTerrainSectorIndex,
   buildVerifiedTerrainSectors
-} from './terrain/terrain-sector.js?v=87';
+} from './terrain/terrain-sector.js?v=88';
 
 import {
   createTerrainCoreMaterial,
   createUnverifiedBaseMaterial,
   loadTerrainSurfaceTextures
-} from './terrain/terrain-material.js?v=87';
+} from './terrain/terrain-material.js?v=88';
 
 import {
   loadTerrainHeightfield
-} from './terrain/terrain-loader.js?v=87';
+} from './terrain/terrain-loader.js?v=88';
 
 import {
   buildTerrainHeightfield
-} from './terrain/terrain-heightfield.js?v=87';
+} from './terrain/terrain-heightfield.js?v=88';
 
 export function createTerrainSystem({
   THREE,
@@ -38,7 +38,6 @@ export function createTerrainSystem({
     sectorIndex,
     meshCount:0,
     vertexCount:0,
-    geologyReady:false
   };
 
   const basePlane=
@@ -52,7 +51,7 @@ export function createTerrainSystem({
       createUnverifiedBaseMaterial(THREE)
     );
 
-  basePlane.name='OzetiWorldFallbackV85';
+  basePlane.name='OzetiWorldFallbackV88';
   basePlane.rotation.x=-Math.PI/2;
   basePlane.position.y=-2;
   basePlane.receiveShadow=true;
@@ -72,7 +71,7 @@ export function createTerrainSystem({
   async function load(){
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v85 · Terrain / Geology 載入中…';
+        'Ozeti v88 · Terrain 載入中…';
     }
 
     const payload=
@@ -93,8 +92,7 @@ export function createTerrainSystem({
     const textures=
       await loadTerrainSurfaceTextures({
         THREE,
-        macroAssetUrl:config.source.groundTexture,
-        geologyAssetUrl:config.source.geologyMask
+        macroAssetUrl:config.source.groundTexture
       });
 
     const material=
@@ -122,13 +120,12 @@ export function createTerrainSystem({
     data.heightfield=field;
     data.meshCount=generated.meshCount;
     data.vertexCount=generated.vertexCount;
-    data.geologyReady=true;
     data.ready=true;
 
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v85 · Terrain '+config.world.width.toFixed(0)+'×'+config.world.depth.toFixed(0)+' m · '+
-        'geology R=soil/G=rock · '+
+        'Ozeti v88 · Terrain '+config.world.width.toFixed(0)+'×'+config.world.depth.toFixed(0)+' m · '+
+        'heightfield verified · '+
         'GLB 0 / '+
         generated.meshCount+
         ' generated sectors / '+

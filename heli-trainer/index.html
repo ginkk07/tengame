@@ -209,12 +209,12 @@
       <button id="reset">重置</button>
       <button id="pause">暫停</button>
     </div>
-    <div class="version-label">VERSION v87</div>
+    <div class="version-label">VERSION v88</div>
   </aside>
 </div>
 
 <script type="module">
-const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=87');
+const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=88');
 
 const root=document.getElementById('app');
 const stage=document.getElementById('stage');
@@ -795,6 +795,7 @@ const axisZ=new THREE.Vector3(0,0,1);
 const axisX=new THREE.Vector3(1,0,0);
 const rotorUp=new THREE.Vector3();
 const force=new THREE.Vector3();
+const previousPosition=new THREE.Vector3();
 
 function orient(){
   qYaw.setFromAxisAngle(axisY,state.yaw);
@@ -1587,6 +1588,7 @@ function update(dt){
       verticalDv;
   }
 
+  previousPosition.copy(state.pos);
   state.pos.addScaledVector(state.vel,dt);
 
   // Terrain-aware collision / minimum skid clearance.
@@ -1605,6 +1607,31 @@ function update(dt){
 
     if(!Math.abs(state.verticalInput)){
       state.holdAltitude=groundY;
+    }
+  }
+
+  // Reconstructed environment obstacles are part of the flight practice area.
+  // Collision uses conservative building/tree envelopes; it is intentionally
+  // simpler than the flight dynamics and is not a per-mesh physics solver.
+  const environmentHit=
+    ozetiMap?.environmentLayer?.resolveMovement(
+      previousPosition,
+      state.pos,
+      2.2
+    );
+
+  if(environmentHit){
+    if(environmentHit.mode==='vertical'){
+      if(state.vel.y<0){
+        state.vel.y=0;
+      }
+      state.holdAltitude=Math.max(
+        state.holdAltitude,
+        environmentHit.topY+2.2
+      );
+    }else{
+      state.vel.x*=-.08;
+      state.vel.z*=-.08;
     }
   }
 
@@ -1861,7 +1888,7 @@ requestAnimationFrame(
  * remains visible and the exact error is shown on-screen.
  */
 import(
-  './js/map/ozeti-map.js?v=87'
+  './js/map/ozeti-map.js?v=88'
 )
   .then(
     module=>{
