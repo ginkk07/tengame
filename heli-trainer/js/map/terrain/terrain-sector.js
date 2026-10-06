@@ -30,6 +30,8 @@ export function createTerrainSectorIndex(config){
 
   const worldMinX=-config.world.halfX;
   const worldMinZ=-config.world.halfZ;
+  const worldMaxX=config.world.halfX;
+  const worldMaxZ=config.world.halfZ;
   const size=config.sectors.size;
 
   for(
@@ -47,9 +49,9 @@ export function createTerrainSectorIndex(config){
 
       const bounds={
         minX,
-        maxX:minX+size,
+        maxX:Math.min(minX+size,worldMaxX),
         minZ,
-        maxZ:minZ+size
+        maxZ:Math.min(minZ+size,worldMaxZ)
       };
 
       const verifiedBounds=
@@ -200,7 +202,7 @@ export function buildVerifiedTerrainSectors({
   targetSpacing
 }){
   const group=new THREE.Group();
-  group.name='OzetiTerrainSectorsV76';
+  group.name='OzetiTerrainSectorsV77';
 
   let meshCount=0;
   let vertexCount=0;
@@ -235,7 +237,7 @@ export function buildVerifiedTerrainSectors({
 
   if(!meshCount){
     throw new Error(
-      'Ozeti v76 generated zero terrain sectors'
+      'Ozeti v77 generated zero terrain sectors'
     );
   }
 

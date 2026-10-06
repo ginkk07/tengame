@@ -19,7 +19,15 @@ export function buildTerrainHeightfield({
   const depth=source.depth;
   const halfX=width*.5;
   const halfZ=depth*.5;
-  const heights=payload.heights;
+  if(!Number.isFinite(source.scale) || source.scale<=0){
+    throw new Error('Ozeti master scale must be positive and finite');
+  }
+
+  // Scale X, Z, AND height by the same multiplier.
+  const heights=Float32Array.from(
+    payload.heights,
+    value=>value*source.scale
+  );
 
   if(
     !heights ||
@@ -164,9 +172,9 @@ export function buildTerrainHeightfield({
     nz,
     width,
     depth,
-    minHeight:payload.minHeight,
-    maxHeight:payload.maxHeight,
-    relief:payload.relief,
+    minHeight:payload.minHeight*source.scale,
+    maxHeight:payload.maxHeight*source.scale,
+    relief:payload.relief*source.scale,
     bounds:{
       minX:minWorldX,
       maxX:maxWorldX,

@@ -3,7 +3,7 @@ import {
   WORLD_CONFIG,
   OZETI_MAP_BOUNDS,
   TACTICAL_PIXEL_CALIBRATION
-} from './map-data.js?v=76';
+} from './map-data.js?v=77';
 
 const MAP_CENTER={
   x:WORLD_CONFIG.centerX,
@@ -12,15 +12,15 @@ const MAP_CENTER={
 
 export function mapPointToWorld(mapX,mapY){
   return {
-    x:mapX-MAP_CENTER.x,
-    z:MAP_CENTER.y-mapY
+    x:(mapX-MAP_CENTER.x)*WORLD_CONFIG.scale,
+    z:(MAP_CENTER.y-mapY)*WORLD_CONFIG.scale
   };
 }
 
 export function worldPointToMapCoordinate(x,z){
   return {
-    x:MAP_CENTER.x+x,
-    y:MAP_CENTER.y-z
+    x:MAP_CENTER.x+x/WORLD_CONFIG.scale,
+    y:MAP_CENTER.y-z/WORLD_CONFIG.scale
   };
 }
 

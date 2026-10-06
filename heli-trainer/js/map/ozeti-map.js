@@ -1,18 +1,18 @@
 import {
   WORLD_CONFIG
-} from './map-data.js?v=76';
+} from './map-data.js?v=77';
 
 import {
   createTerrainSystem
-} from './terrain.js?v=76';
+} from './terrain.js?v=77';
 
 import {
   factionCenterWorld
-} from './factions.js?v=76';
+} from './factions.js?v=77';
 
 import {
   createTacticalMap
-} from './tactical-map.js?v=76';
+} from './tactical-map.js?v=77';
 
 export function createOzetiMap({
   THREE,

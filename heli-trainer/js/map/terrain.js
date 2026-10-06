@@ -1,24 +1,24 @@
 import {
   TERRAIN_CORE_CONFIG
-} from './terrain/terrain-config.js?v=76';
+} from './terrain/terrain-config.js?v=77';
 
 import {
   createTerrainSectorIndex,
   buildVerifiedTerrainSectors
-} from './terrain/terrain-sector.js?v=76';
+} from './terrain/terrain-sector.js?v=77';
 
 import {
   createTerrainCoreMaterial,
   createUnverifiedBaseMaterial
-} from './terrain/terrain-material.js?v=76';
+} from './terrain/terrain-material.js?v=77';
 
 import {
   loadTerrainHeightfield
-} from './terrain/terrain-loader.js?v=76';
+} from './terrain/terrain-loader.js?v=77';
 
 import {
   buildTerrainHeightfield
-} from './terrain/terrain-heightfield.js?v=76';
+} from './terrain/terrain-heightfield.js?v=77';
 
 export function createTerrainSystem({
   THREE,
@@ -50,7 +50,7 @@ export function createTerrainSystem({
       createUnverifiedBaseMaterial(THREE)
     );
 
-  basePlane.name='OzetiUnverifiedWorldBaseV76';
+  basePlane.name='OzetiWorldFallbackV77';
   basePlane.rotation.x=-Math.PI/2;
   basePlane.position.y=-2;
   basePlane.receiveShadow=true;
@@ -70,7 +70,7 @@ export function createTerrainSystem({
   async function load(){
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v76 · 新地形生成中…';
+        'Ozeti v77 · 等比例地形生成中…';
     }
 
     const payload=
@@ -79,7 +79,7 @@ export function createTerrainSystem({
         nx:config.source.nx,
         nz:config.source.nz,
         reliefMeters:
-          config.source.reliefMeters
+          config.source.rawReliefMeters
       });
 
     const field=
@@ -101,6 +101,8 @@ export function createTerrainSystem({
           config.sectors.targetVertexSpacingMeters
       });
 
+    // Successful terrain fully covers the resized world; hide the fallback.
+    basePlane.visible=false;
     scene.add(generated.group);
 
     data.root=generated.group;
@@ -111,7 +113,7 @@ export function createTerrainSystem({
 
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v76 · Terrain Core · '+
+        'Ozeti v77 · Master Scale '+config.source.scale.toFixed(6)+' × · '+
         'GLB 0 / '+
         generated.meshCount+
         ' generated sectors / '+

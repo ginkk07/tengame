@@ -209,12 +209,12 @@
       <button id="reset">重置</button>
       <button id="pause">暫停</button>
     </div>
-    <div class="version-label">VERSION v75</div>
+    <div class="version-label">VERSION v77</div>
   </aside>
 </div>
 
 <script type="module">
-const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=76');
+const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=77');
 
 const root=document.getElementById('app');
 const stage=document.getElementById('stage');
@@ -365,16 +365,13 @@ scene.add(sun);
 scene.add(sun.target);
 
 /*
- * OZETI v75 TERRAIN CORE
- * -----------------------
- * 1 Three.js unit = 1 metre. The world coordinate frame is 16,384 m square
- * and divided into a 32 × 32 grid of 512 m terrain sectors.
- *
- * This revision intentionally renders only the verified recovered terrain
- * geometry as shaped ground. Roads, river, rocks, vegetation, buildings,
- * Stadium and world-space faction graphics are disabled until later layers.
- *
- * No Ozeti terrain data is fetched from N4 / WARDOGS at runtime.
+ * OZETI v77 MASTER SCALE
+ * ----------------------
+ * Uses a single uniform scale computed from the available central recovered
+ * heightfield's 8549 x 7775 m extent to a target width of 16,384 m.
+ * Target height, Y elevations, marker positions and sectors scale together.
+ * This DOES NOT represent a verified full N4 map reference image.
+ * All non-terrain 3D map layers remain disabled.
  */
 const terrainStatusVal=
   document.getElementById(
@@ -1860,7 +1857,7 @@ requestAnimationFrame(
  * remains visible and the exact error is shown on-screen.
  */
 import(
-  './js/map/ozeti-map.js?v=76'
+  './js/map/ozeti-map.js?v=77'
 )
   .then(
     module=>{

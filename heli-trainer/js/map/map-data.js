@@ -1,53 +1,64 @@
+// v77: physical size follows the width-to-height ratio of the CURRENT
+// recovered, searchable Ozeti terrain crop. This is not yet a measurement
+// of the N4 viewer's complete tile-pyramid aspect ratio.
+export const OZETI_SOURCE_BOUNDS=Object.freeze({
+  minX:5758,
+  maxX:14307,
+  minY:2181,
+  maxY:9956
+});
+
+export const MASTER_SCALE=Object.freeze({
+  source:'recovered-central-heightfield',
+  sourceWidthMeters:OZETI_SOURCE_BOUNDS.maxX-OZETI_SOURCE_BOUNDS.minX,
+  sourceDepthMeters:OZETI_SOURCE_BOUNDS.maxY-OZETI_SOURCE_BOUNDS.minY,
+  targetWidthMeters:16384,
+  // One common dimensionless multiplier; do not stretch axes separately.
+  get factor(){return this.targetWidthMeters/this.sourceWidthMeters;},
+  get targetDepthMeters(){return this.sourceDepthMeters*this.factor;}
+});
+
 export const WORLD_CONFIG={
-  // v76 Terrain Core: complete Ozeti full-world coordinate footprint.
-  // tileBounds = 16,384m × 16,384m.
-  minX:-3,
-  maxX:16381,
-  minY:-1,
-  maxY:16383,
-  width:16384,
-  depth:16384,
-  centerX:8189,
-  centerY:8191,
+  // min/max and centers below are ORIGINAL map coordinates (metres).
+  // World-space positions are centered at the origin and multiplied by scale.
+  minX:OZETI_SOURCE_BOUNDS.minX,
+  maxX:OZETI_SOURCE_BOUNDS.maxX,
+  minY:OZETI_SOURCE_BOUNDS.minY,
+  maxY:OZETI_SOURCE_BOUNDS.maxY,
+  width:MASTER_SCALE.targetWidthMeters,
+  depth:MASTER_SCALE.targetDepthMeters,
+  centerX:(OZETI_SOURCE_BOUNDS.minX+OZETI_SOURCE_BOUNDS.maxX)*.5,
+  centerY:(OZETI_SOURCE_BOUNDS.minY+OZETI_SOURCE_BOUNDS.maxY)*.5,
+  scale:MASTER_SCALE.factor,
   metersPerWorldUnit:1
 };
 
 export const TERRAIN_CONFIG={
-  width:8549,
-  depth:7775,
+  width:WORLD_CONFIG.width,
+  depth:WORLD_CONFIG.depth,
   nx:257,
   nz:233,
-  verticalScale:1,
-  reliefMeters:388,
+  verticalScale:WORLD_CONFIG.scale,
+  rawReliefMeters:388,
+  reliefMeters:388*WORLD_CONFIG.scale,
   sectorSize:512,
-  sectorsX:32,
-  sectorsY:32,
-  sourceBounds:{
-    minX:5758,
-    maxX:14307,
-    minY:2181,
-    maxY:9956
-  }
+  sectorsX:Math.ceil(WORLD_CONFIG.width/512),
+  sectorsY:Math.ceil(WORLD_CONFIG.depth/512),
+  sourceBounds:OZETI_SOURCE_BOUNDS
 };
 
 export const MAP_ASSETS={
-  // Fresh runtime heightfield. No GLB terrain model is loaded in v76.
+  // Runtime U16 heightfield; v77 scales it uniformly, not an old GLB.
   terrainHeightfield:'./assets/maps/ozeti-terrain-heightfield-u16-v76.bin',
 
   // Tactical map is UI-only. It must never be sampled into terrain colour.
   tacticalMap:'./assets/maps/ozeti-tactical-map-v1.png',
 
-  // v76 Terrain Core deliberately uses no terrain image texture.
+  // Terrain core deliberately uses no terrain image texture.
   groundTexture:null
 };
 
-export const OZETI_MAP_BOUNDS={
-  // Playable/searchable coordinate extent in metres.
-  minX:5758,
-  maxX:14307,
-  minY:2181,
-  maxY:9956
-};
+export const OZETI_MAP_BOUNDS=OZETI_SOURCE_BOUNDS;
 
 export const OZETI_TILE_BOUNDS={
   // Complete source/full-world extent.

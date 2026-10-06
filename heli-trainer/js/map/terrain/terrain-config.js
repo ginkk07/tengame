@@ -18,7 +18,7 @@ const sourceCenter={
 };
 
 export const TERRAIN_CORE_CONFIG={
-  version:76,
+  version:77,
   metersPerWorldUnit:1,
   world:{
     width:WORLD_CONFIG.width,
@@ -43,10 +43,10 @@ export const TERRAIN_CORE_CONFIG={
   source:{
     id:'ozeti-heightfield-u16-v76',
     asset:MAP_ASSETS.terrainHeightfield,
-    width:TERRAIN_CONFIG.sourceBounds.maxX-
-      TERRAIN_CONFIG.sourceBounds.minX,
-    depth:TERRAIN_CONFIG.sourceBounds.maxY-
-      TERRAIN_CONFIG.sourceBounds.minY,
+    width:TERRAIN_CONFIG.width,
+    depth:TERRAIN_CONFIG.depth,
+    scale:WORLD_CONFIG.scale,
+    rawReliefMeters:TERRAIN_CONFIG.rawReliefMeters,
     nx:TERRAIN_CONFIG.nx,
     nz:TERRAIN_CONFIG.nz,
     reliefMeters:TERRAIN_CONFIG.reliefMeters,
@@ -54,8 +54,8 @@ export const TERRAIN_CORE_CONFIG={
       ...TERRAIN_CONFIG.sourceBounds
     },
     worldOffset:{
-      x:sourceCenter.x-WORLD_CONFIG.centerX,
-      z:WORLD_CONFIG.centerY-sourceCenter.y
+      x:(sourceCenter.x-WORLD_CONFIG.centerX)*WORLD_CONFIG.scale,
+      z:(WORLD_CONFIG.centerY-sourceCenter.y)*WORLD_CONFIG.scale
     }
   }
 };
@@ -65,8 +65,15 @@ export function mapMetersToWorld(
   mapY
 ){
   return {
-    x:mapX-WORLD_CONFIG.centerX,
-    z:WORLD_CONFIG.centerY-mapY
+    x:(mapX-WORLD_CONFIG.centerX)*WORLD_CONFIG.scale,
+    z:(WORLD_CONFIG.centerY-mapY)*WORLD_CONFIG.scale
+  };
+}
+
+export function worldToMapMeters(worldX,worldZ){
+  return {
+    x:worldX/WORLD_CONFIG.scale+WORLD_CONFIG.centerX,
+    y:WORLD_CONFIG.centerY-worldZ/WORLD_CONFIG.scale
   };
 }
 
