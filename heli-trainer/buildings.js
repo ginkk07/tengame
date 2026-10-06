@@ -1,12 +1,12 @@
 import {
   BUILDING_REFERENCE_FEATURES,
   SITE_CLEARINGS
-} from './map-data.js';
+} from './map-data.js?v=73';
 
 import {
   placeRigidMapObject,
   addTerrainFoundation
-} from './terrain-placement.js';
+} from './terrain-placement.js?v=73';
 
 export function createBuildingReferenceLayer({
   THREE,

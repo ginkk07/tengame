@@ -1,48 +1,44 @@
 import {
   WORLD_CONFIG
-} from './map-data.js';
+} from './map-data.js?v=73';
 
 import {
   createTerrainSystem
-} from './terrain.js';
+} from './terrain.js?v=73';
 
-import {
-  createCoordinateCalibrationLayer
-} from './calibration.js';
 
-import {
-  createRoadReferenceLayer
-} from './roads.js';
 
 import {
   createTowerReferenceLayer
-} from './structures.js';
+} from './structures.js?v=73';
 
-import {
-  createForestReferenceLayer
-} from './vegetation.js';
 
-import {
-  createBuildingReferenceLayer
-} from './buildings.js';
 
 import {
   createFacilityReferenceLayer
-} from './facilities.js';
+} from './facilities.js?v=73';
 
 import {
   createStadiumReferenceLayer
-} from './stadium.js';
+} from './stadium.js?v=73';
+
+import {
+  createFullMapTownLayer
+} from './fullmap-town.js?v=73';
+
+import {
+  createFullMapEnvironmentLayer
+} from './fullmap-environment.js?v=73';
 
 
 import {
   createFactionWorldLayer,
   factionCenterWorld
-} from './factions.js';
+} from './factions.js?v=73';
 
 import {
   createTacticalMap
-} from './tactical-map.js';
+} from './tactical-map.js?v=73';
 
 export function createOzetiMap({
   THREE,
@@ -81,86 +77,155 @@ export function createOzetiMap({
     });
 
   let scenery=null;
-  let calibration=null;
-  let roads=null;
   let structures=null;
-  let vegetation=null;
-  let buildings=null;
   let facilities=null;
   let stadium=null;
+  let fullMapTown=null;
+  let fullMapEnvironment=null;
+
+  function safeBuild(
+    label,
+    build,
+    fallback
+  ){
+    try{
+      return build();
+    }catch(error){
+      console.error(
+        'Ozeti layer failed: '+label,
+        error
+      );
+
+      return fallback;
+    }
+  }
 
   async function load(){
-    await terrain.load();
+    let terrainReady=false;
 
-    factionLayer.rebuild();
+    try{
+      await terrain.load();
+      terrainReady=true;
+    }catch(error){
+      console.error(
+        'Ozeti terrain fallback active:',
+        error
+      );
+    }
 
-    calibration=
-      createCoordinateCalibrationLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
-
-    roads=
-      createRoadReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
+    try{
+      factionLayer.rebuild();
+    }catch(error){
+      console.error(
+        'Ozeti faction layer failed:',
+        error
+      );
+    }
 
     structures=
-      createTowerReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
+      safeBuild(
+        'official towers',
+        ()=>
+          createTowerReferenceLayer({
+            THREE,
+            scene,
+            terrainHeight:terrain.height
+          }),
+        {
+          towerCount:0,
+          group:null
+        }
+      );
 
     stadium=
-      createStadiumReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
+      safeBuild(
+        'full-map stadium',
+        ()=>
+          createStadiumReferenceLayer({
+            THREE,
+            scene,
+            terrainHeight:terrain.height
+          }),
+        {
+          stadiumCount:0,
+          group:null
+        }
+      );
 
-    vegetation=
-      createForestReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
+    fullMapTown=
+      safeBuild(
+        'full-map central town',
+        ()=>
+          createFullMapTownLayer({
+            THREE,
+            scene,
+            terrainHeight:terrain.height
+          }),
+        {
+          poiCount:0,
+          roadCount:0,
+          residentialBlockCount:0,
+          group:null
+        }
+      );
 
-    buildings=
-      createBuildingReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
+    fullMapEnvironment=
+      safeBuild(
+        'full-map farms / grassland / forests',
+        ()=>
+          createFullMapEnvironmentLayer({
+            THREE,
+            scene,
+            terrainHeight:terrain.height
+          }),
+        {
+          farmCount:0,
+          grasslandCount:0,
+          forestZoneCount:0,
+          treeCount:0,
+          deforestedCount:0,
+          group:null
+        }
+      );
 
     facilities=
-      createFacilityReferenceLayer({
-        THREE,
-        scene,
-        terrainHeight:terrain.height
-      });
-
+      safeBuild(
+        'official facilities',
+        ()=>
+          createFacilityReferenceLayer({
+            THREE,
+            scene,
+            terrainHeight:terrain.height
+          }),
+        {
+          facilityCount:0,
+          group:null
+        }
+      );
 
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v69 · 道路 '+
-        roads.routeCount+
+        'Ozeti v73 · '+
+        (
+          terrainReady
+            ? 'Full-map terrain'
+            : 'Fallback terrain'
+        )+
         ' / Tower '+
         structures.towerCount+
         ' / Stadium '+
         stadium.stadiumCount+
-        ' / 樹 '+
-        vegetation.treeCount+
-        ' / 建築 '+
-        buildings.buildingCount+
-        ' / 官方設施 '+
-        facilities.facilityCount;
+        ' / Full-map POI '+
+        fullMapTown.poiCount+
+        ' / Residential '+
+        fullMapTown.residentialBlockCount+
+        ' / Farm '+
+        fullMapEnvironment.farmCount+
+        ' / Forest zones '+
+        fullMapEnvironment.forestZoneCount;
     }
 
-    return true;
+    return terrainReady;
   }
 
   return {
@@ -179,28 +244,22 @@ export function createOzetiMap({
       depth:WORLD_CONFIG.depth
     },
     get scenery(){
-      return scenery;
-    },
-    get calibration(){
-      return calibration;
-    },
-    get roads(){
-      return roads;
+      return null;
     },
     get structures(){
       return structures;
-    },
-    get vegetation(){
-      return vegetation;
-    },
-    get buildings(){
-      return buildings;
     },
     get facilities(){
       return facilities;
     },
     get stadium(){
       return stadium;
+    },
+    get fullMapTown(){
+      return fullMapTown;
+    },
+    get fullMapEnvironment(){
+      return fullMapEnvironment;
     },
     terrain,
     factionLayer

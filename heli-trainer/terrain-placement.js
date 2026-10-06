@@ -1,6 +1,6 @@
 import {
   mapPointToWorld
-} from './factions.js';
+} from './factions.js?v=73';
 
 export function sampleTerrainFootprint({
   terrainHeight,

@@ -1,11 +1,11 @@
 import {
   CALIBRATION_POINTS,
   OZETI_MAP_BOUNDS
-} from './map-data.js';
+} from './map-data.js?v=73';
 
 import {
   mapPointToWorld
-} from './factions.js';
+} from './factions.js?v=73';
 
 export function createCoordinateCalibrationLayer({
   THREE,

@@ -1,12 +1,12 @@
 import {
   FACILITY_REFERENCE_POINTS,
   FACTION_REFERENCE_POINTS
-} from './map-data.js';
+} from './map-data.js?v=73';
 
 import {
   placeRigidMapObject,
   addTerrainFoundation
-} from './terrain-placement.js';
+} from './terrain-placement.js?v=73';
 
 export function createFacilityReferenceLayer({
   THREE,

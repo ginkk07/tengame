@@ -3,14 +3,15 @@ import {
   TERRAIN_CONFIG,
   MAP_ASSETS,
   FACTIONS,
-  TRIBUTARY_GULLIES
-} from './map-data.js';
+  TRIBUTARY_GULLIES,
+  STADIUM_REFERENCE
+} from './map-data.js?v=73';
 
 import {
   mapPointToWorld,
   factionCenterWorld,
   worldToTacticalMapPixel
-} from './factions.js';
+} from './factions.js?v=73';
 
 export function createTerrainSystem({
   THREE,
@@ -43,8 +44,9 @@ export function createTerrainSystem({
   };
 
   /*
-   * Website view() fits map.bounds. WORLD_CONFIG and sourceBounds now
-   * describe the same playable extent, so worldOffset must resolve to zero.
+   * v73 renders the complete 16.384 km world.
+   * The GLB still represents the central/searchable 8.549 × 7.775 km crop,
+   * so this crop is positioned at its true offset inside the full world.
    */
   const worldOffset={
     x:
@@ -488,12 +490,18 @@ export function createTerrainSystem({
 
   const stadiumWorldCenter={
     x:
-      STADIUM_REFERENCE.x-
-      WORLD_CONFIG.centerX,
+      (
+        STADIUM_REFERENCE.x-
+        WORLD_CONFIG.centerX
+      )-
+      worldOffset.x,
 
     z:
-      WORLD_CONFIG.centerY-
-      STADIUM_REFERENCE.y
+      (
+        WORLD_CONFIG.centerY-
+        STADIUM_REFERENCE.y
+      )-
+      worldOffset.z
   };
 
   function stadiumTerraceBlend(
@@ -1419,7 +1427,7 @@ export function createTerrainSystem({
 
       if(statusEl){
         statusEl.textContent=
-          'Ozeti v69 · 地形已載入，準備建立3D場景';
+          'Ozeti v70 · 地形已載入，準備建立3D場景';
       }
 
       return true;
