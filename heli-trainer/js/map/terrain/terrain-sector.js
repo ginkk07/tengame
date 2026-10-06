@@ -1,10 +1,10 @@
 import {
   sourceWorldBounds
-} from './terrain-config.js?v=85';
+} from './terrain-config.js?v=87';
 
 import {
   terrainVertexColor
-} from './terrain-material.js?v=85';
+} from './terrain-material.js?v=87';
 
 function intersects(a,b){
   return !(

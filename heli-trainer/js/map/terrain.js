@@ -1,25 +1,25 @@
 import {
   TERRAIN_CORE_CONFIG
-} from './terrain/terrain-config.js?v=85';
+} from './terrain/terrain-config.js?v=87';
 
 import {
   createTerrainSectorIndex,
   buildVerifiedTerrainSectors
-} from './terrain/terrain-sector.js?v=85';
+} from './terrain/terrain-sector.js?v=87';
 
 import {
   createTerrainCoreMaterial,
   createUnverifiedBaseMaterial,
   loadTerrainSurfaceTextures
-} from './terrain/terrain-material.js?v=85';
+} from './terrain/terrain-material.js?v=87';
 
 import {
   loadTerrainHeightfield
-} from './terrain/terrain-loader.js?v=85';
+} from './terrain/terrain-loader.js?v=87';
 
 import {
   buildTerrainHeightfield
-} from './terrain/terrain-heightfield.js?v=85';
+} from './terrain/terrain-heightfield.js?v=87';
 
 export function createTerrainSystem({
   THREE,

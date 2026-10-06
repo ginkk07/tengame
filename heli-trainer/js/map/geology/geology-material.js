@@ -1,4 +1,4 @@
-import {GEOLOGY_CONFIG} from './geology-config.js?v=85';
+import {GEOLOGY_CONFIG} from './geology-config.js?v=87';
 
 export function attachGeologyBlend(material,geologyTexture){
   if(!material){

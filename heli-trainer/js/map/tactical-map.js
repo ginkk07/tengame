@@ -2,12 +2,12 @@ import {
   FACTIONS,
   TACTICAL_HIT_AREAS,
   MAP_ASSETS
-} from './map-data.js?v=85';
+} from './map-data.js?v=87';
 
 import {
   factionCenterWorld,
   worldToTacticalMapPixel
-} from './factions.js?v=85';
+} from './factions.js?v=87';
 
 function zoneRect(id){
   const z=

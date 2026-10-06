@@ -209,12 +209,12 @@
       <button id="reset">重置</button>
       <button id="pause">暫停</button>
     </div>
-    <div class="version-label">VERSION v85</div>
+    <div class="version-label">VERSION v87</div>
   </aside>
 </div>
 
 <script type="module">
-const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=85');
+const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=87');
 
 const root=document.getElementById('app');
 const stage=document.getElementById('stage');
@@ -365,7 +365,7 @@ scene.add(sun);
 scene.add(sun.target);
 
 /*
- * OZETI v85 RIVER LAYER + GEOLOGY ROCKS + PLAYABLE BOUNDS
+ * OZETI v86 PRIMARY ROADS + RIVER + GEOLOGY ROCKS + PLAYABLE BOUNDS
  * ----------------------
  * The complete Ozeti terrain may occupy the full 16,384 m master world,
  * while helicopter movement is limited to the verified bright/playable region
@@ -1861,7 +1861,7 @@ requestAnimationFrame(
  * remains visible and the exact error is shown on-screen.
  */
 import(
-  './js/map/ozeti-map.js?v=85'
+  './js/map/ozeti-map.js?v=87'
 )
   .then(
     module=>{

@@ -1,12 +1,12 @@
 import {
   mapMetersToWorld
-} from '../master/coordinate-transform.js?v=85';
+} from '../master/coordinate-transform.js?v=87';
 
 import {
   RIVER_CONFIG,
   RIVER_PATHS,
   RIVER_STATS
-} from './river-data.js?v=85';
+} from './river-data.js?v=87';
 
 function interpolateWidths(widths,t){
   if(widths.length===1){

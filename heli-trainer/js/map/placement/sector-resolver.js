@@ -1,6 +1,6 @@
-import {mapMetersToWorld} from '../master/coordinate-transform.js?v=85';
-import {TERRAIN_CORE_CONFIG} from '../terrain/terrain-config.js?v=85';
-import {sectorForWorldPoint} from '../terrain/terrain-sector.js?v=85';
+import {mapMetersToWorld} from '../master/coordinate-transform.js?v=87';
+import {TERRAIN_CORE_CONFIG} from '../terrain/terrain-config.js?v=87';
+import {sectorForWorldPoint} from '../terrain/terrain-sector.js?v=87';
 
 export function sectorIdForWorldPoint(x,z){
   const sector=sectorForWorldPoint(

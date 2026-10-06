@@ -1,4 +1,4 @@
-import {mapPointToWorld} from '../factions.js?v=85';
+import {mapPointToWorld} from '../factions.js?v=87';
 import {terrainQuaternion} from './terrain-align.js';
 
 function normalizeScale(specScale){

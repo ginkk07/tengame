@@ -1,4 +1,4 @@
-import {attachGeologyBlend} from '../geology/geology-material.js?v=85';
+import {attachGeologyBlend} from '../geology/geology-material.js?v=87';
 
 const BASE=[0.96,0.99,0.94];
 const HIGH=[1.00,0.95,0.86];

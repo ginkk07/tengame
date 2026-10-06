@@ -5,7 +5,7 @@ import {
   ROCK_PLACEMENT_STATS,
   rockPlacementsForSector,
   activeRockSectorIds
-} from './rock-v84.js?v=85';
+} from './rock-v84.js?v=87';
 
 export const PLACEMENT_STATS=ROCK_PLACEMENT_STATS;
 

@@ -2,7 +2,7 @@ import {
   MASTER_MAP_CONFIG,
   MASTER_SOURCE_BOUNDS,
   PLAYABLE_SOURCE_BOUNDS
-} from './master/master-map.js?v=85';
+} from './master/master-map.js?v=87';
 
 // Player-accessible region and currently recovered terrain coverage.
 // This DOES NOT define the full Ozeti world dimensions.

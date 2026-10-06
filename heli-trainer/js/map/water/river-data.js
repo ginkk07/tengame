@@ -1,6 +1,6 @@
 import {
   OZETI_PLAYABLE_BOUNDS
-} from '../map-data.js?v=85';
+} from '../map-data.js?v=87';
 
 /*
  * v85 river network.

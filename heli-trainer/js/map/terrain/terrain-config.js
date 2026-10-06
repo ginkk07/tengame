@@ -1,14 +1,14 @@
 import {
   TERRAIN_CONFIG,
   MAP_ASSETS
-} from '../map-data.js?v=85';
+} from '../map-data.js?v=87';
 
-import {MASTER_MAP_CONFIG} from '../master/master-map.js?v=85';
+import {MASTER_MAP_CONFIG} from '../master/master-map.js?v=87';
 import {
   mapBoundsToWorld,
   mapMetersToWorld,
   worldToMapMeters
-} from '../master/coordinate-transform.js?v=85';
+} from '../master/coordinate-transform.js?v=87';
 
 const SECTOR_SIZE=MASTER_MAP_CONFIG.sectorSizeMeters;
 const sourceWorld=mapBoundsToWorld(TERRAIN_CONFIG.sourceBounds);

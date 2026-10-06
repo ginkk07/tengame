@@ -2,8 +2,8 @@ import {ModelRegistry} from './model-registry.js';
 import {registerRockModels} from './rocks.js';
 import {registerTreeModels} from './trees.js';
 import {registerBuildingModels} from './buildings.js';
-import {createPlacementEngine} from '../placement/placement-engine.js?v=85';
-import {placementsForSector,activePlacementSectorIds,PLACEMENT_STATS} from '../placement/sectors/index.js?v=85';
+import {createPlacementEngine} from '../placement/placement-engine.js?v=87';
+import {placementsForSector,activePlacementSectorIds,PLACEMENT_STATS} from '../placement/sectors/index.js?v=87';
 
 export function createDefaultModelRegistry(){
   const registry=new ModelRegistry();

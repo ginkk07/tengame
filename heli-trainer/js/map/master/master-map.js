@@ -29,7 +29,7 @@ const uniformScale=targetWidthMeters/sourceWidthMeters;
 const targetDepthMeters=sourceDepthMeters*uniformScale;
 
 export const MASTER_MAP_CONFIG=Object.freeze({
-  version:85,
+  version:87,
   source:'published-full-map-tile-bounds',
   sourceWidthMeters,
   sourceDepthMeters,

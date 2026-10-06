@@ -1,12 +1,13 @@
-import {WORLD_CONFIG} from './map-data.js?v=85';
-import {createTerrainSystem} from './terrain.js?v=85';
-import {factionCenterWorld} from './factions.js?v=85';
-import {createTacticalMap} from './tactical-map.js?v=85';
-import {createMapObjectSystem} from './models/model-system.js?v=85';
-import {verifyMasterCalibration} from './master/calibration.js?v=85';
-import {OZETI_PLAYABLE_BOUNDS} from './map-data.js?v=85';
-import {mapBoundsToWorld} from './master/coordinate-transform.js?v=85';
-import {createRiverLayer} from './water/river-layer.js?v=85';
+import {WORLD_CONFIG} from './map-data.js?v=87';
+import {createTerrainSystem} from './terrain.js?v=87';
+import {factionCenterWorld} from './factions.js?v=87';
+import {createTacticalMap} from './tactical-map.js?v=87';
+import {createMapObjectSystem} from './models/model-system.js?v=87';
+import {verifyMasterCalibration} from './master/calibration.js?v=87';
+import {OZETI_PLAYABLE_BOUNDS} from './map-data.js?v=87';
+import {mapBoundsToWorld} from './master/coordinate-transform.js?v=87';
+import {createRiverLayer} from './water/river-layer.js?v=87';
+import {createRoadLayer} from './roads/road-layer.js?v=87';
 
 export function createOzetiMap({
   THREE,scene,root,stage,state,heli,orient,statusEl,clearPressed
@@ -33,21 +34,27 @@ export function createOzetiMap({
     terrainHeight:terrain.height
   });
 
+  const roads=createRoadLayer({
+    THREE,scene,
+    terrainHeight:terrain.height
+  });
+
   async function load(){
     await terrain.load();
 
     if(!terrain.data.heightfield){
-      throw new Error('Ozeti v85 terrain heightfield missing after load');
+      throw new Error('Ozeti v87 terrain heightfield missing after load');
     }
 
     const initialStats=objects.placement.stats();
     if(initialStats.instances!==0 || initialStats.uniqueObjects!==0){
-      throw new Error('Ozeti v85 map objects must start empty before rock loading');
+      throw new Error('Ozeti v87 map objects must start empty before rock loading');
     }
 
     const rockLoad=objects.loadAllActiveSectors();
     const objectStats=objects.placement.stats();
     const riverStats=river.rebuild();
+    const roadStats=roads.rebuild();
 
     if(
       objectStats.instances!==rockLoad.expected.total ||
@@ -56,7 +63,7 @@ export function createOzetiMap({
       rockLoad.sectors!==rockLoad.expected.sectors
     ){
       throw new Error(
-        'Ozeti v85 rock placement count mismatch: '+
+        'Ozeti v87 rock placement count mismatch: '+
         objectStats.instances+' / expected '+rockLoad.expected.total
       );
     }
@@ -67,7 +74,11 @@ export function createOzetiMap({
         calibration.controlPoints+' points / rocks '+
         objectStats.instances+' / river '+
         riverStats.paths+' paths / '+
-        Math.round(riverStats.measuredLengthMeters)+' m / playable '+
+        Math.round(riverStats.measuredLengthMeters)+' m / roads '+
+        roadStats.paths+' paths ('+
+        roadStats.primaryPaths+' primary + '+
+        roadStats.localPaths+' local) / '+
+        Math.round(roadStats.measuredLengthMeters)+' m / playable '+
         Math.round(playableWorld.maxX-playableWorld.minX)+'×'+
         Math.round(playableWorld.maxZ-playableWorld.minZ)+' m';
     }
@@ -112,6 +123,7 @@ export function createOzetiMap({
     get fullMapEnvironment(){return null;},
     get rockLayer(){return objects.expectedPlacementStats;},
     riverLayer:river,
+    roadLayer:roads,
     terrain,
     factionLayer:{group:null,rebuild(){},clear(){}}
   };
