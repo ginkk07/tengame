@@ -1,24 +1,25 @@
 import {
   TERRAIN_CORE_CONFIG
-} from './terrain/terrain-config.js?v=78';
+} from './terrain/terrain-config.js?v=85';
 
 import {
   createTerrainSectorIndex,
   buildVerifiedTerrainSectors
-} from './terrain/terrain-sector.js?v=78';
+} from './terrain/terrain-sector.js?v=85';
 
 import {
   createTerrainCoreMaterial,
-  createUnverifiedBaseMaterial
-} from './terrain/terrain-material.js?v=78';
+  createUnverifiedBaseMaterial,
+  loadTerrainSurfaceTextures
+} from './terrain/terrain-material.js?v=85';
 
 import {
   loadTerrainHeightfield
-} from './terrain/terrain-loader.js?v=78';
+} from './terrain/terrain-loader.js?v=85';
 
 import {
   buildTerrainHeightfield
-} from './terrain/terrain-heightfield.js?v=78';
+} from './terrain/terrain-heightfield.js?v=85';
 
 export function createTerrainSystem({
   THREE,
@@ -36,7 +37,8 @@ export function createTerrainSystem({
     heightfield:null,
     sectorIndex,
     meshCount:0,
-    vertexCount:0
+    vertexCount:0,
+    geologyReady:false
   };
 
   const basePlane=
@@ -50,7 +52,7 @@ export function createTerrainSystem({
       createUnverifiedBaseMaterial(THREE)
     );
 
-  basePlane.name='OzetiWorldFallbackV78';
+  basePlane.name='OzetiWorldFallbackV85';
   basePlane.rotation.x=-Math.PI/2;
   basePlane.position.y=-2;
   basePlane.receiveShadow=true;
@@ -70,7 +72,7 @@ export function createTerrainSystem({
   async function load(){
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v78 · 等比例地形生成中…';
+        'Ozeti v85 · Terrain / Geology 載入中…';
     }
 
     const payload=
@@ -88,8 +90,18 @@ export function createTerrainSystem({
         source:config.source
       });
 
+    const textures=
+      await loadTerrainSurfaceTextures({
+        THREE,
+        macroAssetUrl:config.source.groundTexture,
+        geologyAssetUrl:config.source.geologyMask
+      });
+
     const material=
-      createTerrainCoreMaterial(THREE);
+      createTerrainCoreMaterial(
+        THREE,
+        textures
+      );
 
     const generated=
       buildVerifiedTerrainSectors({
@@ -101,25 +113,27 @@ export function createTerrainSystem({
           config.sectors.targetVertexSpacingMeters
       });
 
-    // Successful terrain fully covers the resized world; hide the fallback.
-    basePlane.visible=false;
+    // Only the recovered/player region has verified height data. The complete
+    // Ozeti world remains present as neutral terrain outside that coverage.
+    basePlane.visible=true;
     scene.add(generated.group);
 
     data.root=generated.group;
     data.heightfield=field;
     data.meshCount=generated.meshCount;
     data.vertexCount=generated.vertexCount;
+    data.geologyReady=true;
     data.ready=true;
 
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v78 · Master Scale '+config.source.scale.toFixed(6)+' × · '+
+        'Ozeti v85 · Terrain '+config.world.width.toFixed(0)+'×'+config.world.depth.toFixed(0)+' m · '+
+        'geology R=soil/G=rock · '+
         'GLB 0 / '+
         generated.meshCount+
         ' generated sectors / '+
         generated.vertexCount+
-        ' vertices / '+
-        'relief '+
+        ' vertices / relief '+
         field.relief.toFixed(1)+
         ' m';
     }

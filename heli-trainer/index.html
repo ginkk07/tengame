@@ -209,12 +209,12 @@
       <button id="reset">重置</button>
       <button id="pause">暫停</button>
     </div>
-    <div class="version-label">VERSION v78</div>
+    <div class="version-label">VERSION v85</div>
   </aside>
 </div>
 
 <script type="module">
-const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=77');
+const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=85');
 
 const root=document.getElementById('app');
 const stage=document.getElementById('stage');
@@ -365,13 +365,12 @@ scene.add(sun);
 scene.add(sun.target);
 
 /*
- * OZETI v77 MASTER SCALE
+ * OZETI v85 RIVER LAYER + GEOLOGY ROCKS + PLAYABLE BOUNDS
  * ----------------------
- * Uses a single uniform scale computed from the available central recovered
- * heightfield's 8549 x 7775 m extent to a target width of 16,384 m.
- * Target height, Y elevations, marker positions and sectors scale together.
- * This DOES NOT represent a verified full N4 map reference image.
- * All non-terrain 3D map layers remain disabled.
+ * The complete Ozeti terrain may occupy the full 16,384 m master world,
+ * while helicopter movement is limited to the verified bright/playable region
+ * X 5758..14307 / Y 2181..9956 map metres (about 8,549 x 7,775 m).
+ * Rendering bounds and movement bounds are deliberately separate.
  */
 const terrainStatusVal=
   document.getElementById(
@@ -1609,27 +1608,32 @@ function update(dt){
     }
   }
 
-  // Keep the aircraft inside the actual Ozeti reconstruction footprint.
-  const edgeX=
-    (ozetiMap?.bounds.halfX ?? 4275)-25;
+  // Full Ozeti terrain can exist outside the player-accessible region.
+  // Only movement is constrained to the bright/playable map bounds.
+  const playable=ozetiMap?.bounds.playable;
+  const boundaryMargin=25;
 
-  const edgeZ=
-    (ozetiMap?.bounds.halfZ ?? 3890)-25;
+  if(playable){
+    const minX=playable.minX+boundaryMargin;
+    const maxX=playable.maxX-boundaryMargin;
+    const minZ=playable.minZ+boundaryMargin;
+    const maxZ=playable.maxZ-boundaryMargin;
 
-  if(state.pos.x>edgeX){
-    state.pos.x=edgeX;
-    if(state.vel.x>0)state.vel.x=0;
-  }else if(state.pos.x<-edgeX){
-    state.pos.x=-edgeX;
-    if(state.vel.x<0)state.vel.x=0;
-  }
+    if(state.pos.x>maxX){
+      state.pos.x=maxX;
+      if(state.vel.x>0)state.vel.x=0;
+    }else if(state.pos.x<minX){
+      state.pos.x=minX;
+      if(state.vel.x<0)state.vel.x=0;
+    }
 
-  if(state.pos.z>edgeZ){
-    state.pos.z=edgeZ;
-    if(state.vel.z>0)state.vel.z=0;
-  }else if(state.pos.z<-edgeZ){
-    state.pos.z=-edgeZ;
-    if(state.vel.z<0)state.vel.z=0;
+    if(state.pos.z>maxZ){
+      state.pos.z=maxZ;
+      if(state.vel.z>0)state.vel.z=0;
+    }else if(state.pos.z<minZ){
+      state.pos.z=minZ;
+      if(state.vel.z<0)state.vel.z=0;
+    }
   }
 
   heli.position.copy(state.pos);
@@ -1857,7 +1861,7 @@ requestAnimationFrame(
  * remains visible and the exact error is shown on-screen.
  */
 import(
-  './js/map/ozeti-map.js?v=78'
+  './js/map/ozeti-map.js?v=85'
 )
   .then(
     module=>{

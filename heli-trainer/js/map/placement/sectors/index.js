@@ -1,13 +1,18 @@
-/*
- * v78 placement manifest.
- * Keep this empty until each Ozeti sector is reconstructed from verified
- * visual references. Future sector files should only contain placement data;
- * model geometry stays under js/map/models/.
- */
-const SECTOR_PLACEMENTS=Object.freeze({});
+// v85: static geology-derived rock placements only.
+// River water is a separate continuous geometry layer.
+// Vegetation, buildings and roads remain inactive.
+import {
+  ROCK_PLACEMENT_STATS,
+  rockPlacementsForSector,
+  activeRockSectorIds
+} from './rock-v84.js?v=85';
+
+export const PLACEMENT_STATS=ROCK_PLACEMENT_STATS;
 
 export function placementsForSector(sectorId){
-  return SECTOR_PLACEMENTS[sectorId] || [];
+  return rockPlacementsForSector(sectorId);
 }
 
-export {SECTOR_PLACEMENTS};
+export function activePlacementSectorIds(){
+  return activeRockSectorIds();
+}

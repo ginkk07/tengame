@@ -16,7 +16,7 @@ export function registerRockModels(registry){
     category:'rock',
     mode:'instanced',
     sourceUnitScale:true,
-    defaultCapacity:256,
+    defaultCapacity:16384,
     alignToTerrain:true,
     createParts(THREE){
       return [rockPart(THREE,1.2,.72,0x6d6b62,1)];
@@ -28,7 +28,7 @@ export function registerRockModels(registry){
     category:'rock',
     mode:'instanced',
     sourceUnitScale:true,
-    defaultCapacity:192,
+    defaultCapacity:4096,
     alignToTerrain:true,
     createParts(THREE){
       return [rockPart(THREE,2.4,.68,0x68665f,1)];
@@ -40,7 +40,7 @@ export function registerRockModels(registry){
     category:'rock',
     mode:'instanced',
     sourceUnitScale:true,
-    defaultCapacity:96,
+    defaultCapacity:512,
     alignToTerrain:true,
     createParts(THREE){
       const part=rockPart(THREE,5.2,.5,0x625f58,2);

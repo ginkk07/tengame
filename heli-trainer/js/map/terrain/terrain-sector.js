@@ -1,6 +1,10 @@
 import {
   sourceWorldBounds
-} from './terrain-config.js?v=78';
+} from './terrain-config.js?v=85';
+
+import {
+  terrainVertexColor
+} from './terrain-material.js?v=85';
 
 function intersects(a,b){
   return !(
@@ -111,10 +115,13 @@ function createSectorGeometry({
     new Float32Array(vertexCount*3);
   const uvs=
     new Float32Array(vertexCount*2);
+  const colors=
+    new Float32Array(vertexCount*3);
 
   let p=0;
   let n=0;
   let u=0;
+  let c=0;
 
   for(let z=0;z<=segZ;z++){
     const tz=z/segZ;
@@ -142,8 +149,20 @@ function createSectorGeometry({
       normals[n++]=normal.y;
       normals[n++]=normal.z;
 
-      uvs[u++]=tx;
-      uvs[u++]=tz;
+      const textureBounds=heightfield.bounds;
+      const textureWidth=textureBounds.maxX-textureBounds.minX;
+      const textureDepth=textureBounds.maxZ-textureBounds.minZ;
+      uvs[u++]=(worldX-textureBounds.minX)/textureWidth;
+      uvs[u++]=(worldZ-textureBounds.minZ)/textureDepth;
+
+      const color=terrainVertexColor({
+        normalY:normal.y,
+        height:y,
+        maxHeight:heightfield.maxHeight
+      });
+      colors[c++]=color[0];
+      colors[c++]=color[1];
+      colors[c++]=color[2];
     }
   }
 
@@ -187,6 +206,14 @@ function createSectorGeometry({
     )
   );
 
+  geometry.setAttribute(
+    'color',
+    new THREE.BufferAttribute(
+      colors,
+      3
+    )
+  );
+
   geometry.setIndex(indices);
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
@@ -202,7 +229,7 @@ export function buildVerifiedTerrainSectors({
   targetSpacing
 }){
   const group=new THREE.Group();
-  group.name='OzetiTerrainSectorsV78';
+  group.name='OzetiTerrainSectorsV85';
 
   let meshCount=0;
   let vertexCount=0;
@@ -237,7 +264,7 @@ export function buildVerifiedTerrainSectors({
 
   if(!meshCount){
     throw new Error(
-      'Ozeti v78 generated zero terrain sectors'
+      'Ozeti v85 generated zero terrain sectors'
     );
   }
 

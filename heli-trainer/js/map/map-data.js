@@ -1,74 +1,69 @@
-// v77: physical size follows the width-to-height ratio of the CURRENT
-// recovered, searchable Ozeti terrain crop. This is not yet a measurement
-// of the N4 viewer's complete tile-pyramid aspect ratio.
-export const OZETI_SOURCE_BOUNDS=Object.freeze({
-  minX:5758,
-  maxX:14307,
-  minY:2181,
-  maxY:9956
-});
+import {
+  MASTER_MAP_CONFIG,
+  MASTER_SOURCE_BOUNDS,
+  PLAYABLE_SOURCE_BOUNDS
+} from './master/master-map.js?v=85';
+
+// Player-accessible region and currently recovered terrain coverage.
+// This DOES NOT define the full Ozeti world dimensions.
+export const OZETI_PLAYABLE_BOUNDS=PLAYABLE_SOURCE_BOUNDS;
+
+// Compatibility alias used by the terrain loader.
+export const OZETI_SOURCE_BOUNDS=OZETI_PLAYABLE_BOUNDS;
 
 export const MASTER_SCALE=Object.freeze({
-  source:'recovered-central-heightfield',
-  sourceWidthMeters:OZETI_SOURCE_BOUNDS.maxX-OZETI_SOURCE_BOUNDS.minX,
-  sourceDepthMeters:OZETI_SOURCE_BOUNDS.maxY-OZETI_SOURCE_BOUNDS.minY,
-  targetWidthMeters:16384,
-  // One common dimensionless multiplier; do not stretch axes separately.
-  get factor(){return this.targetWidthMeters/this.sourceWidthMeters;},
-  get targetDepthMeters(){return this.sourceDepthMeters*this.factor;}
+  source:MASTER_MAP_CONFIG.source,
+  sourceWidthMeters:MASTER_MAP_CONFIG.sourceWidthMeters,
+  sourceDepthMeters:MASTER_MAP_CONFIG.sourceDepthMeters,
+  targetWidthMeters:MASTER_MAP_CONFIG.targetWidthMeters,
+  targetDepthMeters:MASTER_MAP_CONFIG.targetDepthMeters,
+  factor:MASTER_MAP_CONFIG.uniformScale
 });
 
 export const WORLD_CONFIG={
-  // min/max and centers below are ORIGINAL map coordinates (metres).
-  // World-space positions are centered at the origin and multiplied by scale.
-  minX:OZETI_SOURCE_BOUNDS.minX,
-  maxX:OZETI_SOURCE_BOUNDS.maxX,
-  minY:OZETI_SOURCE_BOUNDS.minY,
-  maxY:OZETI_SOURCE_BOUNDS.maxY,
-  width:MASTER_SCALE.targetWidthMeters,
-  depth:MASTER_SCALE.targetDepthMeters,
-  centerX:(OZETI_SOURCE_BOUNDS.minX+OZETI_SOURCE_BOUNDS.maxX)*.5,
-  centerY:(OZETI_SOURCE_BOUNDS.minY+OZETI_SOURCE_BOUNDS.maxY)*.5,
-  scale:MASTER_SCALE.factor,
-  metersPerWorldUnit:1
+  minX:MASTER_SOURCE_BOUNDS.minX,
+  maxX:MASTER_SOURCE_BOUNDS.maxX,
+  minY:MASTER_SOURCE_BOUNDS.minY,
+  maxY:MASTER_SOURCE_BOUNDS.maxY,
+  width:MASTER_MAP_CONFIG.targetWidthMeters,
+  depth:MASTER_MAP_CONFIG.targetDepthMeters,
+  centerX:MASTER_MAP_CONFIG.centerX,
+  centerY:MASTER_MAP_CONFIG.centerY,
+  scale:MASTER_MAP_CONFIG.uniformScale,
+  metersPerWorldUnit:MASTER_MAP_CONFIG.metersPerWorldUnit
 };
 
 export const TERRAIN_CONFIG={
-  width:WORLD_CONFIG.width,
-  depth:WORLD_CONFIG.depth,
+  // Dimensions below describe ONLY the recovered central heightfield crop.
+  width:(OZETI_SOURCE_BOUNDS.maxX-OZETI_SOURCE_BOUNDS.minX)*WORLD_CONFIG.scale,
+  depth:(OZETI_SOURCE_BOUNDS.maxY-OZETI_SOURCE_BOUNDS.minY)*WORLD_CONFIG.scale,
   nx:257,
   nz:233,
   verticalScale:WORLD_CONFIG.scale,
   rawReliefMeters:388,
   reliefMeters:388*WORLD_CONFIG.scale,
-  sectorSize:512,
-  sectorsX:Math.ceil(WORLD_CONFIG.width/512),
-  sectorsY:Math.ceil(WORLD_CONFIG.depth/512),
+  sectorSize:MASTER_MAP_CONFIG.sectorSizeMeters,
+  sectorsX:MASTER_MAP_CONFIG.sectorCountX,
+  sectorsY:MASTER_MAP_CONFIG.sectorCountZ,
   sourceBounds:OZETI_SOURCE_BOUNDS
 };
 
 export const MAP_ASSETS={
-  // Runtime U16 heightfield; v77 scales it uniformly, not an old GLB.
   terrainHeightfield:'./assets/maps/ozeti-terrain-heightfield-u16-v76.bin',
-
-  // Tactical map is UI-only. It must never be sampled into terrain colour.
-  tacticalMap:'./assets/maps/ozeti-tactical-map-v1.png',
-
-  // Terrain core deliberately uses no terrain image texture.
-  groundTexture:null
+  // Terrain-only macro texture generated from the recovered heightfield.
+  // It contains no UI, faction labels, roads, buildings, or tactical-map pixels.
+  groundTexture:'./assets/maps/ozeti-terrain-macro-v82.png',
+  // R=bare ground, G=rock-surface potential. Derived from the supplied full-map reference after UI removal.
+  geologyMask:'./assets/maps/ozeti-terrain-geology-v83.png',
+  // UI-only. Never sample this image into terrain geometry/material.
+  tacticalMap:'./assets/maps/ozeti-tactical-map-v1.png'
 };
 
+// Searchable/recovered terrain crop retained for compatibility.
 export const OZETI_MAP_BOUNDS=OZETI_SOURCE_BOUNDS;
 
-export const OZETI_TILE_BOUNDS={
-  // Complete source/full-world extent.
-  // v73 uses this as the simulator's 3D world footprint; OZETI_MAP_BOUNDS
-  // remains the published searchable/playable central crop.
-  minX:-3,
-  maxX:16381,
-  minY:-1,
-  maxY:16383
-};
+// Full master-map source extent.
+export const OZETI_TILE_BOUNDS=MASTER_SOURCE_BOUNDS;
 
 export const FACTIONS={
   lonestar:{

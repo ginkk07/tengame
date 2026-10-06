@@ -1,4 +1,4 @@
-import {mapPointToWorld} from '../factions.js';
+import {mapPointToWorld} from '../factions.js?v=85';
 import {terrainQuaternion} from './terrain-align.js';
 
 function normalizeScale(specScale){
@@ -46,7 +46,7 @@ export function createPlacementEngine({
   masterScale=1
 }){
   const root=new THREE.Group();
-  root.name='OzetiMapObjectsV78';
+  root.name='OzetiMapObjectsV80';
   scene.add(root);
 
   const batches=new Map();

@@ -1,15 +1,111 @@
-export function createTerrainCoreMaterial(THREE){
-  return new THREE.MeshStandardMaterial({
-    color:0x6b735f,
-    roughness:1,
+import {attachGeologyBlend} from '../geology/geology-material.js?v=85';
+
+const BASE=[0.96,0.99,0.94];
+const HIGH=[1.00,0.95,0.86];
+const ROCK=[0.91,0.90,0.86];
+
+function clamp(value,min,max){
+  return Math.min(max,Math.max(min,value));
+}
+
+function mix(a,b,t){
+  return a+(b-a)*t;
+}
+
+export function terrainVertexColor({normalY,height,maxHeight}){
+  const altitude=maxHeight>0 ? clamp(height/maxHeight,0,1) : 0;
+  const slope=clamp(1-Number(normalY||1),0,1);
+  const highT=altitude*.34;
+  const steepT=clamp((slope-.045)/.18,0,1)*.22;
+
+  const base=[
+    mix(BASE[0],HIGH[0],highT),
+    mix(BASE[1],HIGH[1],highT),
+    mix(BASE[2],HIGH[2],highT)
+  ];
+
+  return [
+    mix(base[0],ROCK[0],steepT),
+    mix(base[1],ROCK[1],steepT),
+    mix(base[2],ROCK[2],steepT)
+  ];
+}
+
+async function loadTexture({THREE,assetUrl,name,dataTexture=false}){
+  if(!assetUrl){
+    throw new Error(`Ozeti v85 ${name} URL is missing`);
+  }
+
+  const loader=new THREE.TextureLoader();
+  const texture=await loader.loadAsync(assetUrl);
+  texture.name=name;
+  texture.wrapS=THREE.ClampToEdgeWrapping;
+  texture.wrapT=THREE.ClampToEdgeWrapping;
+  texture.minFilter=THREE.LinearMipmapLinearFilter;
+  texture.magFilter=THREE.LinearFilter;
+  texture.generateMipmaps=true;
+
+  if('colorSpace' in texture){
+    if(dataTexture && THREE.NoColorSpace!==undefined){
+      texture.colorSpace=THREE.NoColorSpace;
+    }else if(!dataTexture && THREE.SRGBColorSpace){
+      texture.colorSpace=THREE.SRGBColorSpace;
+    }
+  }
+
+  texture.needsUpdate=true;
+  return texture;
+}
+
+export async function loadTerrainSurfaceTextures({
+  THREE,
+  macroAssetUrl,
+  geologyAssetUrl
+}){
+  const [macroTexture,geologyTexture]=await Promise.all([
+    loadTexture({
+      THREE,
+      assetUrl:macroAssetUrl,
+      name:'OzetiTerrainMacroV82',
+      dataTexture:false
+    }),
+    loadTexture({
+      THREE,
+      assetUrl:geologyAssetUrl,
+      name:'OzetiTerrainGeologyV85',
+      dataTexture:true
+    })
+  ]);
+
+  return {macroTexture,geologyTexture};
+}
+
+export function createTerrainCoreMaterial(
+  THREE,
+  {macroTexture,geologyTexture}
+){
+  if(!macroTexture){
+    throw new Error('Ozeti v85 terrain macro texture was not loaded');
+  }
+
+  if(!geologyTexture){
+    throw new Error('Ozeti v85 geology texture was not loaded');
+  }
+
+  const material=new THREE.MeshStandardMaterial({
+    map:macroTexture,
+    vertexColors:true,
+    roughness:.98,
     metalness:0,
     side:THREE.FrontSide
   });
+
+  return attachGeologyBlend(material,geologyTexture);
 }
 
 export function createUnverifiedBaseMaterial(THREE){
   return new THREE.MeshStandardMaterial({
-    color:0x484d46,
+    color:0x50584b,
     roughness:1,
     metalness:0,
     side:THREE.FrontSide

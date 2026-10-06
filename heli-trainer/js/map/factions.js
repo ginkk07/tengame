@@ -1,27 +1,19 @@
 import {
   FACTIONS,
-  WORLD_CONFIG,
-  OZETI_MAP_BOUNDS,
   TACTICAL_PIXEL_CALIBRATION
-} from './map-data.js?v=78';
+} from './map-data.js?v=85';
 
-const MAP_CENTER={
-  x:WORLD_CONFIG.centerX,
-  y:WORLD_CONFIG.centerY
-};
+import {
+  mapMetersToWorld,
+  worldToMapMeters
+} from './master/coordinate-transform.js?v=85';
 
 export function mapPointToWorld(mapX,mapY){
-  return {
-    x:(mapX-MAP_CENTER.x)*WORLD_CONFIG.scale,
-    z:(MAP_CENTER.y-mapY)*WORLD_CONFIG.scale
-  };
+  return mapMetersToWorld(mapX,mapY);
 }
 
 export function worldPointToMapCoordinate(x,z){
-  return {
-    x:MAP_CENTER.x+x/WORLD_CONFIG.scale,
-    y:MAP_CENTER.y-z/WORLD_CONFIG.scale
-  };
+  return worldToMapMeters(x,z);
 }
 
 export function worldToTacticalMapPixel(x,z){
