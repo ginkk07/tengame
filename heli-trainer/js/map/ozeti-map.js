@@ -1,40 +1,18 @@
 import {
   WORLD_CONFIG
-} from './map-data.js?v=74';
+} from './map-data.js?v=76';
 
 import {
   createTerrainSystem
-} from './terrain.js?v=74';
-
-
-
-import {
-  createTowerReferenceLayer
-} from './structures.js?v=74';
-
-
-
-
-import {
-  createStadiumReferenceLayer
-} from './stadium.js?v=74';
-
-import {
-  createFullMapTownLayer
-} from './fullmap-town.js?v=74';
-
-import {
-  createFullMapEnvironmentLayer
-} from './fullmap-environment.js?v=74';
-
+} from './terrain.js?v=76';
 
 import {
   factionCenterWorld
-} from './factions.js?v=74';
+} from './factions.js?v=76';
 
 import {
   createTacticalMap
-} from './tactical-map.js?v=74';
+} from './tactical-map.js?v=76';
 
 export function createOzetiMap({
   THREE,
@@ -65,138 +43,8 @@ export function createOzetiMap({
       clearPressed
     });
 
-  // v74: tactical/faction graphics belong to UI only.
-  const factionLayer={
-    group:null,
-    rebuild(){},
-    clear(){}
-  };
-
-  let scenery=null;
-  let structures=null;
-  let stadium=null;
-  let fullMapTown=null;
-  let fullMapEnvironment=null;
-
-  function safeBuild(
-    label,
-    build,
-    fallback
-  ){
-    try{
-      return build();
-    }catch(error){
-      console.error(
-        'Ozeti layer failed: '+label,
-        error
-      );
-
-      return fallback;
-    }
-  }
-
   async function load(){
-    let terrainReady=false;
-
-    try{
-      await terrain.load();
-      terrainReady=true;
-    }catch(error){
-      console.error(
-        'Ozeti terrain fallback active:',
-        error
-      );
-    }
-
-    structures=
-      safeBuild(
-        'official towers',
-        ()=>
-          createTowerReferenceLayer({
-            THREE,
-            scene,
-            terrainHeight:terrain.height
-          }),
-        {
-          towerCount:0,
-          group:null
-        }
-      );
-
-    stadium=
-      safeBuild(
-        'full-map stadium',
-        ()=>
-          createStadiumReferenceLayer({
-            THREE,
-            scene,
-            terrainHeight:terrain.height
-          }),
-        {
-          stadiumCount:0,
-          group:null
-        }
-      );
-
-    fullMapTown=
-      safeBuild(
-        'full-map central town',
-        ()=>
-          createFullMapTownLayer({
-            THREE,
-            scene,
-            terrainHeight:terrain.height
-          }),
-        {
-          poiCount:0,
-          roadCount:0,
-          residentialBlockCount:0,
-          group:null
-        }
-      );
-
-    fullMapEnvironment=
-      safeBuild(
-        'full-map farms / grassland / forests',
-        ()=>
-          createFullMapEnvironmentLayer({
-            THREE,
-            scene,
-            terrainHeight:terrain.height
-          }),
-        {
-          farmCount:0,
-          grasslandCount:0,
-          forestZoneCount:0,
-          treeCount:0,
-          deforestedCount:0,
-          group:null
-        }
-      );
-
-    if(statusEl){
-      statusEl.textContent=
-        'Ozeti v74 · '+
-        (
-          terrainReady
-            ? 'Full-map terrain'
-            : 'Fallback terrain'
-        )+
-        ' / Tower '+
-        structures.towerCount+
-        ' / Stadium '+
-        stadium.stadiumCount+
-        ' / Full-map POI '+
-        fullMapTown.poiCount+
-        ' / Residential '+
-        fullMapTown.residentialBlockCount+
-        ' / Farm '+
-        fullMapEnvironment.farmCount+
-        ' / Forest zones '+
-        fullMapEnvironment.forestZoneCount;
-    }
-
-    return terrainReady;
+    return terrain.load();
   }
 
   return {
@@ -218,18 +66,22 @@ export function createOzetiMap({
       return null;
     },
     get structures(){
-      return structures;
+      return null;
     },
     get stadium(){
-      return stadium;
+      return null;
     },
     get fullMapTown(){
-      return fullMapTown;
+      return null;
     },
     get fullMapEnvironment(){
-      return fullMapEnvironment;
+      return null;
     },
     terrain,
-    factionLayer
+    factionLayer:{
+      group:null,
+      rebuild(){},
+      clear(){}
+    }
   };
 }

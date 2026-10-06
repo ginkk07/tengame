@@ -3,7 +3,7 @@ import {
   WORLD_CONFIG,
   OZETI_MAP_BOUNDS,
   TACTICAL_PIXEL_CALIBRATION
-} from './map-data.js?v=74';
+} from './map-data.js?v=76';
 
 const MAP_CENTER={
   x:WORLD_CONFIG.centerX,
