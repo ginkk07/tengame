@@ -209,12 +209,12 @@
       <button id="reset">重置</button>
       <button id="pause">暫停</button>
     </div>
-    <div class="version-label">VERSION v74</div>
+    <div class="version-label">VERSION v75</div>
   </aside>
 </div>
 
 <script type="module">
-const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=74');
+const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=75');
 
 const root=document.getElementById('app');
 const stage=document.getElementById('stage');
@@ -365,13 +365,14 @@ scene.add(sun);
 scene.add(sun.target);
 
 /*
- * OZETI LOCAL TERRAIN ASSET
- * -------------------------
- * Visual terrain:
- *   ./assets/maps/ozeti-terrain-reconstruction-v1.glb
+ * OZETI v75 TERRAIN CORE
+ * -----------------------
+ * 1 Three.js unit = 1 metre. The world coordinate frame is 16,384 m square
+ * and divided into a 32 × 32 grid of 512 m terrain sectors.
  *
- * Collision sampling is rebuilt from the GLB's own vertex positions, so the
- * visible ground and terrainHeight() share the same local asset.
+ * This revision intentionally renders only the verified recovered terrain
+ * geometry as shaped ground. Roads, river, rocks, vegetation, buildings,
+ * Stadium and world-space faction graphics are disabled until later layers.
  *
  * No Ozeti terrain data is fetched from N4 / WARDOGS at runtime.
  */
@@ -1859,7 +1860,7 @@ requestAnimationFrame(
  * remains visible and the exact error is shown on-screen.
  */
 import(
-  './js/map/ozeti-map.js?v=74'
+  './js/map/ozeti-map.js?v=75'
 )
   .then(
     module=>{

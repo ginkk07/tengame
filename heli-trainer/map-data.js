@@ -1,5 +1,5 @@
 export const WORLD_CONFIG={
-  // v73 target: complete Ozeti full-world footprint.
+  // v75 Terrain Core: complete Ozeti full-world coordinate footprint.
   // tileBounds = 16,384m × 16,384m.
   minX:-3,
   maxX:16381,
@@ -17,8 +17,11 @@ export const TERRAIN_CONFIG={
   depth:7775,
   nx:257,
   nz:233,
-  verticalScale:1.18,
+  verticalScale:1,
   reliefMeters:388,
+  sectorSize:512,
+  sectorsX:32,
+  sectorsY:32,
   sourceBounds:{
     minX:5758,
     maxX:14307,
@@ -29,7 +32,12 @@ export const TERRAIN_CONFIG={
 
 export const MAP_ASSETS={
   terrain:'./assets/maps/ozeti-terrain-reconstruction-v1.glb',
-  tacticalMap:'./assets/maps/ozeti-tactical-map-v1.png'
+
+  // Tactical map is UI-only. It must never be sampled into terrain colour.
+  tacticalMap:'./assets/maps/ozeti-tactical-map-v1.png',
+
+  // v75 Terrain Core deliberately uses no terrain image texture.
+  groundTexture:null
 };
 
 export const OZETI_MAP_BOUNDS={
