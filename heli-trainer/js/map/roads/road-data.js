@@ -1,6 +1,6 @@
 import {
   OZETI_PLAYABLE_BOUNDS
-} from '../map-data.js?v=88';
+} from '../map-data.js?v=91';
 
 /*
  * v87 complete road pass for the recovered playable Ozeti crop.
@@ -332,15 +332,15 @@ function insidePlayable(point){
 
 for(const path of ROAD_PATHS){
   if(path.points.length<2){
-    throw new Error(`Ozeti v88 invalid road path: ${path.id}`);
+    throw new Error(`Ozeti v91 invalid road path: ${path.id}`);
   }
   if(!Number.isFinite(path.width) || path.width<=0){
-    throw new Error(`Ozeti v88 invalid road width: ${path.id}`);
+    throw new Error(`Ozeti v91 invalid road width: ${path.id}`);
   }
   for(const point of path.points){
     if(!insidePlayable(point)){
       throw new Error(
-        `Ozeti v88 road point outside playable bounds: ${path.id} ${point[0]},${point[1]}`
+        `Ozeti v91 road point outside playable bounds: ${path.id} ${point[0]},${point[1]}`
       );
     }
   }

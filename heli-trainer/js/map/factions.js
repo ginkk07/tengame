@@ -1,12 +1,12 @@
 import {
   FACTIONS,
   TACTICAL_PIXEL_CALIBRATION
-} from './map-data.js?v=88';
+} from './map-data.js?v=91';
 
 import {
   mapMetersToWorld,
   worldToMapMeters
-} from './master/coordinate-transform.js?v=88';
+} from './master/coordinate-transform.js?v=91';
 
 export function mapPointToWorld(mapX,mapY){
   return mapMetersToWorld(mapX,mapY);

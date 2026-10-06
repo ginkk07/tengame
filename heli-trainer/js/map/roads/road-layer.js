@@ -1,12 +1,12 @@
 import {
   mapMetersToWorld
-} from '../master/coordinate-transform.js?v=88';
+} from '../master/coordinate-transform.js?v=91';
 
 import {
   ROAD_CONFIG,
   ROAD_PATHS,
   ROAD_STATS
-} from './road-data.js?v=88';
+} from './road-data.js?v=91';
 
 function classConfig(path){
   if(path.class==='local'){
@@ -257,7 +257,7 @@ export function createRoadLayer({
         geometry,
         materials[key]
       );
-      mesh.name=`ozeti-road-${key}-batch-v88`;
+      mesh.name=`ozeti-road-${key}-batch-v91`;
       mesh.receiveShadow=true;
       mesh.castShadow=false;
       mesh.renderOrder=renderOrder;

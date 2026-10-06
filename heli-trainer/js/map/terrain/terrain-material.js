@@ -31,7 +31,7 @@ export function terrainVertexColor({normalY,height,maxHeight}){
 
 async function loadTexture({THREE,assetUrl,name}){
   if(!assetUrl){
-    throw new Error(`Ozeti v88 ${name} URL is missing`);
+    throw new Error(`Ozeti v91 ${name} URL is missing`);
   }
 
   const loader=new THREE.TextureLoader();
@@ -69,7 +69,7 @@ export function createTerrainCoreMaterial(
   {macroTexture}
 ){
   if(!macroTexture){
-    throw new Error('Ozeti v88 terrain macro texture was not loaded');
+    throw new Error('Ozeti v91 terrain macro texture was not loaded');
   }
 
   return new THREE.MeshStandardMaterial({

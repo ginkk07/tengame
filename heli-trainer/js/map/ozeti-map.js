@@ -1,13 +1,14 @@
-import {WORLD_CONFIG} from './map-data.js?v=88';
-import {createTerrainSystem} from './terrain.js?v=88';
-import {factionCenterWorld} from './factions.js?v=88';
-import {createTacticalMap} from './tactical-map.js?v=88';
-import {createMapObjectSystem} from './models/model-system.js?v=88';
-import {verifyMasterCalibration} from './master/calibration.js?v=88';
-import {OZETI_PLAYABLE_BOUNDS} from './map-data.js?v=88';
-import {mapBoundsToWorld} from './master/coordinate-transform.js?v=88';
-import {createRoadLayer} from './roads/road-layer.js?v=88';
-import {createEnvironmentLayer} from './environment/environment-layer.js?v=88';
+import {WORLD_CONFIG} from './map-data.js?v=91';
+import {createTerrainSystem} from './terrain.js?v=91';
+import {factionCenterWorld} from './factions.js?v=91';
+import {createTacticalMap} from './tactical-map.js?v=91';
+import {createMapObjectSystem} from './models/model-system.js?v=91';
+import {verifyMasterCalibration} from './master/calibration.js?v=91';
+import {OZETI_PLAYABLE_BOUNDS} from './map-data.js?v=91';
+import {mapBoundsToWorld} from './master/coordinate-transform.js?v=91';
+import {createRoadLayer} from './roads/road-layer.js?v=91';
+import {createEnvironmentLayer} from './environment/environment-layer.js?v=91';
+import {createComponentLayer} from './components/component-layer.js?v=91';
 
 export function createOzetiMap({
   THREE,scene,root,stage,state,heli,orient,statusEl,clearPressed
@@ -39,41 +40,51 @@ export function createOzetiMap({
     terrainHeight:terrain.height
   });
 
+  const components=createComponentLayer({
+    objects,
+    terrainHeight:terrain.height
+  });
+
   async function load(){
     await terrain.load();
 
     if(!terrain.data.heightfield){
-      throw new Error('Ozeti v88 terrain heightfield missing after load');
+      throw new Error('Ozeti v91 terrain heightfield missing after load');
     }
 
     const initialStats=objects.placement.stats();
     if(initialStats.instances!==0 || initialStats.uniqueObjects!==0){
-      throw new Error('Ozeti v88 environment must start empty');
+      throw new Error('Ozeti v91 environment must start empty');
     }
 
     const environmentStats=environment.rebuild();
+    const componentStats=components.rebuild();
     const objectStats=objects.placement.stats();
     const roadStats=roads.rebuild();
 
-    if(
-      objectStats.instances!==environmentStats.trees ||
-      objectStats.uniqueObjects!==environmentStats.buildings
-    ){
+    if(objectStats.instances!==environmentStats.trees){
       throw new Error(
-        'Ozeti v88 environment count mismatch: '+
-        objectStats.instances+' trees / '+
-        objectStats.uniqueObjects+' buildings'
+        'Ozeti v91 tree count mismatch: '+
+        objectStats.instances+' / '+environmentStats.trees
       );
     }
 
     if(statusEl){
       statusEl.textContent+=
         ' / master calibration '+
-        calibration.controlPoints+' points / forest refs '+
-        environmentStats.forestReferencePoints+' → trees '+
+        calibration.controlPoints+' points / forest density cells '+
+        environmentStats.forestDensityCells+' → trees '+
         environmentStats.trees+' / building refs '+
         environmentStats.buildingReferences+' → buildings '+
-        environmentStats.buildings+' / roads '+
+        environmentStats.buildings+' / components '+
+        componentStats.placements+' ('+
+        componentStats.towers+' towers / '+
+        componentStats.facilities+' official facility anchors / '+
+        componentStats.supportFacilities+' support proxies: '+
+        componentStats.baseSupport+' base + '+
+        componentStats.farmSupport+' farm + '+
+        componentStats.townSupport+' town / '+
+        componentStats.landmarks+' landmarks) / roads '+
         roadStats.paths+' reference paths / playable '+
         Math.round(playableWorld.maxX-playableWorld.minX)+'×'+
         Math.round(playableWorld.maxZ-playableWorld.minZ)+' m';
@@ -108,6 +119,7 @@ export function createOzetiMap({
     masterCalibration:calibration,
     objects,
     environmentLayer:environment,
+    componentLayer:components,
     roadLayer:roads,
     terrain,
     placeMapObject:objects.placement.place,
@@ -115,7 +127,7 @@ export function createOzetiMap({
     clearMapObjectSector:objects.clearSector,
     get scenery(){return environment;},
     get structures(){return environment;},
-    get stadium(){return null;},
+    get stadium(){return components;},
     get fullMapTown(){return environment;},
     get fullMapEnvironment(){return environment;},
     get rockLayer(){return null;},

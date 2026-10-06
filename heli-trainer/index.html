@@ -209,12 +209,12 @@
       <button id="reset">重置</button>
       <button id="pause">暫停</button>
     </div>
-    <div class="version-label">VERSION v88</div>
+    <div class="version-label">VERSION v91</div>
   </aside>
 </div>
 
 <script type="module">
-const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=88');
+const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=90');
 
 const root=document.getElementById('app');
 const stage=document.getElementById('stage');
@@ -1635,6 +1635,28 @@ function update(dt){
     }
   }
 
+  const componentHit=
+    ozetiMap?.componentLayer?.resolveMovement(
+      previousPosition,
+      state.pos,
+      2.2
+    );
+
+  if(componentHit){
+    if(componentHit.mode==='vertical'){
+      if(state.vel.y<0){
+        state.vel.y=0;
+      }
+      state.holdAltitude=Math.max(
+        state.holdAltitude,
+        componentHit.topY+2.2
+      );
+    }else{
+      state.vel.x*=-.08;
+      state.vel.z*=-.08;
+    }
+  }
+
   // Full Ozeti terrain can exist outside the player-accessible region.
   // Only movement is constrained to the bright/playable map bounds.
   const playable=ozetiMap?.bounds.playable;
@@ -1888,7 +1910,7 @@ requestAnimationFrame(
  * remains visible and the exact error is shown on-screen.
  */
 import(
-  './js/map/ozeti-map.js?v=88'
+  './js/map/ozeti-map.js?v=90'
 )
   .then(
     module=>{

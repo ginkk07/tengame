@@ -46,6 +46,7 @@ function createHouse(THREE,{
   roof=0x6c5548
 }={}){
   const group=new THREE.Group();
+  addBox(THREE,group,[width*1.04,2.4,depth*1.04],[0,-1.0,0],0x6f6a60);
   addBox(THREE,group,[width,height,depth],[0,height*.5,0],wall);
 
   const roofHeight=Math.max(2.3,Math.min(4.2,width*.26));
@@ -98,6 +99,7 @@ export function registerBuildingModels(registry){
     alignToTerrain:false,
     createObject(THREE){
       const group=new THREE.Group();
+      addBox(THREE,group,[22.8,2.6,12.8],[0,-1.1,0],0x66655f);
       addBox(THREE,group,[22,14,12],[0,7,0],0xa9aaa3);
       addBox(THREE,group,[20,.9,10],[0,14.35,0],0x666761);
       addBox(THREE,group,[3.6,2.2,1.2],[-5,8,6.1],0x72746f);
@@ -114,6 +116,7 @@ export function registerBuildingModels(registry){
     alignToTerrain:false,
     createObject(THREE){
       const group=new THREE.Group();
+      addBox(THREE,group,[29.2,2.6,19.2],[0,-1.1,0],0x62645f);
       addBox(THREE,group,[28,8,18],[0,4,0],0x898c86);
       addBox(THREE,group,[30,.8,20],[0,8.35,0],0x585c59);
       addBox(THREE,group,[7,4,.8],[-7,3.2,9.2],0x555b58);
@@ -130,6 +133,7 @@ export function registerBuildingModels(registry){
     alignToTerrain:false,
     createObject(THREE){
       const group=new THREE.Group();
+      addBox(THREE,group,[13,2.6,23],[0,-1.1,0],0x716c63);
       addBox(THREE,group,[12,9,22],[0,4.5,0],0xd0c6b1);
       addBox(THREE,group,[5,15,6],[0,7.5,-7],0xc9bea8);
       const spire=new THREE.Mesh(

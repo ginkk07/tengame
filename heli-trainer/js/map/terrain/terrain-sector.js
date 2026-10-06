@@ -1,10 +1,10 @@
 import {
   sourceWorldBounds
-} from './terrain-config.js?v=88';
+} from './terrain-config.js?v=91';
 
 import {
   terrainVertexColor
-} from './terrain-material.js?v=88';
+} from './terrain-material.js?v=91';
 
 function intersects(a,b){
   return !(
@@ -264,7 +264,7 @@ export function buildVerifiedTerrainSectors({
 
   if(!meshCount){
     throw new Error(
-      'Ozeti v88 generated zero terrain sectors'
+      'Ozeti v91 generated zero terrain sectors'
     );
   }
 
