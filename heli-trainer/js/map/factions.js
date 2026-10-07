@@ -1,12 +1,12 @@
 import {
-  FACTIONS,
-  TACTICAL_PIXEL_CALIBRATION
-} from './map-data.js?v=91';
+  FACTIONS
+} from './map-data.js?v=93';
 
 import {
   mapMetersToWorld,
   worldToMapMeters
-} from './master/coordinate-transform.js?v=91';
+} from './master/coordinate-transform.js?v=93';
+import {worldToTacticalPixel} from './map-projection.js';
 
 export function mapPointToWorld(mapX,mapY){
   return mapMetersToWorld(mapX,mapY);
@@ -17,30 +17,7 @@ export function worldPointToMapCoordinate(x,z){
 }
 
 export function worldToTacticalMapPixel(x,z){
-  const map=
-    worldPointToMapCoordinate(
-      x,
-      z
-    );
-
-  const c=
-    TACTICAL_PIXEL_CALIBRATION;
-
-  return {
-    x:
-      c.xx*
-      map.x+
-      c.xy*
-      map.y+
-      c.xOffset,
-
-    y:
-      c.yx*
-      map.x+
-      c.yy*
-      map.y+
-      c.yOffset
-  };
+  return worldToTacticalPixel(x,z);
 }
 
 export function factionCenterWorld(id){

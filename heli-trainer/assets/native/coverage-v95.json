@@ -1,0 +1,20 @@
+{
+  "hqVegetationModels": 73,
+  "heightTiles": 256,
+  "heightSamples": 67371264,
+  "forestPlants": 306348,
+  "fullWorldStructureSlots": 139481,
+  "vegetationLibraryBytes": 6515331,
+  "fineHeightCompressedBytes": 24786608,
+  "groundDetail": {
+    "source": "original Ozeti terrain texture",
+    "rect": [
+      0.5625,
+      0.02083333333333337,
+      0.041666666666666664,
+      0.041666666666666664
+    ],
+    "meanLinearLuma": 0.11379647596235723,
+    "repeatNativeM": 24
+  }
+}

@@ -1,9 +1,18 @@
 function material(THREE,color){
-  return new THREE.MeshStandardMaterial({
-    color,
-    roughness:1,
-    metalness:0
-  });
+  return new THREE.MeshLambertMaterial({color});
+}
+
+function combineCrowns(THREE,parts){
+  const crowns=parts.slice(1),positions=[],normals=[];
+  for(const part of crowns){
+    const g=part.geometry.index?part.geometry.toNonIndexed():part.geometry;
+    positions.push(...g.attributes.position.array);normals.push(...g.attributes.normal.array);
+    if(g!==part.geometry)g.dispose();part.geometry.dispose();
+  }
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
+  return [parts[0],{geometry,material:crowns[0].material}];
 }
 
 function trunkPart(THREE,height,radius,color){
@@ -27,22 +36,20 @@ function broadleafParts(THREE){
     trunkPart(THREE,5.4,.43,0x665343)
   ];
 
-  const crownMaterial=material(THREE,0x425b39);
+  const crownMaterial=material(THREE,0x4e7747);
   const crownSpecs=[
-    [0,8.7,0,3.0,2.25,2.7],
-    [-1.6,8.1,.5,2.25,1.85,2.15],
-    [1.45,8.15,-.35,2.2,1.8,2.1],
-    [.2,10.05,.15,2.25,1.75,2.15]
+    [0,10.9,0,4.5,5.5,4.3],
+    [1.4,13.6,.6,3.2,3.7,3.0]
   ];
 
   for(const [x,y,z,sx,sy,sz] of crownSpecs){
-    const geometry=new THREE.IcosahedronGeometry(1,1);
+    const geometry=new THREE.IcosahedronGeometry(1,0);
     geometry.scale(sx,sy,sz);
     geometry.translate(x,y,z);
     parts.push({geometry,material:crownMaterial});
   }
 
-  return parts;
+  return combineCrowns(THREE,parts);
 }
 
 function coniferParts(THREE){
@@ -50,11 +57,11 @@ function coniferParts(THREE){
     trunkPart(THREE,4.6,.36,0x5d4c3f)
   ];
 
-  const crownMaterial=material(THREE,0x344a35);
+  const crownMaterial=material(THREE,0x3f6944);
   const tiers=[
-    [3.4,6.0,7.0],
-    [2.75,5.4,9.1],
-    [2.0,4.6,11.0]
+    [3.4,7.0,6.0],
+    [2.75,6.4,10.0],
+    [2.0,5.4,14.0]
   ];
 
   for(const [radius,height,y] of tiers){
@@ -69,7 +76,7 @@ function coniferParts(THREE){
     parts.push({geometry,material:crownMaterial});
   }
 
-  return parts;
+  return combineCrowns(THREE,parts);
 }
 
 export function registerTreeModels(registry){
@@ -78,7 +85,7 @@ export function registerTreeModels(registry){
     category:'tree',
     mode:'instanced',
     sourceUnitScale:true,
-    defaultCapacity:4096,
+    defaultCapacity:256,
     alignToTerrain:false,
     createParts(THREE){
       return broadleafParts(THREE);
@@ -90,7 +97,7 @@ export function registerTreeModels(registry){
     category:'tree',
     mode:'instanced',
     sourceUnitScale:true,
-    defaultCapacity:2048,
+    defaultCapacity:256,
     alignToTerrain:false,
     createParts(THREE){
       return coniferParts(THREE);

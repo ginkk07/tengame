@@ -2,14 +2,14 @@ import {
   MASTER_MAP_CONFIG,
   MASTER_SOURCE_BOUNDS,
   PLAYABLE_SOURCE_BOUNDS
-} from './master/master-map.js?v=91';
+} from './master/master-map.js?v=93';
 
 // Player-accessible region and currently recovered terrain coverage.
 // This DOES NOT define the full Ozeti world dimensions.
 export const OZETI_PLAYABLE_BOUNDS=PLAYABLE_SOURCE_BOUNDS;
 
 // Compatibility alias used by the terrain loader.
-export const OZETI_SOURCE_BOUNDS=OZETI_PLAYABLE_BOUNDS;
+export const OZETI_SOURCE_BOUNDS=MASTER_SOURCE_BOUNDS;
 
 export const MASTER_SCALE=Object.freeze({
   source:MASTER_MAP_CONFIG.source,
@@ -34,14 +34,14 @@ export const WORLD_CONFIG={
 };
 
 export const TERRAIN_CONFIG={
-  // Dimensions below describe ONLY the recovered central heightfield crop.
+  // Complete reconstructed heightfield, enlarged uniformly in all axes.
   width:(OZETI_SOURCE_BOUNDS.maxX-OZETI_SOURCE_BOUNDS.minX)*WORLD_CONFIG.scale,
   depth:(OZETI_SOURCE_BOUNDS.maxY-OZETI_SOURCE_BOUNDS.minY)*WORLD_CONFIG.scale,
-  nx:257,
-  nz:233,
+  nx:513,
+  nz:513,
   verticalScale:WORLD_CONFIG.scale,
-  rawReliefMeters:388,
-  reliefMeters:388*WORLD_CONFIG.scale,
+  rawReliefMeters:985.377319,
+  reliefMeters:985.377319*WORLD_CONFIG.scale,
   sectorSize:MASTER_MAP_CONFIG.sectorSizeMeters,
   sectorsX:MASTER_MAP_CONFIG.sectorCountX,
   sectorsY:MASTER_MAP_CONFIG.sectorCountZ,
@@ -49,12 +49,13 @@ export const TERRAIN_CONFIG={
 };
 
 export const MAP_ASSETS={
-  terrainHeightfield:'./assets/maps/ozeti-terrain-heightfield-u16-v76.bin',
+  terrainHeightfield:'./assets/maps/ozeti-full-heightfield-v93.bin',
   // Terrain-only macro texture generated from the recovered heightfield.
   // It contains no UI, faction labels, roads, buildings, or tactical-map pixels.
-  groundTexture:'./assets/maps/ozeti-terrain-macro-v82.png',
+  groundTexture:'./assets/maps/ozeti-ground-v93.png',
   // UI-only. Never sample this image into terrain geometry/material.
-  tacticalMap:'./assets/maps/ozeti-tactical-map-v1.png'
+  tacticalMap:'./assets/maps/ozeti-tactical-native-v98.png',
+  tacticalContours:'./assets/maps/ozeti-contours-native-v98.png'
 };
 
 // Searchable/recovered terrain crop retained for compatibility.

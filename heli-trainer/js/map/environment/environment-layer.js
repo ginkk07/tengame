@@ -1,26 +1,28 @@
+import {CAPTURE_BUILDINGS, CAPTURE_FOREST_CELLS, CAPTURE_RIVERS} from '../reference/capture-data.js?v=93';
+import {WORLD_CONFIG,OZETI_TILE_BOUNDS} from '../map-data.js?v=93';
 import {
-  BUILDING_REFERENCE_FEATURES,
+  BUILDING_REFERENCE_FEATURES as LEGACY_BUILDING_FEATURES,
   OZETI_PLAYABLE_BOUNDS,
   FACTIONS,
   SITE_CLEARINGS,
   FULLMAP_POIS
-} from '../map-data.js?v=91';
+} from '../map-data.js?v=93';
 
 import {
   mapPointToWorld
-} from '../factions.js?v=91';
+} from '../factions.js?v=93';
 
 import {
   ROAD_PATHS
-} from '../roads/road-data.js?v=91';
+} from '../roads/road-data.js?v=93';
 
-import {
-  FOREST_DENSITY_CELLS,
-  FOREST_DENSITY_META
-} from './environment-data-v90.js?v=91';
+const FOREST_DENSITY_CELLS=CAPTURE_FOREST_CELLS;
+const FOREST_DENSITY_META={cells:CAPTURE_FOREST_CELLS.length};
 
-import {FACILITY_CLEARINGS_V91} from '../facilities/facility-data-v91.js?v=91';
+import {FACILITY_CLEARINGS_V91} from '../facilities/facility-data-v91.js?v=93';
 
+const BUILDING_REFERENCE_FEATURES=CAPTURE_BUILDINGS.filter(b=>![[9580,6282],[10037,5923],[10449,6371],[10062,6764]].some(([x,y])=>Math.hypot(b.x-x,b.y-y)<32));
+const SCENE_SCALE=WORLD_CONFIG.scale;
 const ENVIRONMENT_SECTOR='environment-v91';
 const BUILDING_TREE_MARGIN=10;
 const BASE_TREE_MARGIN=0;
@@ -46,10 +48,10 @@ function hash01(x,y,salt=0){
 
 function insidePlayable(mapX,mapY,margin=0){
   return (
-    mapX>=OZETI_PLAYABLE_BOUNDS.minX+margin &&
-    mapX<=OZETI_PLAYABLE_BOUNDS.maxX-margin &&
-    mapY>=OZETI_PLAYABLE_BOUNDS.minY+margin &&
-    mapY<=OZETI_PLAYABLE_BOUNDS.maxY-margin
+    mapX>=OZETI_TILE_BOUNDS.minX+margin &&
+    mapX<=OZETI_TILE_BOUNDS.maxX-margin &&
+    mapY>=OZETI_TILE_BOUNDS.minY+margin &&
+    mapY<=OZETI_TILE_BOUNDS.maxY-margin
   );
 }
 
@@ -170,7 +172,18 @@ function treeTooCloseToBuilding(mapX,mapY){
   return false;
 }
 
+function treeInRiver(mapX,mapY){
+  for(const river of CAPTURE_RIVERS)for(let i=1;i<river.points.length;i++){
+    const a=river.points[i-1],b=river.points[i];
+    if(pointSegmentDistanceSq(mapX,mapY,a[0],a[1],b[0],b[1])<(river.width*.52+4)**2)return true;
+  }
+  return false;
+}
+
 function buildingModel(feature){
+  if(feature.model==='building.timber_shed')return {id:feature.model,base:[16,8,32]};
+  if(feature.model==='building.industrial')return {id:feature.model,base:[30,8.75,20]};
+  if(feature.model==='building.house.small')return {id:feature.model,base:[9,7.94,12]};
   const width=Number(feature.w)||15;
   const depth=Number(feature.d)||13.5;
   const height=Number(feature.h)||6.8;
@@ -189,8 +202,8 @@ function buildingModel(feature){
   return {id:'building.house.small',base:[9,7.94,12]};
 }
 
-function forestTreeCount(density){
-  return Math.max(2,Math.min(7,2+Math.round(density*5)));
+function forestTreeCount(density,cellSize){
+  return cellSize===50?1+Math.round(density*24):3+Math.round(density*72);
 }
 
 function makeTreePlacements(){
@@ -243,8 +256,9 @@ function makeTreePlacements(){
     const baseX=Number(cell[0]);
     const baseY=Number(cell[1]);
     const density=Math.max(0,Math.min(1,Number(cell[2])||0));
-    const count=forestTreeCount(density);
-    const clusterRadius=52+density*34;
+    const cellSize=Number(cell[3])||200;
+    const count=forestTreeCount(density,cellSize);
+    const clusterRadius=cellSize*.47;
 
     for(let i=0;i<count;i++){
       const angle=hash01(baseX,baseY,cellIndex*31+i*7)*Math.PI*2;
@@ -259,10 +273,6 @@ function makeTreePlacements(){
         skippedBounds++;
         continue;
       }
-      if(insideFactionBase(mapX,mapY,BASE_TREE_MARGIN)){
-        skippedBases++;
-        continue;
-      }
       if(insideSiteClearing(mapX,mapY)){
         skippedBases++;
         continue;
@@ -275,6 +285,7 @@ function makeTreePlacements(){
         skippedBuildings++;
         continue;
       }
+      if(treeInRiver(mapX,mapY))continue;
       if(treeTooCloseToBuilding(mapX,mapY)){
         skippedBuildings++;
         continue;
@@ -291,7 +302,7 @@ function makeTreePlacements(){
       recordTree(mapX,mapY);
 
       const typeRoll=hash01(mapX,mapY,91);
-      const model=typeRoll<0.24 ? 'tree.conifer' : 'tree.broadleaf';
+      const model=typeRoll<0.55 ? 'tree.conifer' : 'tree.broadleaf';
       const scale=.78+hash01(mapY,mapX,131)*.50;
       const rotationY=hash01(mapX,mapY,173)*Math.PI*2;
 
@@ -393,7 +404,7 @@ function makeBuildingPlacements(terrainHeight){
         height/model.base[1],
         depth/model.base[2]
       ],
-      yOffset:ground.yOffset,
+      yOffset:ground.yOffset/SCENE_SCALE,
       alignToTerrain:false
     });
 
@@ -450,8 +461,8 @@ export function createEnvironmentLayer({objects,terrainHeight}){
     for(const record of trees.collision){
       const world=mapPointToWorld(record.mapX,record.mapY);
       const conifer=record.model==='tree.conifer';
-      const height=(conifer ? 13.2 : 11.6)*record.scale;
-      const radius=(conifer ? 3.45 : 3.85)*record.scale;
+      const height=(conifer ? 16.7 : 17.3)*record.scale*SCENE_SCALE;
+      const radius=(conifer ? 3.45 : 4.6)*record.scale*SCENE_SCALE;
       const groundY=terrainHeight(world.x,world.z);
 
       insertCollision({
@@ -466,10 +477,10 @@ export function createEnvironmentLayer({objects,terrainHeight}){
       insertCollision({
         kind:'building',x:world.x,z:world.z,
         groundY:record.baseY,
-        topY:record.baseY+record.height,
+        topY:record.baseY+record.height*SCENE_SCALE,
         radius:0,yaw:record.yaw,
-        halfW:record.width*.5,
-        halfD:record.depth*.5
+        halfW:record.width*.5*SCENE_SCALE,
+        halfD:record.depth*.5*SCENE_SCALE
       });
     }
 
@@ -520,8 +531,8 @@ export function createEnvironmentLayer({objects,terrainHeight}){
 
           const c=Math.cos(record.yaw);
           const s=Math.sin(record.yaw);
-          const localX=dx*c+dz*s;
-          const localZ=-dx*s+dz*c;
+          const localX=dx*c-dz*s;
+          const localZ=dx*s+dz*c;
 
           if(
             Math.abs(localX)<=record.halfW+clearance &&
@@ -576,7 +587,7 @@ export function createEnvironmentLayer({objects,terrainHeight}){
   return {
     rebuild,clear,hitTest,resolveMovement,stats,
     source:{
-      terrain:'verified recovered heightfield',
+      terrain:'recovered central heightfield with estimated outer terrain',
       forest:'tactical-image woodland density reconstruction / not per-tree ground truth',
       buildings:'calibrated building-footprint reconstruction'
     }

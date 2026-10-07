@@ -1,4 +1,4 @@
-import {mapPointToWorld} from '../factions.js?v=91';
+import {mapPointToWorld} from '../factions.js?v=93';
 import {terrainQuaternion} from './terrain-align.js';
 
 function normalizeScale(specScale){
@@ -50,15 +50,21 @@ export function createPlacementEngine({
   scene.add(root);
 
   const batches=new Map();
+  const partCache=new Map();
   const uniqueObjects=[];
   const sectorRecords=new Map();
 
-  function getBatch(definition){
-    if(batches.has(definition.id)){
-      return batches.get(definition.id);
+  function getBatch(definition,position){
+    // Partition woodland so distant trees can be culled by the camera and sun.
+    const key=definition.category==='tree'
+      ? `${definition.id}@${Math.floor(position.x/1280)}_${Math.floor(position.z/1280)}`
+      : definition.id;
+    if(batches.has(key)){
+      return batches.get(key);
     }
 
-    const parts=definition.createParts(THREE);
+    if(!partCache.has(definition.id))partCache.set(definition.id,definition.createParts(THREE));
+    const parts=partCache.get(definition.id);
     const capacity=Math.max(1,definition.defaultCapacity||128);
 
     const meshes=parts.map((part,index)=>{
@@ -84,7 +90,7 @@ export function createPlacementEngine({
       placements:[]
     };
 
-    batches.set(definition.id,batch);
+    batches.set(key,batch);
     return batch;
   }
 
@@ -112,6 +118,7 @@ export function createPlacementEngine({
       nextMesh.instanceMatrix.needsUpdate=true;
 
       root.remove(oldMesh);
+      oldMesh.dispose();
       root.add(nextMesh);
       entry.mesh=nextMesh;
     }
@@ -173,7 +180,7 @@ export function createPlacementEngine({
     const sectorId=options.sectorId || spec.sectorId || null;
 
     if(definition.mode==='instanced'){
-      const batch=getBatch(definition);
+      const batch=getBatch(definition,transform.position);
       if(batch.count>=batch.capacity){
         growBatch(batch);
       }
@@ -185,6 +192,8 @@ export function createPlacementEngine({
         entry.mesh.setMatrixAt(index,transform.matrix);
         entry.mesh.count=batch.count;
         entry.mesh.instanceMatrix.needsUpdate=true;
+        entry.mesh.boundingSphere=null;
+        entry.mesh.boundingBox=null;
       }
 
       const record={type:'instanced',model:definition.id,index};
@@ -211,7 +220,11 @@ export function createPlacementEngine({
   }
 
   function placeMany(specs=[],options={}){
-    return specs.map(spec=>place(spec,options));
+    const placed=specs.map(spec=>place(spec,options));
+    for(const batch of batches.values())for(const entry of batch.meshes){
+      entry.mesh.computeBoundingBox();entry.mesh.computeBoundingSphere();
+    }
+    return placed;
   }
 
   function rebuildInstanceBatch(batch){
@@ -232,6 +245,7 @@ export function createPlacementEngine({
     for(const entry of batch.meshes){
       entry.mesh.count=batch.count;
       entry.mesh.instanceMatrix.needsUpdate=true;
+      entry.mesh.computeBoundingBox();entry.mesh.computeBoundingSphere();
     }
   }
 
@@ -280,6 +294,7 @@ export function createPlacementEngine({
     }
 
     batches.clear();
+    partCache.clear();
     sectorRecords.clear();
   }
 

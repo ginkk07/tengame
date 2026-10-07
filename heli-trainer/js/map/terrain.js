@@ -1,25 +1,25 @@
 import {
   TERRAIN_CORE_CONFIG
-} from './terrain/terrain-config.js?v=91';
+} from './terrain/terrain-config.js?v=93';
 
 import {
   createTerrainSectorIndex,
   buildVerifiedTerrainSectors
-} from './terrain/terrain-sector.js?v=91';
+} from './terrain/terrain-sector.js?v=93';
 
 import {
   createTerrainCoreMaterial,
   createUnverifiedBaseMaterial,
   loadTerrainSurfaceTextures
-} from './terrain/terrain-material.js?v=91';
+} from './terrain/terrain-material.js?v=93';
 
 import {
   loadTerrainHeightfield
-} from './terrain/terrain-loader.js?v=91';
+} from './terrain/terrain-loader.js?v=93';
 
 import {
   buildTerrainHeightfield
-} from './terrain/terrain-heightfield.js?v=91';
+} from './terrain/terrain-heightfield.js?v=93';
 
 export function createTerrainSystem({
   THREE,
@@ -71,7 +71,7 @@ export function createTerrainSystem({
   async function load(){
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v91 · Terrain 載入中…';
+        'Ozeti v93 · 地形載入中…';
     }
 
     const payload=
@@ -113,7 +113,7 @@ export function createTerrainSystem({
 
     // Only the recovered/player region has verified height data. The complete
     // Ozeti world remains present as neutral terrain outside that coverage.
-    basePlane.visible=true;
+    basePlane.visible=false;
     scene.add(generated.group);
 
     data.root=generated.group;
@@ -124,9 +124,9 @@ export function createTerrainSystem({
 
     if(statusEl){
       statusEl.textContent=
-        'Ozeti v91 · Terrain '+config.world.width.toFixed(0)+'×'+config.world.depth.toFixed(0)+' m · '+
-        'heightfield verified · '+
-        'GLB 0 / '+
+        'Ozeti v93 · Terrain '+config.world.width.toFixed(0)+'×'+config.world.depth.toFixed(0)+' m · '+
+        '全圖視覺重建 · '+
+        ''+
         generated.meshCount+
         ' generated sectors / '+
         generated.vertexCount+

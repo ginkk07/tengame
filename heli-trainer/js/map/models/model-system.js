@@ -1,14 +1,16 @@
+import {registerCapturedModels} from './captured-models.js?v=93';
 import {ModelRegistry} from './model-registry.js';
 import {registerTreeModels} from './trees.js';
 import {registerBuildingModels} from './buildings.js';
 import {registerInfrastructureModels} from './infrastructure.js';
-import {createPlacementEngine} from '../placement/placement-engine.js?v=91';
+import {createPlacementEngine} from '../placement/placement-engine.js?v=93';
 
 export function createDefaultModelRegistry(){
   const registry=new ModelRegistry();
   registerTreeModels(registry);
   registerBuildingModels(registry);
   registerInfrastructureModels(registry);
+  registerCapturedModels(registry);
   return registry;
 }
 

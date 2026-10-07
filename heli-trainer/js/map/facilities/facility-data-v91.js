@@ -5,7 +5,7 @@ import {
   FULLMAP_POIS,
   OZETI_PLAYABLE_BOUNDS,
   STADIUM_REFERENCE
-} from '../map-data.js?v=91';
+} from '../map-data.js?v=93';
 
 /*
  * v91 simulation-support facilities.

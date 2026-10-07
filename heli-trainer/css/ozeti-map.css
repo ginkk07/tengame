@@ -74,6 +74,12 @@
   outline:none;
 }
 #playerMapMarker{pointer-events:none}
+.faction-label{font:700 16px Arial;paint-order:stroke;stroke:#14201a;stroke-width:4px;pointer-events:none}
+.map-north{font:700 20px Arial;pointer-events:none}
+.map-tools{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;padding:7px 10px;font-size:12px;border-bottom:1px solid #465159}
+.map-tools label{display:flex;align-items:center;gap:4px}
+.map-tools span{color:#b2bfb8}
+.map-tools button{min-height:28px;padding:0 9px}
 .map-actions{
   display:grid;
   grid-template-columns:repeat(3,1fr);

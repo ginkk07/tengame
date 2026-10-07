@@ -1,14 +1,14 @@
 import {
   TERRAIN_CONFIG,
   MAP_ASSETS
-} from '../map-data.js?v=91';
+} from '../map-data.js?v=93';
 
-import {MASTER_MAP_CONFIG} from '../master/master-map.js?v=91';
+import {MASTER_MAP_CONFIG} from '../master/master-map.js?v=93';
 import {
   mapBoundsToWorld,
   mapMetersToWorld,
   worldToMapMeters
-} from '../master/coordinate-transform.js?v=91';
+} from '../master/coordinate-transform.js?v=93';
 
 const SECTOR_SIZE=MASTER_MAP_CONFIG.sectorSizeMeters;
 const sourceWorld=mapBoundsToWorld(TERRAIN_CONFIG.sourceBounds);
@@ -28,10 +28,10 @@ export const TERRAIN_CORE_CONFIG={
     size:SECTOR_SIZE,
     countX:MASTER_MAP_CONFIG.sectorCountX,
     countZ:MASTER_MAP_CONFIG.sectorCountZ,
-    targetVertexSpacingMeters:32
+    targetVertexSpacingMeters:40
   },
   source:{
-    id:'ozeti-heightfield-u16-v76',
+    id:'ozeti-full-visual-reconstruction-v93',
     asset:MAP_ASSETS.terrainHeightfield,
     groundTexture:MAP_ASSETS.groundTexture,
     width:TERRAIN_CONFIG.width,

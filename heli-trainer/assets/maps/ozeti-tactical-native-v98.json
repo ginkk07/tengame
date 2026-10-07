@@ -1,0 +1,19 @@
+{
+  "imageSize": [
+    2048,
+    2048
+  ],
+  "worldBounds": [
+    -10240,
+    -10240,
+    10240,
+    10240
+  ],
+  "forestPlants": 306348,
+  "cityPlantComponents": 34226,
+  "buildingBounds": 28232,
+  "roadEdges": 449,
+  "contourIntervalWorldM": 50,
+  "contourSegments": 50677,
+  "source": "v97 native map assets and published coordinate calibration; building ranges are conservative geometry envelopes"
+}

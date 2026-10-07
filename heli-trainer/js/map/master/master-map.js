@@ -9,9 +9,7 @@ export const MASTER_SOURCE_BOUNDS=Object.freeze({
   maxY:16383
 });
 
-// Player-accessible bright region shown by the Ozeti map.
-// The full terrain outside this rectangle still exists and may be rendered,
-// but simulator movement must remain inside this area.
+// Bright region shown by the source map. v93 also permits outer-terrain flight.
 export const PLAYABLE_SOURCE_BOUNDS=Object.freeze({
   minX:5758,
   maxX:14307,
@@ -24,12 +22,13 @@ const sourceWidthMeters=
 const sourceDepthMeters=
   MASTER_SOURCE_BOUNDS.maxY-MASTER_SOURCE_BOUNDS.minY;
 
-const targetWidthMeters=16384;
+export const RECONSTRUCTION_SCALE=1.25;
+const targetWidthMeters=16384*RECONSTRUCTION_SCALE;
 const uniformScale=targetWidthMeters/sourceWidthMeters;
 const targetDepthMeters=sourceDepthMeters*uniformScale;
 
 export const MASTER_MAP_CONFIG=Object.freeze({
-  version:90,
+  version:93,
   source:'published-full-map-tile-bounds',
   sourceWidthMeters,
   sourceDepthMeters,
@@ -39,7 +38,7 @@ export const MASTER_MAP_CONFIG=Object.freeze({
   metersPerWorldUnit:1,
   centerX:(MASTER_SOURCE_BOUNDS.minX+MASTER_SOURCE_BOUNDS.maxX)*0.5,
   centerY:(MASTER_SOURCE_BOUNDS.minY+MASTER_SOURCE_BOUNDS.maxY)*0.5,
-  sectorSizeMeters:512,
-  sectorCountX:Math.ceil(targetWidthMeters/512),
-  sectorCountZ:Math.ceil(targetDepthMeters/512)
+  sectorSizeMeters:2048*RECONSTRUCTION_SCALE,
+  sectorCountX:8,
+  sectorCountZ:8
 });

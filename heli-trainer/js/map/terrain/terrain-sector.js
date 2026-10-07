@@ -1,10 +1,10 @@
 import {
   sourceWorldBounds
-} from './terrain-config.js?v=91';
+} from './terrain-config.js?v=93';
 
 import {
   terrainVertexColor
-} from './terrain-material.js?v=91';
+} from './terrain-material.js?v=93';
 
 function intersects(a,b){
   return !(
@@ -153,7 +153,8 @@ function createSectorGeometry({
       const textureWidth=textureBounds.maxX-textureBounds.minX;
       const textureDepth=textureBounds.maxZ-textureBounds.minZ;
       uvs[u++]=(worldX-textureBounds.minX)/textureWidth;
-      uvs[u++]=(worldZ-textureBounds.minZ)/textureDepth;
+      // Image row zero is north; THREE's image textures use v=1 at the top.
+      uvs[u++]=1-(worldZ-textureBounds.minZ)/textureDepth;
 
       const color=terrainVertexColor({
         normalY:normal.y,

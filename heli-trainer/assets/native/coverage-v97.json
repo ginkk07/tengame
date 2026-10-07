@@ -1,0 +1,19 @@
+{
+  "counts": {
+    "city-structures-hq": 57064,
+    "structures-lq": 211459,
+    "city-vegetation-hq": 48759,
+    "city-vegetation-mid": 48759,
+    "vegetation-hq": 772529,
+    "vegetation-mid": 772529,
+    "structures-hq": 129588
+  },
+  "cityHQ": 57064,
+  "worldHQ": 129588,
+  "cityVegetationHQ": 48759,
+  "chunks": 6411,
+  "geometryFiles": 3581,
+  "collisionParts": 28232,
+  "collisionBytes": 677568,
+  "geometryAndChunkCompressedBytes": 106795451
+}

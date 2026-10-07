@@ -1,14 +1,15 @@
-import {WORLD_CONFIG} from './map-data.js?v=91';
-import {createTerrainSystem} from './terrain.js?v=91';
-import {factionCenterWorld} from './factions.js?v=91';
-import {createTacticalMap} from './tactical-map.js?v=91';
-import {createMapObjectSystem} from './models/model-system.js?v=91';
-import {verifyMasterCalibration} from './master/calibration.js?v=91';
-import {OZETI_PLAYABLE_BOUNDS} from './map-data.js?v=91';
-import {mapBoundsToWorld} from './master/coordinate-transform.js?v=91';
-import {createRoadLayer} from './roads/road-layer.js?v=91';
-import {createEnvironmentLayer} from './environment/environment-layer.js?v=91';
-import {createComponentLayer} from './components/component-layer.js?v=91';
+import {createCapturedDetailLayer} from './reference/detail-layer.js?v=93';
+import {WORLD_CONFIG} from './map-data.js?v=93';
+import {createTerrainSystem} from './terrain.js?v=93';
+import {factionCenterWorld} from './factions.js?v=93';
+import {createTacticalMap} from './tactical-map.js?v=93';
+import {createMapObjectSystem} from './models/model-system.js?v=93';
+import {verifyMasterCalibration} from './master/calibration.js?v=93';
+import {OZETI_PLAYABLE_BOUNDS} from './map-data.js?v=93';
+import {mapBoundsToWorld} from './master/coordinate-transform.js?v=93';
+import {createRoadLayer} from './roads/road-layer.js?v=93';
+import {createEnvironmentLayer} from './environment/environment-layer.js?v=93';
+import {createComponentLayer} from './components/component-layer.js?v=93';
 
 export function createOzetiMap({
   THREE,scene,root,stage,state,heli,orient,statusEl,clearPressed
@@ -45,26 +46,29 @@ export function createOzetiMap({
     terrainHeight:terrain.height
   });
 
+  const capturedDetails=createCapturedDetailLayer({THREE,scene,objects,terrainHeight:terrain.height});
+
   async function load(){
     await terrain.load();
 
     if(!terrain.data.heightfield){
-      throw new Error('Ozeti v91 terrain heightfield missing after load');
+      throw new Error('Ozeti v93 terrain heightfield missing after load');
     }
 
     const initialStats=objects.placement.stats();
     if(initialStats.instances!==0 || initialStats.uniqueObjects!==0){
-      throw new Error('Ozeti v91 environment must start empty');
+      throw new Error('Ozeti v93 environment must start empty');
     }
 
     const environmentStats=environment.rebuild();
     const componentStats=components.rebuild();
     const objectStats=objects.placement.stats();
     const roadStats=roads.rebuild();
+    const detailStats=capturedDetails.rebuild();
 
     if(objectStats.instances!==environmentStats.trees){
       throw new Error(
-        'Ozeti v91 tree count mismatch: '+
+        'Ozeti v93 tree count mismatch: '+
         objectStats.instances+' / '+environmentStats.trees
       );
     }
@@ -90,12 +94,14 @@ export function createOzetiMap({
         Math.round(playableWorld.maxZ-playableWorld.minZ)+' m';
     }
 
+    if(statusEl) statusEl.textContent=`Ozeti 全圖重建 · ${Math.round(WORLD_CONFIG.width/100)/10} km · 場景 1.25 倍 · 樹木 ${environmentStats.trees.toLocaleString()} · 建築 ${environmentStats.buildings} · 場景物件 ${detailStats.props}`;
     return true;
   }
 
   return {
     load,
     terrainHeight:terrain.height,
+    capturedDetails,
     factionCenterWorld,
     setMapOpen:tactical.setOpen,
     toggleMap:tactical.toggle,

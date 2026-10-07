@@ -1,0 +1,18 @@
+{
+  "version": 93,
+  "source": "mapinfo captured 2026-10-07: contour atlas, vegetation overview, 7 close-up sets",
+  "sourceExtentMeters": 16384,
+  "reconstructionScale": 1.25,
+  "heightGrid": [
+    513,
+    513
+  ],
+  "reliefMeters": 985.377319,
+  "capturedRoofs": 191,
+  "buildingReferences": 322,
+  "forestCells": 3301,
+  "exactGeometry": false,
+  "heightMethod": "Prior central heightfield blended with contour-informed estimated outer ridges. Absolute heights outside prior crop are estimates.",
+  "roofMethod": "Light low-chroma components fitted against locally read X/Y grids. Approximate footprints; estimated heights.",
+  "vegetationMethod": "Overview canopy coverage and paired vegetation/building layer differences at seven landmarks, expanded deterministically. Not original per-tree positions."
+}

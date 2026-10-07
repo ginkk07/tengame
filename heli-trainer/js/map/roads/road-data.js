@@ -1,6 +1,6 @@
 import {
   OZETI_PLAYABLE_BOUNDS
-} from '../map-data.js?v=91';
+} from '../map-data.js?v=93';
 
 /*
  * v87 complete road pass for the recovered playable Ozeti crop.
@@ -288,25 +288,26 @@ export const ROAD_CONFIG=Object.freeze({
   roadbedColor:0x81745f,
   shoulderColor:0xa79778,
   surfaceColor:0x696b66,
-  centerLineColor:0xd5c58f
+  centerLineColor:0xdde3e4
 });
 
+// The old broad grey traces coincide with the dry channels. The new paired
+// captures distinguish these from the narrow paved roads and bridges.
+const CAPTURE_ROADS=[
+  {id:'capture-north-bridge-approach',class:'primary',width:9,points:[[9875,6400],[9875,6220],[9875,6160]]},
+  {id:'capture-south-bridge-approach',class:'primary',width:9,points:[[9875,5980],[9870,5840],[9920,5680],[10000,5400],[10100,5050]]},
+  {id:'capture-west-bridge-north',class:'primary',width:9,points:[[9250,6300],[9320,6210],[9380,6100]]},
+  {id:'capture-west-bridge-south',class:'primary',width:9,points:[[9480,5940],[9600,5800],[9780,5825],[9870,5840]]},
+  {id:'capture-north-river-street',class:'local',width:7,centerLine:false,points:[[9520,6150],[9660,6150],[9830,6095],[9950,6090],[10050,6050],[10250,6050],[10350,6140],[10450,6160],[10600,6150]]},
+  {id:'capture-south-river-street',class:'local',width:7,centerLine:false,points:[[9400,5860],[9600,5850],[9780,5825],[9870,5840],[9990,5780],[10000,5570]]},
+  {id:'capture-town-stadium-street',class:'local',width:7,centerLine:false,points:[[9430,6370],[9580,6370],[9690,6350],[9720,6400],[9700,6500],[9620,6620],[9500,6580],[9430,6510],[9430,6370]]}
+];
+function inCapturedArea([x,y]){
+  return (x>9250&&x<10900&&y>5400&&y<7100)||(x>6500&&x<7300&&y>8500&&y<9200)||(x>13300&&x<14300&&y>6300&&y<7100)||(x>7800&&x<8800&&y>2800&&y<3500);
+}
 export const ROAD_PATHS=Object.freeze([
-  Object.freeze({
-    id:'ozeti-west-east-arterial',
-    class:'primary',
-    width:18,
-    centerLine:true,
-    points:WEST_EAST_POINTS
-  }),
-  Object.freeze({
-    id:'ozeti-north-arterial',
-    class:'primary',
-    width:16,
-    centerLine:true,
-    points:NORTH_POINTS
-  }),
-  ...LOCAL_PATHS
+  ...CAPTURE_ROADS.map(path=>Object.freeze({...path,centerLine:path.centerLine??true,points:Object.freeze(path.points)})),
+  ...LOCAL_PATHS.filter(path=>!path.points.some(inCapturedArea))
 ]);
 
 function pathLength(points){
@@ -358,5 +359,5 @@ export const ROAD_STATS=Object.freeze({
   localLengthMeters:ROAD_PATHS
     .filter(path=>path.class==='local')
     .reduce((sum,path)=>sum+pathLength(path.points),0),
-  source:'ozeti-tactical-map-v1.png / tactical affine calibration / v87 road-ridge vectorization'
+  source:'mapinfo tower-2 paired close-ups / manually traced core roads / retained approximate outer local roads'
 });

@@ -1,0 +1,6 @@
+{
+  "sourceFile": "wardogs-helicopter-trainer-playtest-v51-control-release.html",
+  "sourceSHA256": "2c1e0b883525d87c4f00661b03412f5ab7028dc09bbfd8a497725103a1e61e71",
+  "coreSHA256": "52fca87185de1c8b1797aa52ff47d392b8e6e248f15ca03d2fc51990eba8efbb",
+  "method": "Exact physics, environment, pilot input and assist source extraction. DOM/render adapter replaced for native Ozeti terrain, collision and tactical map."
+}

@@ -1,12 +1,13 @@
+import {WORLD_CONFIG} from '../map-data.js?v=93';
 import {
   mapMetersToWorld
-} from '../master/coordinate-transform.js?v=91';
+} from '../master/coordinate-transform.js?v=93';
 
 import {
   ROAD_CONFIG,
   ROAD_PATHS,
   ROAD_STATS
-} from './road-data.js?v=91';
+} from './road-data.js?v=93';
 
 function classConfig(path){
   if(path.class==='local'){
@@ -207,7 +208,7 @@ export function createRoadLayer({
         batch:batches.roadbed,
         samples,
         terrainHeight,
-        width:path.width+cfg.roadbedExtra,
+        width:(path.width+cfg.roadbedExtra)*WORLD_CONFIG.scale,
         yOffset:ROAD_CONFIG.roadbedYOffset
       });
 
@@ -216,7 +217,7 @@ export function createRoadLayer({
           batch:batches.shoulder,
           samples,
           terrainHeight,
-          width:path.width+cfg.shoulderExtra,
+          width:(path.width+cfg.shoulderExtra)*WORLD_CONFIG.scale,
           yOffset:ROAD_CONFIG.shoulderYOffset
         });
       }
@@ -225,7 +226,7 @@ export function createRoadLayer({
         batch:batches.surface,
         samples,
         terrainHeight,
-        width:path.width,
+        width:path.width*WORLD_CONFIG.scale,
         yOffset:ROAD_CONFIG.surfaceYOffset
       });
 
@@ -234,7 +235,7 @@ export function createRoadLayer({
           batch:batches.center,
           samples,
           terrainHeight,
-          width:.55,
+          width:.55*WORLD_CONFIG.scale,
           yOffset:ROAD_CONFIG.centerLineYOffset
         });
       }

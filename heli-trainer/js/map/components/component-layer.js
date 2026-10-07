@@ -1,12 +1,14 @@
+import {WORLD_CONFIG} from '../map-data.js?v=93';
+import {CAPTURE_BUILDINGS} from '../reference/capture-data.js?v=93';
 import {
   FACILITY_REFERENCE_POINTS,
   FULLMAP_POIS,
   OZETI_PLAYABLE_BOUNDS,
   STADIUM_REFERENCE,
   TOWER_REFERENCE_POINTS
-} from '../map-data.js?v=91';
-import {mapPointToWorld} from '../factions.js?v=91';
-import {FACILITY_PLACEMENTS_V91,FACILITY_COLLISIONS_V91,FACILITY_COUNTS_V91} from '../facilities/facility-data-v91.js?v=91';
+} from '../map-data.js?v=93';
+import {mapPointToWorld} from '../factions.js?v=93';
+import {FACILITY_PLACEMENTS_V91,FACILITY_COLLISIONS_V91,FACILITY_COUNTS_V91} from '../facilities/facility-data-v91.js?v=93';
 
 const COMPONENT_SECTOR='components-v91';
 const COLLISION_CELL=128;
@@ -56,14 +58,14 @@ function makePlacements(){
   for(const tower of TOWER_REFERENCE_POINTS){
     if(!insidePlayable(tower.x,tower.y,6)) continue;
     placements.push({
-      model:'infrastructure.tower',
+      model:'landmark.control_ruin',
       name:`Ozeti ${tower.id}`,
       mapX:tower.x,mapY:tower.y,
       rotationY:0,scale:1,yOffset:0
     });
     collision.push({
       kind:'tower',mapX:tower.x,mapY:tower.y,
-      halfW:3.2,halfD:3.2,height:43,yOffset:0
+      halfW:15,halfD:18,height:18,yOffset:0
     });
     sources.towers++;
   }
@@ -155,6 +157,7 @@ function makePlacements(){
   }
 
   for(const townPoi of FULLMAP_POIS){
+    if(!/church/.test(townPoi.id) && CAPTURE_BUILDINGS.some(b=>Math.hypot(b.x-townPoi.x,b.y-townPoi.y)<40)) continue;
     let spec=TOWN_PROXY_SPECS[townPoi.id] || null;
 
     if(!spec && /^residential_\d+$/.test(townPoi.id)){
@@ -190,16 +193,10 @@ function makePlacements(){
     sources.landmarks++;
   }
 
-  for(const spec of FACILITY_PLACEMENTS_V91){
-    placements.push({...spec});
-  }
-  for(const item of FACILITY_COLLISIONS_V91){
-    collision.push({...item});
-  }
-  sources.supportFacilities=FACILITY_COUNTS_V91.total;
-  sources.baseSupport=FACILITY_COUNTS_V91.baseSupport;
-  sources.farmSupport=FACILITY_COUNTS_V91.farmSupport;
-  sources.townSupport=FACILITY_COUNTS_V91.townSupport;
+  sources.supportFacilities=0;
+  sources.baseSupport=0;
+  sources.farmSupport=0;
+  sources.townSupport=0;
 
   return {placements,collision,sources};
 }
@@ -214,13 +211,15 @@ export function createComponentLayer({objects,terrainHeight}){
   function addCollision(source){
     const world=mapPointToWorld(source.mapX,source.mapY);
     const groundY=Number.isFinite(Number(source.groundYOverride))
-      ? Number(source.groundYOverride)
-      : terrainHeight(world.x,world.z)+Number(source.yOffset||0);
+      ? Number(source.groundYOverride)*WORLD_CONFIG.scale
+      : terrainHeight(world.x,world.z)+Number(source.yOffset||0)*WORLD_CONFIG.scale;
     const record={
       ...source,
       x:world.x,z:world.z,
       groundY,
-      topY:groundY+Number(source.height||1),
+      topY:groundY+Number(source.height||1)*WORLD_CONFIG.scale,
+      halfW:source.halfW*WORLD_CONFIG.scale,
+      halfD:source.halfD*WORLD_CONFIG.scale,
       yaw:Number(source.yaw||0)
     };
     const ix=Math.floor(world.x/COLLISION_CELL);
@@ -237,7 +236,7 @@ export function createComponentLayer({objects,terrainHeight}){
     for(const spec of data.placements){
       if(Number.isFinite(Number(spec.targetElevation))){
         const world=mapPointToWorld(spec.mapX,spec.mapY);
-        spec.yOffset=Number(spec.targetElevation)-terrainHeight(world.x,world.z);
+        spec.yOffset=(Number(spec.targetElevation)*WORLD_CONFIG.scale-terrainHeight(world.x,world.z))/WORLD_CONFIG.scale;
       }
     }
 
@@ -266,8 +265,8 @@ export function createComponentLayer({objects,terrainHeight}){
           const oz=z-record.z;
           const c=Math.cos(record.yaw);
           const s=Math.sin(record.yaw);
-          const lx=ox*c+oz*s;
-          const lz=-ox*s+oz*c;
+          const lx=ox*c-oz*s;
+          const lz=ox*s+oz*c;
           if(
             Math.abs(lx)<=record.halfW+clearance &&
             Math.abs(lz)<=record.halfD+clearance

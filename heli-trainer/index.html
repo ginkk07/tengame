@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>WARDOGS Helicopter Trainer v2</title>
-<link rel="stylesheet" href="./css/ozeti-map.css">
+<title>Ozeti Helicopter Trainer v98</title>
+<link rel="stylesheet" href="./css/ozeti-map.css?v=98">
 <style>
   :root{
     --bg:#11161a;--panel:#1b2228;--border:#39434a;--text:#eef3f5;--muted:#9aa6ad;
@@ -49,7 +49,14 @@
     transform:translateY(0);
   }
   .bindrow{display:grid;grid-template-columns:1fr 86px;gap:8px;align-items:center;margin:6px 0;font-size:13px}
-  button,input{font:inherit}
+  button,input,select{font:inherit}
+  select{width:100%;padding:8px;background:#11181c;color:var(--text);border:1px solid var(--border);border-radius:6px}
+  #surveyHint{position:absolute;left:16px;bottom:16px;padding:10px 14px;background:rgba(16,24,29,.86);border:1px solid #61717b;border-radius:8px;font-size:13px;pointer-events:none}
+  #surveyHint[hidden]{display:none}
+  .map-note{font-size:12px;line-height:1.6;color:#acb9bf;margin:8px 0}
+  .survey-controls[hidden]{display:none}
+  #terrainStatusVal{max-width:185px;font-size:11px;line-height:1.6;text-align:right}
+  #surveyToggle{width:100%}
   button{background:#202930;color:var(--text);border:1px solid var(--border);border-radius:6px;min-height:34px}
   .bind.waiting{outline:2px solid #bfc9ce}
   .bind.active{background:#35424b}
@@ -96,6 +103,7 @@
 <div id="app" tabindex="0">
   <div id="stage">
     <div id="loading">載入 3D 模擬中…</div>
+    <div id="surveyHint" hidden>地圖巡覽 · 拖動旋轉，滾輪拉近 / 拉遠</div>
     <div id="hud">
       <div id="collectiveLeft" class="collective-side">
         <div class="collective-center"></div>
@@ -116,27 +124,77 @@
 
   <aside id="panel">
     <div class="section">
+      <h3>Ozeti 地圖重建</h3>
+      <p class="map-note">場景約 20.5 × 20.5 km · 比例 1.25 倍<br>使用原站模型、物件配置與地形紋理。<br>全圖近景使用同一細節標準。<br>拉近可看建築構件、樹冠與地面紋理。</p>
+      <button id="surveyToggle" type="button" disabled>地圖巡覽</button>
+      <div class="control">
+        <label class="control-top" for="sceneQuality">畫面品質</label>
+        <select id="sceneQuality" aria-label="畫面品質">
+          <option value="smooth">流暢</option>
+          <option value="balanced">標準</option>
+          <option value="detail" selected>細緻</option>
+        </select>
+      </div>
+      <div id="surveyControls" class="survey-controls" hidden>
+        <p class="map-note">選擇區域，拖動場景旋轉，滾輪查看細節。</p>
+        <select id="surveySite" aria-label="巡覽區域">
+          <option value="manticore">Manticore 木材場</option>
+          <option value="valkyra">Valkyra 基地</option>
+          <option value="lonestar">Lonestar 基地</option>
+          <option value="westtown">西側聚落</option>
+            <option value="easttown">東側街區</option>
+            <option value="industrial">東側工業區</option>
+            <option value="southfarm">南側農場</option>
+            <option value="westwarehouse">西側倉儲區</option>
+            <option value="citystreet" selected>市區街道與庭院</option>
+            <option value="shops">商店與街角</option>
+            <option value="apartments">公寓與車庫</option>
+            <option value="stadium">體育場看台</option>
+            <option value="tower1">Tower 1 / 體育場</option>
+          <option value="tower2">Tower 2 / 河床與橋梁</option>
+          <option value="tower3">Tower 3 / 城鎮</option>
+          <option value="tower4">Tower 4 / 樹林</option>
+          <option value="north">北方山脈</option>
+          <option value="full">全圖俯瞰</option>
+        </select>
+        <div class="control">
+          <div class="control-top"><label for="surveyDistance">觀察距離</label><strong id="surveyDistanceVal">450 m</strong></div>
+          <input id="surveyDistance" type="range" min="0" max="100" step="1" value="36" aria-label="觀察距離">
+        </div>
+      </div>
+      <div class="row"><span>近景細節</span><strong id="nativeDetailVal">載入中…</strong></div>
+      <div class="row"><span>已載入區域</span><strong id="nativeRegionsVal">—</strong></div>
+      <div class="row" title="模型、地形與配置緩衝估算；不含貼圖、瀏覽器快取與物件管理開銷"><span>場景資料</span><strong id="nativeMemoryVal">—</strong></div>
+        <div class="row"><span>畫面速度</span><strong id="fpsVal">—</strong></div>
+    </div>
+    <div class="section">
       <h3>飛行狀態</h3>
-      <div class="row"><span>升降輸入</span><strong id="verticalInputVal">0%</strong></div>
+      <div class="row"><span>總距增減</span><strong id="verticalInputVal">0%</strong></div>
       <div class="row"><span>控制總距</span><strong id="collectiveVal">65%</strong></div>
-      <div class="row"><span>旋翼輸出</span><strong id="effectiveCollectiveVal">65%</strong></div>
+      <div class="row"><span>實際總距</span><strong id="effectiveCollectiveVal">65%</strong></div>
       <div class="row"><span>高度</span><strong id="altVal">10.0 m</strong></div>
       <div class="row"><span>升降速度</span><strong id="verticalVal">0.0 m/s</strong></div>
       <div class="row"><span>時速</span><strong id="speedKmhVal">0 km/h</strong></div>
-      <div class="row"><span>目標極速</span><strong>約 310 km/h</strong></div>
-      <div class="row"><span>偏航效力</span><strong id="yawAuthorityVal">100%</strong></div>
+      <div class="row"><span>機身前後速度</span><strong id="forwardSpeedVal">0 km/h</strong></div>
+      <div class="row"><span>側滑速度</span><strong id="sideSpeedVal">0 km/h</strong></div>
+      <div class="row"><span>飛行路徑角</span><strong id="flightPathVal">0.0°</strong></div>
+      <div class="row"><span>向上加速度</span><strong id="verticalAccelVal">0.0 m/s²</strong></div>
+      <div class="row"><span>旋翼離地</span><strong id="rotorClearanceVal">0 m</strong></div>
+      <div class="row"><span>近地下洗減少</span><strong id="groundEffectVal">+0.0%</strong></div>
+      <div class="row"><span>局部風速</span><strong id="gustSpeedVal">0.0 m/s</strong></div>
+      <div class="row"><span>旋翼推力／重量</span><strong id="flowLiftVal">+0.00 g</strong></div>
+      <div class="row"><span>旋翼轉速</span><strong id="rotorRPMVal">100%</strong></div>
+      <div class="row"><span>引擎軸功率</span><strong id="shaftPowerVal">0 kW</strong></div>
+      <div class="row"><span>旋翼下洗</span><strong id="inflowVal">0 m/s</strong></div>
+      <div class="row"><span>下降氣流</span><strong id="wakeModeVal">正常</strong></div>
+      <div class="row"><span>尾舵力矩餘量</span><strong id="yawAuthorityVal">100%</strong></div>
       <div class="row"><span>Pitch</span><strong id="pitchVal">0.0°</strong></div>
       <div class="row"><span>Roll</span><strong id="rollVal">0.0°</strong></div>
       <div class="row"><span>視角</span><strong id="cameraModeVal">第三人稱</strong></div>
-      <div class="row"><span>操控反應</span><strong>較平緩</strong></div>
-      <div class="row"><span>垂直慣性</span><strong>強</strong></div>
-      <div class="row"><span>高度保持</span><strong>物理煞停捕捉</strong></div>
-      <div class="row"><span>下降重力</span><strong>加強</strong></div>
-      <div class="row"><span>水平慣性</span><strong>速度保留</strong></div>
-      <div class="row"><span>加速度模型</span><strong>直接 F / m</strong></div>
-      <div class="row"><span>升降模型</span><strong>線性總距 + F / m</strong></div>
-      <div class="row"><span>物理核心</span><strong>Rotor + 6DoF 簡化</strong></div>
-      <div class="row"><span>Pitch 輔助</span><strong>放手姿態保持</strong></div>
+      <div class="row"><span>操控反應</span><strong>快速反向・保留慣性</strong></div>
+      <div class="row"><span>輔助狀態</span><strong id="altitudeModeVal">高度保持</strong></div>
+      <div class="row"><span>重力</span><strong>9.81 m/s²</strong></div>
+      <div class="row"><span>物理核心</span><strong>槳葉氣動・轉速與下洗</strong></div>
       <div class="row"><span>基準引擎重量</span><strong>4200 kg</strong></div>
       <div class="row"><span>目前重量</span><strong id="massReadout">4200 kg</strong></div>
       <div class="row"><span>場地</span><strong id="terrainStatusVal">Ozeti 地形載入中…</strong></div>
@@ -145,28 +203,29 @@
     <div class="section">
       <h3>飛行輔助</h3>
       <div class="assist">
-        <label>Flight Assists</label>
+        <label for="assistMaster">Flight Assists</label>
         <input id="assistMaster" type="checkbox" checked>
       </div>
 
       <div id="assistOptions" class="assist-options">
-        <div class="assist" data-tip="穩定姿態。前後傾放開後會保持當下 Pitch 姿態並抑制殘留角速度；左右 Roll 放開後會逐漸回到水平。">
-          <label>Stability Assist</label>
+        <div class="assist" data-tip="放開操縱後抑制持續轉動，減少姿態超轉；放手 0.35 秒後逐漸加入較弱的側滾回正（原 v45 的一半）。前後與左右反向操控仍可主動停止旋轉。">
+          <label for="stabilityAssist">Stability Assist</label>
           <input id="stabilityAssist" type="checkbox" checked>
         </div>
 
-        <div class="assist" data-tip="自動懸停輔助。只在低速、姿態接近水平時抑制水平漂移，不會在正常巡航速度下主動煞車。">
-          <label>Auto-Hover Assist</label>
+        <div class="assist" data-tip="統一控制位置、高度與航向。低速穩定放手 0.75 秒後捕捉懸停點並持續保持；手動操作立即釋放懸停。前後傾機動時總距交由駕駛控制，回到近水平或重新懸停後才恢復高度保持。一般側滾轉彎仍保留垂直升力支援。">
+          <label for="hoverAssist">Auto-Hover Assist</label>
           <input id="hoverAssist" type="checkbox" checked>
         </div>
 
-        <div class="assist" data-tip="姿態包線限制。接近大 Pitch／Roll 角度時逐漸介入，避免機體超出設定的安全傾角範圍。">
-          <label>Envelope Limits</label>
+        <div class="assist" data-tip="允許通過 90°。機身總傾角超過 100° 後逐漸施加回正力矩；關閉後可連續翻轉。此功能只透過操縱修正姿態，不會直接鎖住角度。">
+          <label for="envelopeAssist">Envelope Limits</label>
           <input id="envelopeAssist" type="checkbox" checked>
         </div>
 
+
         <div class="assist" data-tip="轉彎協調。沒有手動偏航輸入時，依 Roll 角加入少量偏航，讓轉彎方向更自然。">
-          <label>Turn Coordination</label>
+          <label for="turnAssist">Turn Coordination</label>
           <input id="turnAssist" type="checkbox" checked>
         </div>
       </div>
@@ -180,15 +239,15 @@
       <div class="bindrow"><span>右滾</span><button class="bind" data-action="rollRight">D</button></div>
       <div class="bindrow"><span>左偏航</span><button class="bind" data-action="yawLeft">Q</button></div>
       <div class="bindrow"><span>右偏航</span><button class="bind" data-action="yawRight">E</button></div>
-      <div class="bindrow"><span>上升</span><button class="bind" data-action="collectiveUp">L SHIFT</button></div>
-      <div class="bindrow"><span>下降</span><button class="bind" data-action="collectiveDown">L CTRL</button></div>
+      <div class="bindrow"><span>增加總距</span><button class="bind" data-action="collectiveUp">L SHIFT</button></div>
+      <div class="bindrow"><span>減少總距</span><button class="bind" data-action="collectiveDown">L CTRL</button></div>
       <div class="bindrow"><span>切換視角</span><button id="cameraToggleKey" type="button">C</button></div>
-      <div class="bindrow"><span>戰術地圖</span><button id="mapToggleKey" type="button">M</button></div>
+      <div class="bindrow"><span>戰術地圖</span><button id="mapToggleKey" type="button" disabled>M</button></div>
     </div>
 
     <div class="section">
       <div class="control">
-        <div class="control-top"><span>姿態速度</span><input id="attitudeRateNumber" class="num" type="number" min="20" max="100" value="40"></div>
+        <div class="control-top"><span>姿態反應</span><input id="attitudeRateNumber" class="num" type="number" min="20" max="100" value="40"></div>
         <input id="attitudeRate" type="range" min="20" max="100" value="40">
       </div>
       <div class="control">
@@ -196,7 +255,7 @@
         <input id="yawRate" type="range" min="1" max="120" value="50">
       </div>
       <div class="control">
-        <div class="control-top"><span>最大推力 %</span><input id="maxThrustNumber" class="num" type="number" min="120" max="220" value="155"></div>
+        <div class="control-top"><span>靜態最大推力 %</span><input id="maxThrustNumber" class="num" type="number" min="120" max="220" value="155"></div>
         <input id="maxThrust" type="range" min="120" max="220" value="155">
       </div>
       <div class="control">
@@ -205,17 +264,31 @@
       </div>
     </div>
 
+    <div class="section">
+      <h3>環境氣流</h3>
+      <div class="assist" data-tip="低空旋翼效率增加。隨旋翼離地高度、傾斜及空速逐漸減弱；飛行輔助總開關不會關閉此效應。">
+        <label for="groundEffect">地面效應</label><input id="groundEffect" type="checkbox" checked>
+      </div>
+      <div class="control" title="0 為平靜氣流，100 為一般亂流，200 為強亂流。陣風會推動機體並產生俯仰、橫滾擾動。">
+        <div class="control-top"><span>亂流強度 %</span><input id="turbulenceNumber" class="num" type="number" min="0" max="200" step="10" value="100"></div>
+        <input id="turbulence" type="range" min="0" max="200" step="10" value="100">
+      </div>
+    </div>
+
     <div class="btns">
       <button id="reset">重置</button>
       <button id="pause">暫停</button>
     </div>
-    <div class="version-label">VERSION v91</div>
+    <div class="version-label">VERSION v98 · v51 飛行物理</div>
   </aside>
 </div>
 
 <script type="module">
-const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm?v=90');
+const THREE = await import('./js/vendor/three/three.module.js');
+import {HelicopterPhysics,FlightEnvironment,PilotControls,FlightAssistController,DEG,G} from './js/flight/v51-physics.js';
+import {createFlightRuntime,createFixedStepClock} from './js/flight/flight-runtime.js';
 
+import {mapMetersToWorld} from './js/map/master/coordinate-transform.js?v=93';
 const root=document.getElementById('app');
 const stage=document.getElementById('stage');
 
@@ -297,7 +370,7 @@ window.addEventListener(
   }
 );
 const renderer=new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
@@ -305,54 +378,29 @@ renderer.toneMappingExposure=1.04;
 stage.prepend(renderer.domElement);
 document.getElementById('loading')?.remove();
 
-const pmremGenerator=new THREE.PMREMGenerator(renderer);
-pmremGenerator.compileEquirectangularShader();
-
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0xb9c6d2);
-scene.fog=new THREE.Fog(0xb4c2cc,3800,11800);
+scene.background=new THREE.Color(0x9fc5df);
+scene.fog=new THREE.Fog(0xb4c2cc,6000,20000);
 
-// Local sky texture.
-// Place the downloaded Poly Haven JPG at:
-// ./assets/sky/kloofendal_48d_partly_cloudy_puresky.jpg
-const SKY_TEXTURE_URL='./assets/sky/kloofendal_48d_partly_cloudy_puresky.jpg';
-
+// Bundle the original panorama locally and retain it for the visible background.
+const SKY_TEXTURE_URL='./assets/sky/kloofendal_48d_partly_cloudy_puresky_4k.jpg';
 new THREE.TextureLoader().load(
   SKY_TEXTURE_URL,
   texture=>{
     texture.mapping=THREE.EquirectangularReflectionMapping;
     texture.colorSpace=THREE.SRGBColorSpace;
-
-    // Keep the equirectangular texture alive because it is also the visible sky.
-    // Disposing it here caused the background to disappear after PMREM creation.
-    texture.needsUpdate=true;
-    window.__skyTexture=texture;
-
     scene.background=texture;
-
-    const envMap=pmremGenerator.fromEquirectangular(texture).texture;
-    window.__skyEnvMap=envMap;
-    scene.environment=envMap;
-
-    if('environmentIntensity' in scene){
-      scene.environmentIntensity=.75;
-    }
-
-    pmremGenerator.dispose();
   },
   undefined,
-  err=>{
-    console.warn('Local sky texture failed to load. Expected:',SKY_TEXTURE_URL,err);
-    scene.background=new THREE.Color(0x9fc5df);
-  }
+  error=>console.warn('天空貼圖載入失敗：'+SKY_TEXTURE_URL,error)
 );
 
-const camera=new THREE.PerspectiveCamera(55,1,.1,24000);
+const camera=new THREE.PerspectiveCamera(55,1,.1,36000);
 scene.add(new THREE.HemisphereLight(0xffffff,0x4b5c44,1.35));
 const sun=new THREE.DirectionalLight(0xfff6e8,1.72);
 sun.position.set(620,900,480);
 sun.castShadow=true;
-sun.shadow.mapSize.set(2048,2048);
+sun.shadow.mapSize.set(1024,1024);
 sun.shadow.camera.left=-720;
 sun.shadow.camera.right=720;
 sun.shadow.camera.top=720;
@@ -364,20 +412,13 @@ sun.shadow.normalBias=1.15;
 scene.add(sun);
 scene.add(sun.target);
 
-/*
- * OZETI v86 PRIMARY ROADS + RIVER + GEOLOGY ROCKS + PLAYABLE BOUNDS
- * ----------------------
- * The complete Ozeti terrain may occupy the full 16,384 m master world,
- * while helicopter movement is limited to the verified bright/playable region
- * X 5758..14307 / Y 2181..9956 map metres (about 8,549 x 7,775 m).
- * Rendering bounds and movement bounds are deliberately separate.
- */
+// Ozeti v93 uses a 20.48 km world, including the reconstructed outer terrain.
 const terrainStatusVal=
   document.getElementById(
     'terrainStatusVal'
   );
 
-let ozetiMap=null;
+let ozetiMap=null,mapReady=false;
 
 function terrainHeight(x,z){
   return ozetiMap
@@ -396,6 +437,7 @@ function setMapOpen(open){
 }
 
 function toggleMap(){
+  if(!mapReady)return;
   ozetiMap?.toggleMap();
 }
 
@@ -409,6 +451,7 @@ function isMapOpen(){
 
 // helicopter model remains visible; only the center HUD/crosshair was removed
 const heli=new THREE.Group();
+heli.scale.setScalar(.85);
 scene.add(heli);
 
 const bodyMat=new THREE.MeshStandardMaterial({color:0x50585c});
@@ -513,40 +556,90 @@ rotor.add(new THREE.Mesh(new THREE.BoxGeometry(.16,.05,9),darkMat));
 
 const fuselageParts=[body,nose,tail,verticalFin,horizontalStab,tailRotor];
 
-const state={
-  pos:new THREE.Vector3(0,42,320),
-  vel:new THREE.Vector3(),
-  pitch:0,
-  roll:0,
-  yaw:Math.PI,
-  verticalInput:0,
-  collective:.65,
-  effectiveCollective:.65,
-  holdAltitude:42,
-  paused:false,
-  yawAuthority:1,
-  firstPerson:false,
-  pitchCommand:0,
-  rollCommand:0,
-  yawCommand:0,
+const aircraft=new HelicopterPhysics();
+const state=aircraft.state;
+const pilotControls=new PilotControls();
+const flightAssists=new FlightAssistController();
+const uiState={paused:false,firstPerson:false,verticalInput:0,rotorSpin:0,chaseYaw:Math.PI};
+const qBody=state.attitude;
+const environment=new FlightEnvironment(terrainHeight,10240-25);
+const flight=createFlightRuntime({THREE,aircraft,pilotControls,flightAssists,environment,
+  collision:()=>ozetiMap?.environmentLayer,
+  readConfig:()=>({mass:+document.getElementById('massKg').value,thrustRatio:+document.getElementById('maxThrust').value/100,
+    attitudeRate:+document.getElementById('attitudeRate').value,yawRate:+document.getElementById('yawRate').value,
+    turbulence:+document.getElementById('turbulence').value/100,groundEffect:document.getElementById('groundEffect').checked,boundary:(ozetiMap?.bounds.halfX||10240)-25}),
+  readAssists:()=>({master:assistMaster.checked,stability:stabilityAssist.checked,hover:hoverAssist.checked,envelope:envelopeAssist.checked,turn:turnAssist.checked})
+});
+const physicsClock=createFixedStepClock(update);
 
-  // Rigid-body angular rates.
-  pitchRate:0,
-  rollRate:0,
-  yawRateBody:0,
-
-  // Rotor-disc flapping / cyclic response relative to the fuselage.
-  rotorPitch:0,
-  rotorRoll:0,
-
-  // Tracks release of vertical input so altitude hold can capture smoothly.
-  verticalWasActive:false,
-
-  // Stability Assist pitch trim:
-  // when W/S is released, hold the current pitch instead of forcing 0°.
-  pitchTrim:0,
-  pitchWasActive:false
+const survey={active:false,distance:450,azimuth:-.7,pitch:.68,target:new THREE.Vector3()};
+function applySceneQuality(){
+  const quality=document.getElementById('sceneQuality').value;
+  renderer.setPixelRatio(Math.min(devicePixelRatio,quality==='detail'?2:quality==='balanced'?1.25:1));
+  renderer.shadowMap.enabled=quality!=='smooth';
+  const size=quality==='detail'?2048:1024;
+  if(sun.shadow.mapSize.x!==size){sun.shadow.map?.dispose();sun.shadow.map=null;sun.shadow.mapSize.set(size,size);}
+  scene.traverse(o=>{if(o.material){for(const m of Array.isArray(o.material)?o.material:[o.material])m.needsUpdate=true;}});
+  resize();
+}
+document.getElementById('sceneQuality').addEventListener('change',applySceneQuality);
+const surveySites={
+  westtown:[7636,7277,300],easttown:[11868,6694,300],industrial:[12855,6674,350],southfarm:[8087,4483,250],westwarehouse:[7276,8356,280],shops:[9979,6461,250],apartments:[9555,6183,320],stadium:[9773,6542,420],citystreet:[9750,6260,300],manticore:[6900,8830,350],valkyra:[13760,6740,480],lonestar:[8390,3150,450],
+  tower1:[9700,6480,650],tower2:[10036,5924,500],tower3:[10449,6371,550],
+  tower4:[10062,6764,550],north:[3100,13300,3800],full:[8190,8191,30000]
 };
+const distanceSlider=document.getElementById('surveyDistance');
+function syncSurveyDistance(){
+  distanceSlider.value=Math.log(survey.distance/40)/Math.log(750)*100;
+  document.getElementById('surveyDistanceVal').textContent=survey.distance>=1000?(survey.distance/1000).toFixed(1)+' km':Math.round(survey.distance)+' m';
+}
+function renderSurvey(){
+  if(!survey.active)return;
+  updateCamera(0);ozetiMap?.updateView?.(camera,document.getElementById('sceneQuality').value,0,survey.target,true);updateSunForAircraft();renderer.render(scene,camera);
+}
+function chooseSurveySite(){
+  const id=document.getElementById('surveySite').value,[x,y,distance]=surveySites[id];
+  const point=mapMetersToWorld(x,y);
+  survey.target.set(point.x,terrainHeight(point.x,point.z)+6,point.z);
+  survey.distance=distance;survey.pitch=id==='full'?1.43:['citystreet','shops','apartments'].includes(id)?.48:.68;survey.azimuth=-.7;
+  syncSurveyDistance();
+  renderSurvey();
+}
+function setSurvey(active){
+  survey.active=active;pressed.clear();flight.releaseInputs();uiState.verticalInput=0;
+  if(active){setMapOpen(false);chooseSurveySite();}
+  document.getElementById('surveyControls').hidden=!active;
+  document.getElementById('surveyHint').hidden=!active;
+  document.getElementById('surveyToggle').textContent=active?'返回飛行':'地圖巡覽';
+  document.getElementById('cameraModeVal').textContent=active?'地圖巡覽':uiState.firstPerson?'機頭第一人稱':'第三人稱';
+  document.getElementById('hud').style.display=active?'none':'';
+  document.getElementById('pause').disabled=active;
+  if(!active){heli.visible=true;camera.position.copy(state.pos).add(new THREE.Vector3(34,12,0));}
+  root.focus();
+}
+document.getElementById('surveyToggle').addEventListener('click',()=>setSurvey(!survey.active));
+document.getElementById('surveySite').addEventListener('change',chooseSurveySite);
+distanceSlider.addEventListener('input',()=>{survey.distance=40*Math.pow(750,+distanceSlider.value/100);syncSurveyDistance();renderSurvey();});
+let surveyDrag=null;
+renderer.domElement.addEventListener('pointerdown',e=>{
+  if(!survey.active || e.button!==0)return;
+  surveyDrag={x:e.clientX,y:e.clientY,id:e.pointerId};renderer.domElement.setPointerCapture(e.pointerId);
+});
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(!surveyDrag || !survey.active)return;
+  survey.azimuth-=(e.clientX-surveyDrag.x)*.006;
+  survey.pitch=Math.max(.25,Math.min(1.48,survey.pitch+(e.clientY-surveyDrag.y)*.004));
+  surveyDrag.x=e.clientX;surveyDrag.y=e.clientY;
+  renderSurvey();
+});
+renderer.domElement.addEventListener('pointerup',()=>surveyDrag=null);
+renderer.domElement.addEventListener('pointercancel',()=>surveyDrag=null);
+renderer.domElement.addEventListener('wheel',e=>{
+  if(!survey.active)return;e.preventDefault();
+  survey.distance=Math.max(40,Math.min(30000,survey.distance*Math.exp(e.deltaY*.001)));
+  syncSurveyDistance();
+  renderSurvey();
+},{passive:false});
 
 const STORAGE_KEY='wardogsHelicopterTrainerSettingsV2';
 
@@ -571,6 +664,7 @@ function keyName(c){
   if(c.startsWith('Key'))return c.slice(3);
   if(c==='ShiftLeft')return 'L SHIFT';
   if(c==='ControlLeft')return 'L CTRL';
+  if(c==='AltLeft')return 'L ALT';
   return c;
 }
 function updateBindUI(){
@@ -594,10 +688,13 @@ document.querySelectorAll('.bind').forEach(b=>{
 root.addEventListener('keydown',e=>{
   if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;
 
+  if(survey.active && e.code==='Escape'){e.preventDefault();setSurvey(false);return;}
+  if(survey.active && e.code==='KeyM'&&!e.repeat){e.preventDefault();setSurvey(false);toggleMap();return;}
+  if(survey.active)return;
   if(!rebinding && e.code==='KeyC' && !e.repeat){
     e.preventDefault();
-    state.firstPerson=!state.firstPerson;
-    document.getElementById('cameraModeVal').textContent=state.firstPerson?'機頭第一人稱':'第三人稱';
+    uiState.firstPerson=!uiState.firstPerson;
+    document.getElementById('cameraModeVal').textContent=uiState.firstPerson?'機頭第一人稱':'第三人稱';
     return;
   }
   if(!rebinding && e.code==='KeyM' && !e.repeat){
@@ -611,6 +708,7 @@ root.addEventListener('keydown',e=>{
     setMapOpen(false);
     return;
   }
+  if(isMapOpen()&&!rebinding)return;
   if(rebinding){
     e.preventDefault();
     if(e.code==='Escape'){
@@ -638,8 +736,9 @@ window.addEventListener('blur',()=>pressed.clear());
 stage.addEventListener('pointerdown',()=>root.focus());
 
 document.getElementById('cameraToggleKey').addEventListener('click',()=>{
-  state.firstPerson=!state.firstPerson;
-  document.getElementById('cameraModeVal').textContent=state.firstPerson?'機頭第一人稱':'第三人稱';
+  if(survey.active)setSurvey(false);
+  uiState.firstPerson=!uiState.firstPerson;
+  document.getElementById('cameraModeVal').textContent=uiState.firstPerson?'機頭第一人稱':'第三人稱';
   root.focus();
 });
 
@@ -665,7 +764,7 @@ function sync(id){
     saveSettings();
   });
 }
-['attitudeRate','yawRate','maxThrust','massKg'].forEach(sync);
+['attitudeRate','yawRate','maxThrust','massKg','turbulence'].forEach(sync);
 
 const massReadout=document.getElementById('massReadout');
 const massSlider=document.getElementById('massKg');
@@ -702,6 +801,8 @@ function saveSettings(){
         yawRate:+document.getElementById('yawRate').value,
         maxThrust:+document.getElementById('maxThrust').value,
         massKg:+document.getElementById('massKg').value,
+        turbulence:+document.getElementById('turbulence').value,
+        groundEffect:document.getElementById('groundEffect').checked,
         assists:{
           master:assistMaster.checked,
           stability:stabilityAssist.checked,
@@ -749,6 +850,8 @@ function loadSettings(){
     applyNumber('yawRate',saved.yawRate);
     applyNumber('maxThrust',saved.maxThrust);
     applyNumber('massKg',saved.massKg);
+    if(saved.turbulence!==undefined)applyNumber('turbulence',saved.turbulence);
+    if(typeof saved.groundEffect==='boolean')document.getElementById('groundEffect').checked=saved.groundEffect;
 
     if(saved.assists){
       if(typeof saved.assists.master==='boolean')assistMaster.checked=saved.assists.master;
@@ -773,922 +876,32 @@ updateBindUI();
   });
 });
 
+document.getElementById('groundEffect').addEventListener('change',saveSettings);
 updateMassReadout();
 
-// Engine/thrust calibration remains based on the original 4,200 kg aircraft.
-// Player weight changes mass/inertia; it does NOT magically scale engine output.
-const BASE_MASS=4200;
-const G=9.81;
-
-function currentMass(){
-  return +document.getElementById('massKg').value;
+function currentMass(){return aircraft.mass;}
+function orient(){renderAircraft(0);}
+const rotorSpinQ=new THREE.Quaternion(),spinAxis=new THREE.Vector3(0,1,0);
+function renderAircraft(dt){
+  heli.position.copy(state.pos);heli.quaternion.copy(state.attitude);
+  uiState.rotorSpin=(uiState.rotorSpin+aircraft.rotorModel.omega*dt)%(2*Math.PI);
+  rotorSpinQ.setFromAxisAngle(spinAxis,uiState.rotorSpin);
+  rotor.quaternion.copy(aircraft.diskQ).multiply(rotorSpinQ);tailRotor.rotation.z+=dt*38;
 }
-const qYaw=new THREE.Quaternion();
-const qPitch=new THREE.Quaternion();
-const qRoll=new THREE.Quaternion();
-const qBody=new THREE.Quaternion();
-const qThrustPitch=new THREE.Quaternion();
-const qThrustRoll=new THREE.Quaternion();
-const qThrust=new THREE.Quaternion();
-const axisY=new THREE.Vector3(0,1,0);
-const axisZ=new THREE.Vector3(0,0,1);
-const axisX=new THREE.Vector3(1,0,0);
-const rotorUp=new THREE.Vector3();
-const force=new THREE.Vector3();
-const previousPosition=new THREE.Vector3();
-
-function orient(){
-  qYaw.setFromAxisAngle(axisY,state.yaw);
-  qPitch.setFromAxisAngle(axisZ,state.pitch);
-  qRoll.setFromAxisAngle(axisX,state.roll);
-  qBody.copy(qYaw).multiply(qPitch).multiply(qRoll);
-}
-function shortest(a){
-  while(a>Math.PI)a-=Math.PI*2;
-  while(a<-Math.PI)a+=Math.PI*2;
-  return a;
-}
-
-// Keep attitude angles on the nearest equivalent orientation.
-// This prevents Stability Assist from "unwinding" a completed 360° roll/pitch.
-function wrapAngle(a){
-  return Math.atan2(Math.sin(a),Math.cos(a));
-}
-
-const INPUT_RAMP_UP_TIME=1.0;
-const INPUT_RELEASE_TIME=0.18;
-
-function updateVerticalInput(dt){
-  let target=0;
-  if(held('collectiveUp')&&!held('collectiveDown'))target=1;
-  if(held('collectiveDown')&&!held('collectiveUp'))target=-1;
-
-  if(target!==0){
-    const rate=1/INPUT_RAMP_UP_TIME;
-    if(state.verticalInput<target){
-      state.verticalInput=Math.min(target,state.verticalInput+rate*dt);
-    }else if(state.verticalInput>target){
-      state.verticalInput=Math.max(target,state.verticalInput-rate*dt);
-    }
-  }else{
-    const rate=1/INPUT_RELEASE_TIME;
-    if(state.verticalInput>0){
-      state.verticalInput=Math.max(0,state.verticalInput-rate*dt);
-    }else if(state.verticalInput<0){
-      state.verticalInput=Math.min(0,state.verticalInput+rate*dt);
-    }
-  }
-}
-
-function rotorSpeedFactor(horizontalSpeed){
-  // Small translational-lift benefit after leaving hover.
-  const etl=
-    1 +
-    .045 *
-    THREE.MathUtils.smoothstep(
-      horizontalSpeed,
-      5,
-      24
-    );
-
-  /*
-   * High-speed rotor efficiency:
-   * instead of using huge airframe drag as a fake speed limiter,
-   * available rotor thrust gradually falls in the high-speed regime.
-   *
-   * 0–162 km/h: essentially full rotor authority
-   * ~324 km/h: about 55% high-speed effectiveness
-   */
-  const highSpeedLoss=
-    1 -
-    .45 *
-    THREE.MathUtils.smoothstep(
-      horizontalSpeed,
-      45,
-      90
-    );
-
-  return etl*highSpeedLoss;
-}
-
-function verticalController(dt,thrustRatio,rotorFactor=1){
-  const active=Math.abs(state.verticalInput)>.02;
-  const verticalFactor=Math.max(.22,rotorUp.y);
-  const mass=currentMass();
-
-  // Available vertical rotor force at 100% collective.
-  const maxVerticalThrust=
-    BASE_MASS *
-    G *
-    thrustRatio *
-    rotorFactor *
-    verticalFactor;
-
-  const hoverCollective=
-    THREE.MathUtils.clamp(
-      (mass*G) /
-      Math.max(maxVerticalThrust,1),
-      0,
-      1
-    );
-
-  // These limits come from the current engine, mass and attitude.
-  // They are not fixed climb/descent acceleration caps.
-  const maxUpAccel=
-    Math.max(
-      0,
-      maxVerticalThrust/mass-G
-    );
-
-  const maxDownAccel=G;
-
-  let targetCollective=hoverCollective;
-
-  if(active){
-    /*
-     * Manual vertical input is now a linear request around hover.
-     *
-     * +100% = full available collective
-     *    0% = current hover collective
-     * -100% = zero collective
-     *
-     * The 1-second input-bar ramp already provides the player's control feel,
-     * so there is no extra nonlinear .82 curve here.
-     */
-    if(state.verticalInput>=0){
-      targetCollective=
-        hoverCollective +
-        (1-hoverCollective) *
-        state.verticalInput;
-    }else{
-      targetCollective=
-        hoverCollective *
-        (1+state.verticalInput);
-    }
-
-    state.verticalWasActive=true;
-    state.holdAltitude=state.pos.y;
-  }else{
-    /*
-     * On release, estimate where the helicopter would naturally stop
-     * using its current vertical velocity and the physically available
-     * braking acceleration.
-     *
-     * This replaces the old fixed ±2.8 m/s vertical-speed target.
-     */
-    if(state.verticalWasActive){
-      let brakingAccel;
-
-      if(state.vel.y>=0){
-        // Climbing: reducing collective can use gravity to arrest the climb.
-        brakingAccel=maxDownAccel;
-      }else{
-        // Descending: arresting the descent depends on actual thrust-to-weight.
-        brakingAccel=Math.max(maxUpAccel,.15);
-      }
-
-      const stoppingDistance=
-        (
-          state.vel.y *
-          Math.abs(state.vel.y)
-        ) /
-        (
-          2*brakingAccel
-        );
-
-      state.holdAltitude=
-        state.pos.y +
-        stoppingDistance;
-
-      state.verticalWasActive=false;
-    }
-
-    const altitudeError=
-      state.holdAltitude -
-      state.pos.y;
-
-    /*
-     * Critically-damped altitude capture.
-     * The controller requests acceleration directly; its final authority is
-     * limited only by the aircraft's current physical up/down capability.
-     */
-    const HOLD_RESPONSE_TIME=1.55;
-    const omega=2.4/HOLD_RESPONSE_TIME;
-
-    let desiredAccel=
-      altitudeError *
-      omega *
-      omega -
-      2 *
-      omega *
-      state.vel.y;
-
-    desiredAccel=
-      THREE.MathUtils.clamp(
-        desiredAccel,
-        -maxDownAccel,
-        maxUpAccel
-      );
-
-    targetCollective=
-      (
-        mass *
-        (G+desiredAccel)
-      ) /
-      Math.max(
-        maxVerticalThrust,
-        1
-      );
-  }
-
-  targetCollective=
-    THREE.MathUtils.clamp(
-      targetCollective,
-      0,
-      1
-    );
-
-  /*
-   * The old controller had two extra response filters (8/10.5 and 9/11.5),
-   * on top of the player's 1-second vertical-input ramp.
-   * That made collective feel rubbery.
-   *
-   * Keep only a short rotor/collective response lag.
-   */
-  state.collective=targetCollective;
-
-  const COLLECTIVE_TAU=.12;
-  const follow=
-    1-Math.exp(
-      -dt/COLLECTIVE_TAU
-    );
-
-  state.effectiveCollective +=
-    (
-      state.collective -
-      state.effectiveCollective
-    ) *
-    follow;
-}
-
-function updateCollectiveHUD(){
-  const v=state.verticalInput;
-  const pct=Math.round(Math.abs(v)*100);
-  const up=v>0?pct:0;
-  const down=v<0?pct:0;
-
-  document.querySelectorAll('.bar-up').forEach(el=>el.style.height=(up*.5)+'%');
-  document.querySelectorAll('.bar-down').forEach(el=>el.style.height=(down*.5)+'%');
-
-  const horizontalSpeed=Math.hypot(state.vel.x,state.vel.z);
-  const kmh=horizontalSpeed*3.6;
-  document.getElementById('speedReadout').textContent=kmh.toFixed(0)+' km/h';
-}
-
-function moveToward(current,target,maxDelta){
-  if(current<target)return Math.min(target,current+maxDelta);
-  if(current>target)return Math.max(target,current-maxDelta);
-  return current;
-}
-
-function updateControlCommands(dt,pitchRaw,rollRaw,yawRaw){
-  // Keyboard input no longer reaches full control authority instantly.
-  // Cyclic takes ~0.38 s to reach full command and ~0.22 s to release.
-  const CYCLIC_RAMP=1/0.38;
-  const CYCLIC_RELEASE=1/0.22;
-
-  // Pedal/yaw is slightly slower.
-  const YAW_RAMP=1/0.45;
-  const YAW_RELEASE=1/0.25;
-
-  state.pitchCommand=moveToward(
-    state.pitchCommand,
-    pitchRaw,
-    (pitchRaw===0?CYCLIC_RELEASE:CYCLIC_RAMP)*dt
-  );
-
-  state.rollCommand=moveToward(
-    state.rollCommand,
-    rollRaw,
-    (rollRaw===0?CYCLIC_RELEASE:CYCLIC_RAMP)*dt
-  );
-
-  state.yawCommand=moveToward(
-    state.yawCommand,
-    yawRaw,
-    (yawRaw===0?YAW_RELEASE:YAW_RAMP)*dt
-  );
-}
-
-/*
- * Simplified helicopter FDM:
- * - keyboard -> smoothed pilot command
- * - pilot command -> rotor-disc flapping (lagged)
- * - rotor disc -> angular acceleration / rigid-body rate
- * - body rate -> pitch / roll attitude
- * - thrust direction follows body + a small fraction of rotor-disc flapping
- *
- * This avoids the old direct mapping:
- * key -> body angle -> full horizontal thrust.
- */
-const DEG=Math.PI/180;
-const MAX_DISC_FLAP=8*DEG;
-const ROTOR_DISC_TAU=.28;
-
-function updateRotorDisc(dt,pitchCyclic,rollCyclic){
-  const targetPitch=pitchCyclic*MAX_DISC_FLAP;
-  const targetRoll=rollCyclic*MAX_DISC_FLAP;
-
-  const follow=1-Math.exp(-dt/ROTOR_DISC_TAU);
-
-  state.rotorPitch +=
-    (targetPitch-state.rotorPitch)*follow;
-
-  state.rotorRoll +=
-    (targetRoll-state.rotorRoll)*follow;
-}
-
-function stabilityCyclic(pitchRaw,rollRaw){
-  let pitchAssist=0;
-  let rollAssist=0;
-
-  if(!assistsOn(stabilityAssist)){
-    // Keep the trim target synchronized while assist is disabled,
-    // so re-enabling it will not suddenly pull the nose elsewhere.
-    state.pitchTrim=state.pitch;
-    state.pitchWasActive=pitchRaw!==0;
-    return {pitchAssist,rollAssist};
-  }
-
-  /*
-   * PITCH:
-   * Stability Assist no longer treats 0° as the permanent target.
-   *
-   * While W/S is held, the pilot owns the pitch axis.
-   * On release, capture the current pitch as a trim attitude and hold it.
-   * The assist mainly removes residual pitch rate, then gently holds that
-   * captured attitude. This prevents the "nose always pulled to center" feel.
-   */
-  if(pitchRaw!==0){
-    state.pitchWasActive=true;
-    state.pitchTrim=state.pitch;
-  }else{
-    if(state.pitchWasActive){
-      state.pitchTrim=state.pitch;
-      state.pitchWasActive=false;
-    }
-
-    const pitchError=
-      shortest(
-        state.pitchTrim-state.pitch
-      );
-
-    pitchAssist=THREE.MathUtils.clamp(
-      pitchError*.90 -
-      state.pitchRate*.38,
-      -.38,
-      .38
-    );
-  }
-
-  /*
-   * ROLL keeps the existing self-level behavior.
-   * This preserves the useful left/right leveling assistance without
-   * forcing the helicopter's nose back to 0° pitch.
-   */
-  if(rollRaw===0){
-    rollAssist=THREE.MathUtils.clamp(
-      -wrapAngle(state.roll)*.72 -
-      state.rollRate*.30,
-      -.42,
-      .42
-    );
-  }
-
-  return {pitchAssist,rollAssist};
-}
-
-function envelopeCyclic(){
-  if(!assistsOn(envelopeAssist)){
-    return {pitchEnvelope:0,rollEnvelope:0};
-  }
-
-  const softStart=44*DEG;
-  const hardLimit=56*DEG;
-
-  function axisAssist(angle,rate){
-    const a=Math.abs(angle);
-
-    if(a<=softStart)return 0;
-
-    const t=THREE.MathUtils.clamp(
-      (a-softStart)/(hardLimit-softStart),
-      0,
-      1
-    );
-
-    return THREE.MathUtils.clamp(
-      -Math.sign(angle)*(t*.95) - rate*.18,
-      -1,
-      1
-    );
-  }
-
-  return {
-    pitchEnvelope:axisAssist(state.pitch,state.pitchRate),
-    rollEnvelope:axisAssist(state.roll,state.rollRate)
-  };
-}
-
-function updateRigidBodyAttitude(dt,pitchCyclic,rollCyclic){
-  /*
-   * "姿態速度" remains the user's response setting, but it now scales
-   * torque/rotational authority instead of directly adding degrees/frame.
-   */
-  const attitudeSetting=
-    +document.getElementById('attitudeRate').value;
-
-  const mass=currentMass();
-
-  const massResponse=
-    Math.sqrt(BASE_MASS/mass);
-
-  const authority=
-    THREE.MathUtils.clamp(
-      (attitudeSetting/30)*massResponse,
-      .30,
-      2.35
-    );
-
-  const pitchAccelFromRotor=
-    state.rotorPitch * 6.0 * authority;
-
-  const rollAccelFromRotor=
-    state.rotorRoll * 6.4 * authority;
-
-  // Airframe rotational damping. Keeps angular momentum but prevents endless spin.
-  const pitchAngularAccel=
-    pitchAccelFromRotor -
-    state.pitchRate*1.95;
-
-  const rollAngularAccel=
-    rollAccelFromRotor -
-    state.rollRate*2.05;
-
-  state.pitchRate += pitchAngularAccel*dt;
-  state.rollRate += rollAngularAccel*dt;
-
-  state.pitch += state.pitchRate*dt;
-  state.roll += state.rollRate*dt;
-
-  // Store only the nearest equivalent orientation; no 360° unwind.
-  state.pitch=wrapAngle(state.pitch);
-  state.roll=wrapAngle(state.roll);
-
-  // Last-resort numerical safety if envelope assist is enabled.
-  if(assistsOn(envelopeAssist)){
-    const hard=58*DEG;
-
-    if(state.pitch>hard){
-      state.pitch=hard;
-      if(state.pitchRate>0)state.pitchRate*=.25;
-    }else if(state.pitch<-hard){
-      state.pitch=-hard;
-      if(state.pitchRate<0)state.pitchRate*=.25;
-    }
-
-    if(state.roll>hard){
-      state.roll=hard;
-      if(state.rollRate>0)state.rollRate*=.25;
-    }else if(state.roll<-hard){
-      state.roll=-hard;
-      if(state.rollRate<0)state.rollRate*=.25;
-    }
-  }
-}
-
-function updateYawDynamics(dt,yawInput,horizontalSpeed){
-  const yawSetting=
-    +document.getElementById('yawRate').value*DEG;
-
-  state.yawAuthority=
-    1/(1+horizontalSpeed*.045);
-
-  let targetYawRate=
-    yawInput *
-    yawSetting *
-    state.yawAuthority;
-
-  // Coordinated turn adds a small yaw-rate request, not an instant yaw rotation.
-  if(assistsOn(turnAssist) && Math.abs(yawInput)<.02){
-    targetYawRate +=
-      -Math.sin(state.roll) *
-      10*DEG;
-  }
-
-  /*
-   * Weathercock stability only becomes significant in forward flight.
-   * It is deliberately weak so it cannot rotate the helicopter a full turn
-   * back toward an old heading.
-   */
-  if(horizontalSpeed>12){
-    const travelYaw=
-      Math.atan2(-state.vel.z,state.vel.x);
-
-    const headingError=
-      shortest(travelYaw-state.yaw);
-
-    const speedFactor=
-      THREE.MathUtils.clamp(
-        (horizontalSpeed-12)/55,
-        0,
-        1
-      );
-
-    targetYawRate +=
-      headingError *
-      .16 *
-      speedFactor;
-  }
-
-  const yawFollow=
-    1-Math.exp(-dt/.42);
-
-  state.yawRateBody +=
-    (targetYawRate-state.yawRateBody) *
-    yawFollow;
-
-  state.yaw +=
-    state.yawRateBody*dt;
-}
-
-function updateRotorThrustDirection(){
-  /*
-   * Rotor thrust direction follows the aircraft + rotor-disc flapping,
-   * but small tilt angles are softened for translation.
-   *
-   * This is intentionally nonlinear:
-   * a tiny visual tilt no longer produces almost the full theoretical
-   * horizontal acceleration immediately, while large tilt still retains
-   * full authority and therefore does not reduce the intended top speed.
-   */
-  const thrustPitch=
-    state.pitch +
-    state.rotorPitch*.35;
-
-  const thrustRoll=
-    state.roll +
-    state.rotorRoll*.35;
-
-  qThrustPitch.setFromAxisAngle(axisZ,thrustPitch);
-  qThrustRoll.setFromAxisAngle(axisX,thrustRoll);
-  qThrust.copy(qYaw).multiply(qThrustPitch).multiply(qThrustRoll);
-
-  rotorUp.set(0,1,0).applyQuaternion(qThrust).normalize();
-
-  const horizontalMag=
-    Math.hypot(
-      rotorUp.x,
-      rotorUp.z
-    );
-
-  if(horizontalMag>.0001 && rotorUp.y>0){
-    const rawTilt=
-      Math.atan2(
-        horizontalMag,
-        rotorUp.y
-      );
-
-    const fullTilt=
-      55*DEG;
-
-    const normalized=
-      THREE.MathUtils.clamp(
-        rawTilt/fullTilt,
-        0,
-        1
-      );
-
-    // Small-angle translation is softened, but no longer heavily suppressed.
-    const effectiveTilt=
-      fullTilt *
-      Math.pow(
-        normalized,
-        1.18
-      );
-
-    const hx=
-      rotorUp.x/horizontalMag;
-
-    const hz=
-      rotorUp.z/horizontalMag;
-
-    const sinTilt=
-      Math.sin(effectiveTilt);
-
-    rotorUp.x=
-      hx*sinTilt;
-
-    rotorUp.z=
-      hz*sinTilt;
-
-    rotorUp.y=
-      Math.cos(effectiveTilt);
-  }
-}
-
 function update(dt){
-  if(state.paused||isMapOpen())return;
-
-  const pitchRaw=(held('pitchBack')?1:0)-(held('pitchForward')?1:0);
-  const rollRaw=(held('rollRight')?1:0)-(held('rollLeft')?1:0);
-  const yawRaw=(held('yawLeft')?1:0)-(held('yawRight')?1:0);
-
-  updateControlCommands(dt,pitchRaw,rollRaw,yawRaw);
-
-  const horizontalSpeed=
-    Math.hypot(state.vel.x,state.vel.z);
-
-  // Stability and envelope systems now produce cyclic commands instead
-  // of directly editing the aircraft orientation.
-  const stability=
-    stabilityCyclic(pitchRaw,rollRaw);
-
-  const envelope=
-    envelopeCyclic();
-
-  const pitchCyclic=
-    THREE.MathUtils.clamp(
-      state.pitchCommand +
-      stability.pitchAssist +
-      envelope.pitchEnvelope,
-      -1,
-      1
-    );
-
-  const rollCyclic=
-    THREE.MathUtils.clamp(
-      state.rollCommand +
-      stability.rollAssist +
-      envelope.rollEnvelope,
-      -1,
-      1
-    );
-
-  updateRotorDisc(
-    dt,
-    pitchCyclic,
-    rollCyclic
-  );
-
-  updateRigidBodyAttitude(
-    dt,
-    pitchCyclic,
-    rollCyclic
-  );
-
-  updateYawDynamics(
-    dt,
-    state.yawCommand,
-    horizontalSpeed
-  );
-
-  updateVerticalInput(dt);
-
-  orient();
-  updateRotorThrustDirection();
-
-  const thrustRatio=+document.getElementById('maxThrust').value/100;
-  const rotorFactor=rotorSpeedFactor(horizontalSpeed);
-
-  verticalController(
-    dt,
-    thrustRatio,
-    rotorFactor
-  );
-
-  const mass=currentMass();
-
-  /*
-   * Fixed engine / rotor output.
-   *
-   * Acceleration is no longer artificially delayed:
-   * current force divided by current mass gives acceleration immediately.
-   * The inertia the player feels now lives where it should: velocity.
-   */
-  const thrust=
-    BASE_MASS *
-    G *
-    thrustRatio *
-    state.effectiveCollective *
-    rotorFactor;
-
-  force.copy(rotorUp).multiplyScalar(thrust);
-  force.y-=mass*G;
-
-  state.vel.x +=
-    (force.x/mass)*dt;
-
-  state.vel.z +=
-    (force.z/mass)*dt;
-
-  state.vel.y +=
-    (force.y/mass)*dt;
-
-  if(assistsOn(hoverAssist)){
-    const mild=
-      Math.abs(state.pitch)<8*Math.PI/180 &&
-      Math.abs(state.roll)<8*Math.PI/180;
-
-    // Auto-hover only arrests very low-speed drift. It must not behave
-    // like cruise-speed braking.
-    if(horizontalSpeed<3&&mild&&pitchRaw===0&&rollRaw===0){
-      const k=
-        1-Math.exp(-.18*dt);
-
-      state.vel.x-=
-        state.vel.x*k;
-
-      state.vel.z-=
-        state.vel.z*k;
-    }
-  }
-
-  /*
-   * Parasitic airframe drag.
-   *
-   * Kept deliberately lower than before so leveling the aircraft does not
-   * feel like pressing a brake pedal. High-speed rotor-efficiency loss now
-   * does most of the top-speed limiting.
-   */
-  const AIR_DENSITY=1.225;
-  const CDA=6.8;
-
-  const horizontalSpeedNow=Math.hypot(state.vel.x,state.vel.z);
-
-  if(horizontalSpeedNow>0.01){
-    const dragForce=
-      0.5 *
-      AIR_DENSITY *
-      CDA *
-      horizontalSpeedNow *
-      horizontalSpeedNow;
-
-    const dragAccel=
-      dragForce/mass;
-
-    const dragDv=
-      Math.min(
-        horizontalSpeedNow,
-        dragAccel*dt
-      );
-
-    const invSpeed=
-      1/horizontalSpeedNow;
-
-    state.vel.x-=
-      state.vel.x *
-      invSpeed *
-      dragDv;
-
-    state.vel.z-=
-      state.vel.z *
-      invSpeed *
-      dragDv;
-  }
-
-  /*
-   * Vertical motion keeps strong inertia, but air/rotor drag opposes motion.
-   * Gravity is still fully present, so a low-collective descent accelerates
-   * more strongly than a full-power climb.
-   */
-  const verticalSpeed=Math.abs(state.vel.y);
-
-  if(verticalSpeed>0.01){
-    const VERTICAL_CDA=5.0;
-
-    const verticalDragForce=
-      0.5 *
-      AIR_DENSITY *
-      VERTICAL_CDA *
-      verticalSpeed *
-      verticalSpeed;
-
-    const verticalDragAccel=
-      verticalDragForce/mass;
-
-    const verticalDv=
-      Math.min(
-        verticalSpeed,
-        verticalDragAccel*dt
-      );
-
-    state.vel.y -=
-      Math.sign(state.vel.y) *
-      verticalDv;
-  }
-
-  previousPosition.copy(state.pos);
-  state.pos.addScaledVector(state.vel,dt);
-
-  // Terrain-aware collision / minimum skid clearance.
-  const groundY=
-    terrainHeight(
-      state.pos.x,
-      state.pos.z
-    ) + 1.8;
-
-  if(state.pos.y<groundY){
-    state.pos.y=groundY;
-
-    if(state.vel.y<0){
-      state.vel.y=0;
-    }
-
-    if(!Math.abs(state.verticalInput)){
-      state.holdAltitude=groundY;
-    }
-  }
-
-  // Reconstructed environment obstacles are part of the flight practice area.
-  // Collision uses conservative building/tree envelopes; it is intentionally
-  // simpler than the flight dynamics and is not a per-mesh physics solver.
-  const environmentHit=
-    ozetiMap?.environmentLayer?.resolveMovement(
-      previousPosition,
-      state.pos,
-      2.2
-    );
-
-  if(environmentHit){
-    if(environmentHit.mode==='vertical'){
-      if(state.vel.y<0){
-        state.vel.y=0;
-      }
-      state.holdAltitude=Math.max(
-        state.holdAltitude,
-        environmentHit.topY+2.2
-      );
-    }else{
-      state.vel.x*=-.08;
-      state.vel.z*=-.08;
-    }
-  }
-
-  const componentHit=
-    ozetiMap?.componentLayer?.resolveMovement(
-      previousPosition,
-      state.pos,
-      2.2
-    );
-
-  if(componentHit){
-    if(componentHit.mode==='vertical'){
-      if(state.vel.y<0){
-        state.vel.y=0;
-      }
-      state.holdAltitude=Math.max(
-        state.holdAltitude,
-        componentHit.topY+2.2
-      );
-    }else{
-      state.vel.x*=-.08;
-      state.vel.z*=-.08;
-    }
-  }
-
-  // Full Ozeti terrain can exist outside the player-accessible region.
-  // Only movement is constrained to the bright/playable map bounds.
-  const playable=ozetiMap?.bounds.playable;
-  const boundaryMargin=25;
-
-  if(playable){
-    const minX=playable.minX+boundaryMargin;
-    const maxX=playable.maxX-boundaryMargin;
-    const minZ=playable.minZ+boundaryMargin;
-    const maxZ=playable.maxZ-boundaryMargin;
-
-    if(state.pos.x>maxX){
-      state.pos.x=maxX;
-      if(state.vel.x>0)state.vel.x=0;
-    }else if(state.pos.x<minX){
-      state.pos.x=minX;
-      if(state.vel.x<0)state.vel.x=0;
-    }
-
-    if(state.pos.z>maxZ){
-      state.pos.z=maxZ;
-      if(state.vel.z>0)state.vel.z=0;
-    }else if(state.pos.z<minZ){
-      state.pos.z=minZ;
-      if(state.vel.z<0)state.vel.z=0;
-    }
-  }
-
-  heli.position.copy(state.pos);
-  heli.quaternion.copy(qBody);
-  rotor.rotation.y+=dt*24;
-  tailRotor.rotation.z+=dt*38;
+  const pilot=flight.step(dt,{
+    pitch:Number(held('pitchBack'))-Number(held('pitchForward')),
+    roll:Number(held('rollRight'))-Number(held('rollLeft')),
+    yaw:Number(held('yawLeft'))-Number(held('yawRight')),
+    collective:Number(held('collectiveUp'))-Number(held('collectiveDown'))
+  });
+  uiState.verticalInput=pilot.collectiveInput;
+}
+function updateCollectiveHUD(){
+  const v=uiState.verticalInput;
+  document.querySelectorAll('.bar-up').forEach(el=>el.style.height=(Math.max(0,v)*50)+'%');
+  document.querySelectorAll('.bar-down').forEach(el=>el.style.height=(Math.max(0,-v)*50)+'%');
+  document.getElementById('speedReadout').textContent=(Math.hypot(state.vel.x,state.vel.z)*3.6).toFixed(0)+' km/h';
 }
 
 const camPos=new THREE.Vector3();
@@ -1697,36 +910,49 @@ const heading=new THREE.Vector3();
 const up=new THREE.Vector3(0,1,0);
 
 function updateSunForAircraft(){
+  const focus=survey.active?survey.target:state.pos;
   /*
    * Keep the directional-light shadow frustum centered around the aircraft.
    * This gives useful local terrain/building/tree shadows anywhere on Ozeti
    * instead of spending shadow-map resolution on the whole 8 km scene.
    */
   sun.position.set(
-    state.pos.x+620,
-    state.pos.y+900,
-    state.pos.z+480
+    focus.x+620,
+    focus.y+900,
+    focus.z+480
   );
 
   sun.target.position.set(
-    state.pos.x,
-    state.pos.y,
-    state.pos.z
+    focus.x,
+    focus.y,
+    focus.z
   );
 
   sun.target.updateMatrixWorld();
 }
 
 function updateHelicopterVisibility(){
-  const hideBody=state.firstPerson;
+  const hideBody=uiState.firstPerson;
   fuselageParts.forEach(part=>part.visible=!hideBody);
   rotor.visible=true;
 }
 
 function updateCamera(dt){
+  const far=survey.active && survey.distance>8000?45000:document.getElementById('sceneQuality').value==='smooth'?10000:16000;
+  if(camera.far!==far){camera.far=far;camera.updateProjectionMatrix();}
+  scene.fog.near=survey.active&&survey.distance>10000?35000:6000;
+  scene.fog.far=survey.active&&survey.distance>10000?55000:20000;
+  heli.visible=!survey.active;
+  if(survey.active){
+    const horizontal=survey.distance*Math.cos(survey.pitch);
+    camera.position.set(survey.target.x+Math.cos(survey.azimuth)*horizontal,survey.target.y+Math.sin(survey.pitch)*survey.distance,survey.target.z+Math.sin(survey.azimuth)*horizontal);
+    const floor=terrainHeight(camera.position.x,camera.position.z)+8;
+    camera.position.y=Math.max(camera.position.y,floor);
+    camera.up.set(0,1,0);camera.lookAt(survey.target);return;
+  }
   updateHelicopterVisibility();
 
-  if(state.firstPerson){
+  if(uiState.firstPerson){
     // Nose / cockpit-like first-person view.
     // Camera follows full aircraft orientation so pitch and roll are visible.
     const noseForward=new THREE.Vector3(1,0,0).applyQuaternion(qBody).normalize();
@@ -1747,11 +973,15 @@ function updateCamera(dt){
     camera.lookAt(fpLook);
   }else{
     // Third-person chase camera: follows heading but remains world-up.
-    heading.set(1,0,0).applyAxisAngle(up,state.yaw).normalize();
+    if(Math.hypot(aircraft.forward.x,aircraft.forward.z)>.25){
+      const delta=Math.atan2(Math.sin(state.yaw-uiState.chaseYaw),Math.cos(state.yaw-uiState.chaseYaw));
+      uiState.chaseYaw+=delta*(1-Math.exp(-4*dt));
+    }
+    heading.set(1,0,0).applyAxisAngle(up,uiState.chaseYaw).normalize();
 
     camPos.copy(state.pos)
-      .addScaledVector(heading,-24)
-      .addScaledVector(up,9);
+      .addScaledVector(heading,-34)
+      .addScaledVector(up,12);
 
     camera.position.lerp(
       camPos,
@@ -1759,7 +989,7 @@ function updateCamera(dt){
     );
 
     look.copy(state.pos)
-      .addScaledVector(heading,6)
+      .addScaledVector(heading,9)
       .addScaledVector(up,1.2);
 
     camera.up.set(0,1,0);
@@ -1772,12 +1002,26 @@ function updateHUD(){
   const kmh=horizontalSpeed*3.6;
 
   document.getElementById('verticalInputVal').textContent=
-    (state.verticalInput>=0?'+':'')+Math.round(state.verticalInput*100)+'%';
+    (uiState.verticalInput>=0?'+':'')+Math.round(uiState.verticalInput*100)+'%';
   document.getElementById('collectiveVal').textContent=(state.collective*100).toFixed(0)+'%';
   document.getElementById('effectiveCollectiveVal').textContent=(state.effectiveCollective*100).toFixed(0)+'%';
   document.getElementById('altVal').textContent=state.pos.y.toFixed(1)+' m';
   document.getElementById('verticalVal').textContent=state.vel.y.toFixed(1)+' m/s';
   document.getElementById('speedKmhVal').textContent=kmh.toFixed(0)+' km/h';
+  document.getElementById('forwardSpeedVal').textContent=(state.vel.dot(aircraft.forward)*3.6).toFixed(0)+' km/h';
+  document.getElementById('sideSpeedVal').textContent=(state.vel.dot(aircraft.right)*3.6).toFixed(0)+' km/h';
+  document.getElementById('flightPathVal').textContent=
+    (state.vel.lengthSq()>.01 ? Math.atan2(state.vel.y,horizontalSpeed)/DEG : 0).toFixed(1)+'°';
+  document.getElementById('verticalAccelVal').textContent=state.verticalAccel.toFixed(1)+' m/s²';
+  document.getElementById('rotorClearanceVal').textContent=state.rotorClearance.toFixed(1)+' m';
+  document.getElementById('groundEffectVal').textContent=((1-state.groundInflow)*100).toFixed(1)+'%';
+  document.getElementById('gustSpeedVal').textContent=state.gustSpeed.toFixed(1)+' m/s';
+  document.getElementById('flowLiftVal').textContent=(state.rotorThrust/(currentMass()*G)).toFixed(2)+' g';
+  document.getElementById('rotorRPMVal').textContent=state.rotorRPM.toFixed(1)+'%';
+  document.getElementById('shaftPowerVal').textContent=(state.shaftPower/1000).toFixed(0)+' kW';
+  document.getElementById('inflowVal').textContent=state.inducedFlow.toFixed(1)+' m/s';
+  document.getElementById('wakeModeVal').textContent=state.vrs>.15?'渦環區 '+(state.vrs*100).toFixed(0)+'%':'正常';
+  document.getElementById('altitudeModeVal').textContent=flightAssists.status;
   document.getElementById('yawAuthorityVal').textContent=(state.yawAuthority*100).toFixed(0)+'%';
   document.getElementById('pitchVal').textContent=(state.pitch*180/Math.PI).toFixed(1)+'°';
   document.getElementById('rollVal').textContent=(state.roll*180/Math.PI).toFixed(1)+'°';
@@ -1786,61 +1030,23 @@ function updateHUD(){
   updateCollectiveHUD();
 }
 
+function teleportAircraft(position,yaw=state.yaw){
+  physicsClock.reset();flight.reset(position,yaw);pressed.clear();uiState.verticalInput=0;uiState.rotorSpin=0;uiState.chaseYaw=yaw;
+  camera.position.set(position.x-34*Math.cos(yaw),position.y+12,position.z+34*Math.sin(yaw));
+  renderAircraft(0);updateCamera(0);updateHUD();
+}
 function reset(){
-  const lonestar=
-    factionCenterWorld(
-      'lonestar'
-    );
-
-  const startX=
-    lonestar.x;
-
-  const startZ=
-    lonestar.z;
-
-  const startY=
-    terrainHeight(
-      startX,
-      startZ
-    )+42;
-
-  state.pos.set(
-    startX,
-    startY,
-    startZ
-  );
-
-  state.vel.set(0,0,0);
-  state.pitch=0;
-  state.roll=0;
-  state.yaw=Math.PI;
-  state.verticalInput=0;
-  state.collective=.65;
-  state.effectiveCollective=.65;
-  state.holdAltitude=startY;
-  state.pitchCommand=0;
-  state.rollCommand=0;
-  state.yawCommand=0;
-  state.pitchRate=0;
-  state.rollRate=0;
-  state.yawRateBody=0;
-  state.rotorPitch=0;
-  state.rotorRoll=0;
-  state.verticalWasActive=false;
-  state.pitchTrim=0;
-  state.pitchWasActive=false;
-  state.firstPerson=false;
-  setMapOpen(false);
-  document.getElementById('cameraModeVal').textContent='第三人稱';
-  updateHelicopterVisibility();
-  orient();
-  root.focus();
+  if(survey.active)setSurvey(false);
+  const start=factionCenterWorld('lonestar');
+  teleportAircraft(new THREE.Vector3(start.x,terrainHeight(start.x,start.z)+42,start.z),Math.PI);
+  uiState.firstPerson=false;setMapOpen(false);
+  document.getElementById('cameraModeVal').textContent='第三人稱';updateHelicopterVisibility();root.focus();
 }
 
 document.getElementById('reset').addEventListener('click',reset);
 document.getElementById('pause').addEventListener('click',()=>{
-  state.paused=!state.paused;
-  document.getElementById('pause').textContent=state.paused?'繼續':'暫停';
+  uiState.paused=!uiState.paused;
+  document.getElementById('pause').textContent=uiState.paused?'繼續':'暫停';
 });
 
 function resize(){
@@ -1863,19 +1069,27 @@ camera.position.set(
 
 let frameErrorShown=false;
 let last=performance.now();
+let fpsStarted=last,fpsFrames=0;
 
 function frame(now){
   const dt=
     Math.min(
       (now-last)/1000,
-      .033
+      .10
     );
 
   last=now;
+  fpsFrames++;
+  if(now-fpsStarted>=1000){
+    document.getElementById('fpsVal').textContent=document.hidden?'背景分頁':Math.round(fpsFrames*1000/(now-fpsStarted))+' FPS';
+    fpsFrames=0;fpsStarted=now;
+  }
 
   try{
-    update(dt);
+    physicsClock.advance(dt,uiState.paused||survey.active||isMapOpen());
+    renderAircraft(uiState.paused||survey.active||isMapOpen()?0:dt);
     updateCamera(dt);
+    ozetiMap?.updateView?.(camera,document.getElementById('sceneQuality').value,dt,survey.active?survey.target:state.pos);
     updateSunForAircraft();
     updateHUD();
     updateMapMarker();
@@ -1890,10 +1104,7 @@ function frame(now){
     }
   }
 
-  renderer.render(
-    scene,
-    camera
-  );
+  if(!isMapOpen())renderer.render(scene,camera);
 
   requestAnimationFrame(
     frame
@@ -1910,7 +1121,7 @@ requestAnimationFrame(
  * remains visible and the exact error is shown on-screen.
  */
 import(
-  './js/map/ozeti-map.js?v=90'
+  './js/map/native-ozeti-map.js?v=98'
 )
   .then(
     module=>{
@@ -1923,9 +1134,10 @@ import(
           state,
           heli,
           orient,
+          onTeleport:teleportAircraft,
+          onMapOpen:()=>{if(survey.active)setSurvey(false);},
           statusEl:terrainStatusVal,
-          clearPressed:()=>
-            pressed.clear()
+          clearPressed:()=>{pressed.clear();flight.releaseInputs();uiState.verticalInput=0;}
         });
 
       return ozetiMap.load();
@@ -1934,6 +1146,8 @@ import(
   .then(
     ()=>{
       reset();
+      mapReady=true;document.getElementById('mapToggleKey').disabled=false;
+      document.getElementById('surveyToggle').disabled=false;
     }
   )
   .catch(
@@ -1947,3 +1161,4 @@ import(
 </script>
 </body>
 </html>
+

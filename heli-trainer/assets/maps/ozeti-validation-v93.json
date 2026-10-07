@@ -1,0 +1,36 @@
+{
+  "version": 93,
+  "syntaxModules": 31,
+  "worldMeters": [
+    20480,
+    20480
+  ],
+  "heightGrid": [
+    513,
+    513
+  ],
+  "terrainSectors": 64,
+  "calibration": {
+    "valid": true,
+    "controlPoints": 4,
+    "maxRoundTripError": 0,
+    "sourceAspect": 1,
+    "targetAspect": 1
+  },
+  "trees": 73982,
+  "buildings": 322,
+  "controlBuildings": 4,
+  "props": 671,
+  "checks": [
+    "module syntax",
+    "full terrain coverage",
+    "coordinate round trip",
+    "north-up height alignment",
+    "finite height samples",
+    "model references",
+    "placements inside world",
+    "uniform scale",
+    "rotated building collision",
+    "roof landing collision"
+  ]
+}

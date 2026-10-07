@@ -1,9 +1,9 @@
-import {MASTER_MAP_CONFIG} from './master-map.js?v=91';
+import {MASTER_MAP_CONFIG} from './master-map.js?v=93';
 import {
   mapMetersToWorld,
   worldToMapMeters,
   masterContainsMapPoint
-} from './coordinate-transform.js?v=91';
+} from './coordinate-transform.js?v=93';
 
 export const MASTER_CONTROL_POINTS=Object.freeze([
   Object.freeze({id:'tower-1',x:9580,y:6282}),
