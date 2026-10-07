@@ -1,6 +1,6 @@
 import {fetchPack,geometryFromPack} from './native/pack.js';
 import {NATIVE_SCALE,NATIVE_OFFSET,worldToNative} from './native/coordinates.js';
-import {createNativeTerrain} from './native/terrain.js';
+import {createNativeTerrain} from './native/terrain.js?v=99';
 import {createBatchStore,sceneReferences,addSceneActors} from './native/batches.js';
 import {createChunkStreamer,buildChunkStore} from './native/chunk-streamer.js';
 import {createPackedCollisions} from './native/packed-collisions.js';

@@ -40,7 +40,7 @@ export function createFineHeightCache(bundle,baseUrl){
   function clear(){epoch++;data.clear();pending.clear();for(const c of controllers.values())c.abort();controllers.clear();}
   return {load,sample,trim,clear,decode,data,config,startX,startZ};
 }
-export function buildGroundTile(THREE,{x,z,intervals,cellM,startX,startZ,height,coarseHeight,uv,skirts=false}){
+export function buildGroundTile(THREE,{x,z,intervals,cellM,startX,startZ,height,coarseHeight,normalHeight=coarseHeight||height,uv,skirts=false}){
   const size=intervals+1,span=512*cellM,step=span/intervals,positions=[],uvs=[],indices=[];
   const ox=startX+x*span,oz=startZ+z*span;
   function add(px,y,pz){positions.push(px,y,pz);const [u,v]=uv(px,pz);uvs.push(u,1-v);return positions.length/3-1;}
@@ -49,9 +49,24 @@ export function buildGroundTile(THREE,{x,z,intervals,cellM,startX,startZ,height,
     const px=ox+col*step,pz=oz+row*step;if(px>=-698&&px+step<=698&&pz>=-698&&pz+step<=698)continue;
     const i=row*size+col;indices.push(i,i+size,i+1,i+1,i+size,i+size+1);
   }
+  const surfaceCount=positions.length/3;
   if(skirts){
     const edges=[Array.from({length:size},(_,i)=>i),Array.from({length:size},(_,i)=>i*size+intervals),Array.from({length:size},(_,i)=>intervals*size+intervals-i),Array.from({length:size},(_,i)=>(intervals-i)*size)];
-    for(const edge of edges){let previous=null;for(const top of edge){const i=top*3,px=positions[i],pz=positions[i+2],bottom=add(px,Math.min(positions[i+1],coarseHeight(px,pz))-3,pz);if(previous)indices.push(previous.top,previous.bottom,top,top,previous.bottom,bottom);previous={top,bottom};}}
+    // Walls get their own vertices so their sideways normals cannot darken the grass.
+    for(const edge of edges){let previous=null;for(const surfaceTop of edge){const i=surfaceTop*3,px=positions[i],pz=positions[i+2],y=positions[i+1],top=add(px,y,pz),bottom=add(px,Math.min(y,(coarseHeight||height)(px,pz))-3,pz);if(previous)indices.push(previous.top,previous.bottom,top,top,previous.bottom,bottom);previous={top,bottom};}}
   }
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));g.setIndex(indices);g.computeVertexNormals();g.computeBoundingSphere();return g;
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));g.setIndex(indices);g.computeVertexNormals();
+  // All LODs use the same continuous source for edge lighting, independent of
+  // which neighbouring fine-height tile has finished loading. Blend inward.
+  const normals=g.attributes.normal,probe=cellM*8,band=Math.max(probe*2,step*2),n=new THREE.Vector3(),original=new THREE.Vector3();
+  for(let i=0;i<surfaceCount;i++){
+    const row=Math.floor(i/size),col=i%size,d=Math.min(row,col,intervals-row,intervals-col)*step;
+    if(d>=band)continue;
+    const px=positions[i*3],pz=positions[i*3+2];
+    const hx=normalHeight(px+probe,pz)-normalHeight(px-probe,pz),hz=normalHeight(px,pz+probe)-normalHeight(px,pz-probe);
+    if(!Number.isFinite(hx)||!Number.isFinite(hz))continue;
+    n.set(-hx,2*probe,-hz).normalize();original.fromBufferAttribute(normals,i);
+    const t=d/band,weight=1-t*t*(3-2*t);original.lerp(n,weight).normalize();normals.setXYZ(i,original.x,original.y,original.z);
+  }
+  g.computeBoundingSphere();return g;
 }

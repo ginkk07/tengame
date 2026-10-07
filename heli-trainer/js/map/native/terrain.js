@@ -1,6 +1,6 @@
 import {geometryFromPack} from './pack.js';
 import {CALIBRATION,NATIVE_SCALE,NATIVE_OFFSET,worldToNative} from './coordinates.js';
-import {createFineHeightCache,buildGroundTile} from './fine-height.js';
+import {createFineHeightCache,buildGroundTile} from './fine-height.js?v=99';
 import {createOuterGroundMaterial} from './ground-material.js';
 import {yieldToBrowser} from './yield.js';
 function bilinear(a,size,u,v,decode){
@@ -38,7 +38,7 @@ export async function createNativeTerrain({THREE,group,pack,bundle,baseUrl}){
   const surfaceTexture=await new THREE.TextureLoader().loadAsync(baseUrl+'world-surface.png');surfaceTexture.colorSpace=THREE.SRGBColorSpace;surfaceTexture.anisotropy=8;
   const material=createOuterGroundMaterial(THREE,surfaceTexture,texture,bundle.groundDetail),coarseTiles=new Map(),fineTiles=new Map(),outer=new THREE.Group();outer.name='world-2m-detail-terrain';group.add(outer);
   for(let z=0;z<16;z++)for(let x=0;x<16;x++){
-    const g=buildGroundTile(THREE,{x,z,intervals:32,cellM:bundle.fineHeight.cellM,startX:fine.startX,startZ:fine.startZ,height:nativeHeight,uv}),mesh=new THREE.Mesh(g,material);mesh.name='world terrain distant '+x+','+z;mesh.receiveShadow=true;outer.add(mesh);coarseTiles.set(z*16+x,mesh);
+    const g=buildGroundTile(THREE,{x,z,intervals:32,cellM:bundle.fineHeight.cellM,startX:fine.startX,startZ:fine.startZ,height:nativeHeight,normalHeight:coarseHeight,uv}),mesh=new THREE.Mesh(g,material);mesh.name='world terrain distant '+x+','+z;mesh.receiveShadow=true;outer.add(mesh);coarseTiles.set(z*16+x,mesh);
   }
   function makeCityGeometry(step){
     if(step===1){const g=geometryFromPack(THREE,cityPack,terrainMeta);g.deleteAttribute('color');return g;}

@@ -17,7 +17,7 @@ for port in range(8770, 8790):
 if server is None:
     raise SystemExit('本機預覽連接埠已被使用，請稍後再試。')
 url = f'http://127.0.0.1:{server.server_port}/'
-print('Ozeti v98 本機預覽：' + url)
+print('Ozeti v99 本機預覽：' + url)
 print('關閉此視窗即可停止預覽。')
 threading.Timer(0.5, lambda: webbrowser.open(url)).start()
 try:
